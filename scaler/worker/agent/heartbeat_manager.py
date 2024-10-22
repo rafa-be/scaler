@@ -1,5 +1,5 @@
 import time
-from typing import Optional
+from typing import Dict, Optional
 
 import psutil
 
@@ -14,7 +14,6 @@ from scaler.worker.agent.processor_holder import ProcessorHolder
 class VanillaHeartbeatManager(Looper, HeartbeatManager):
     def __init__(self):
         self._agent_process = psutil.Process()
-        self._worker_process: Optional[psutil.Process] = None
 
         self._connector_external: Optional[AsyncConnector] = None
         self._worker_task_manager: Optional[TaskManager] = None
@@ -36,9 +35,6 @@ class VanillaHeartbeatManager(Looper, HeartbeatManager):
         self._timeout_manager = timeout_manager
         self._processor_manager = processor_manager
 
-    def set_processor_pid(self, process_id: int):
-        self._worker_process = psutil.Process(process_id)
-
     async def on_heartbeat_echo(self, heartbeat: WorkerHeartbeatEcho):
         if self._start_timestamp_ns == 0:
             # not handling echo if we didn't send out heartbeat
@@ -49,18 +45,20 @@ class VanillaHeartbeatManager(Looper, HeartbeatManager):
         self._timeout_manager.update_last_seen_time()
 
     async def routine(self):
-        if self._worker_process is None:
+        processors = self._processor_manager.processors()
+        num_suspended_processors = self._processor_manager.num_suspended_processors()
+
+        if len(processors) == 0:
             return
 
         if self._start_timestamp_ns != 0:
             # already sent heartbeat, expecting heartbeat echo, so not sending
             return
 
-        if self._worker_process.status() in {psutil.STATUS_ZOMBIE, psutil.STATUS_DEAD}:
-            await self._processor_manager.on_failing_task(self._worker_process.status())
-
-        processors = self._processor_manager.processors()
-        num_suspended_processors = self._processor_manager.num_suspended_processors()
+        for processor_holder in processors:
+            status = processor_holder.process().status()
+            if status in {psutil.STATUS_ZOMBIE, psutil.STATUS_DEAD}:
+                await self._processor_manager.on_failing_task(processor_holder.processor_id(), status)
 
         await self._connector_external.send(
             WorkerHeartbeat.new_msg(
