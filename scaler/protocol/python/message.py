@@ -51,7 +51,7 @@ class Task(Message):
 
     @property
     def tags(self) -> Set[str]:
-        return self._msg.tags
+        return set(self._msg.tags)
 
     @property
     def metadata(self) -> bytes:
@@ -81,7 +81,7 @@ class Task(Message):
             _message.Task(
                 taskId=task_id,
                 source=source,
-                tags=tags,
+                tags=list(tags),
                 metadata=metadata,
                 funcObjectId=func_object_id,
                 functionArgs=[_message.Task.Argument(type=arg.type.value, data=arg.data) for arg in function_args],
