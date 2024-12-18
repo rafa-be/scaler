@@ -1,14 +1,26 @@
 import dataclasses
-from typing import Dict, List, Optional, Set
+from collections import defaultdict
+from itertools import takewhile
+from sortedcontainers import SortedList
+from typing import Dict, Iterable, List, Optional, Set
 
 from scaler.protocol.python.message import Task
 
 
-@dataclasses.dataclass
+@dataclasses.dataclass(frozen=True)
+class _TaskHolder:
+    task_id: bytes = dataclasses.field()
+    tags: Set[str] = dataclasses.field()
+
+
+@dataclasses.dataclass(frozen=True)
 class _WorkerHolder:
     worker_id: bytes = dataclasses.field()
     tags: Set[str] = dataclasses.field()
-    tasks: Set[bytes] = dataclasses.field(default_factory=set)
+    tasks: Dict[bytes, _TaskHolder] = dataclasses.field(default_factory=dict)
+
+    def copy(self) -> "_WorkerHolder":
+        return _WorkerHolder(self.worker_id, self.tags, self.tasks.copy())
 
 
 class TaggedAllocator:#(TaskAllocator):
@@ -58,23 +70,18 @@ class TaggedAllocator:#(TaskAllocator):
     def get_worker_by_task_id(self, task_id: bytes) -> bytes:
         return self._task_id_to_worker_id.get(task_id, b"")
 
-    def balance(self) -> Dict[bytes, List[bytes]]:
-        """Returns, for every worker, the list of tasks to balance out."""
-        raise NotImplementedError()
-
-    def __get_balance_count_by_worker(self) -> Dict[bytes, int]:
-        raise NotImplementedError()
-
     def assign_task(self, task: Task) -> Optional[bytes]:
         available_workers = self.__get_available_workers_for_tags(task.tags)
 
         if len(available_workers) <= 0:
             return None
 
-        min_load_worker = min(available_workers, key=lambda worker: len(worker.tasks))
-        min_load_worker.tasks.add(task.task_id)
+        min_loaded_worker = min(available_workers, key=lambda worker: len(worker.tasks))
+        min_loaded_worker.tasks[task.task_id] = _TaskHolder(task.task_id, task.tags)
 
-        return min_load_worker.worker_id
+        self._task_id_to_worker_id[task.task_id] = min_loaded_worker.worker_id
+
+        return min_loaded_worker.worker_id
 
     def remove_task(self, task_id: bytes) -> Optional[bytes]:
         worker_id = self._task_id_to_worker_id.pop(task_id, None)
@@ -83,7 +90,7 @@ class TaggedAllocator:#(TaskAllocator):
             return None
 
         worker = self._worker_id_to_worker[worker_id]
-        worker.tasks.remove(task_id)
+        worker.tasks.pop(task_id)
 
         return worker_id
 
@@ -98,6 +105,119 @@ class TaggedAllocator:#(TaskAllocator):
             tags = set()
 
         return len(self.__get_available_workers_for_tags(tags)) > 0
+
+    def balance(self) -> Dict[bytes, List[bytes]]:
+        """Returns, for every worker id, the list of task ids to balance out."""
+
+        has_idle_workers = any(len(worker.tasks) == 0 for worker in self._worker_id_to_worker.values())
+
+        if not has_idle_workers:
+            return {}
+
+        # The balancing algorithm works by trying to move tasks from workers that have more queued tasks than the
+        # average (high-load workers) to workers that have less tasks than the average (low-load workers).
+        #
+        # Because of the tag constraints, this might result in less than optimal balancing. However, it will greatly
+        # limit the number of messages transmitted to workers, and reduce the algorithmic worst-case of the balancing
+        # process.
+        #
+        # The overall worst-case time complexity of the balancing algorithm is:
+        #
+        #     O(n_workers * log(n_workers) + n_tasks * n_workers * n_tags)
+        #
+        # However, if the cluster does not use any tag, time complexity is always:
+        #
+        #     O(n_workers * log(n_workers) + n_tasks * log(n_workers))
+        #
+        # See <https://github.com/Citi/scaler/issues/32#issuecomment-2541897645> for more details.
+
+        n_tasks = sum(len(worker.tasks) for worker in self._worker_id_to_worker.values())
+        avg_tasks_per_worker = n_tasks / len(self._worker_id_to_worker)
+
+        def is_balanced(worker: _WorkerHolder) -> bool:
+            return abs(len(worker.tasks) - avg_tasks_per_worker) <= 1
+
+        # First, we create a copy of the current workers objects so that we can modify their respective task queues.
+        # We also filter out workers that are already balanced as we will not touch these.
+        #
+        # Time complexity is O(n_workers)
+
+        workers = [worker.copy() for worker in self._worker_id_to_worker.values() if not is_balanced(worker)]
+
+        # Then, we sort the remaining workers by the number of queued tasks.
+        #
+        # Time complexity is O(n_workers * log(n_workers))
+
+        sorted_workers: SortedList[_WorkerHolder] = SortedList(workers, key=lambda worker: len(worker.tasks))
+
+        # Finally, we repeatedly remove one task from the most loaded worker until either:
+        #
+        # - all workers are balanced;
+        # - we cannot find a low-load worker than can accept tasks from a high-load worker.
+        #
+        # Worst-case time complexity is O(n_tasks * n_workers * n_tags). If no tag is used in the cluster, complexity is
+        # always O(n_tasks * log(n_workers))
+
+        balancing_advice: Dict[bytes, List[bytes]] = defaultdict(list)
+        unbalanceable_tasks: Set[bytes] = set()
+
+        while len(sorted_workers) >= 2:
+            most_loaded_worker: _WorkerHolder = sorted_workers.pop(-1)
+
+            if len(most_loaded_worker.tasks) - avg_tasks_per_worker <= 1:
+                # Most loaded worker is not high-load, stop
+                break
+
+            # Go through all of the most loaded worker's tasks, trying to find a low-load worker that can accept it.
+
+            receiving_worker: Optional[_WorkerHolder] = None
+            moved_task: Optional[_TaskHolder] = None
+
+            for task in most_loaded_worker.tasks.values():
+                if task.task_id in unbalanceable_tasks:
+                    continue
+
+                worker_candidates = takewhile(lambda worker: len(worker.tasks) < avg_tasks_per_worker, sorted_workers)
+                receiving_worker_index = self.__balance_try_reassign_task(task, worker_candidates)
+
+                if receiving_worker_index is not None:
+                    receiving_worker = sorted_workers.pop(receiving_worker_index)
+                    moved_task = task
+                    break
+                else:
+                    # We could not find a receiving worker for this task, remember the task as unbalanceable in case the
+                    # worker pops-up again. This greatly reduces the worst-case big-O complexity of the algorithm.
+                    unbalanceable_tasks.add(task.task_id)
+
+            # Re-inserts the workers in the sorted list if these can be balanced more.
+
+            if moved_task is not None:
+                assert receiving_worker is not None
+
+                balancing_advice[most_loaded_worker.worker_id].append(moved_task.task_id)
+
+                most_loaded_worker.tasks.pop(moved_task.task_id)
+                receiving_worker.tasks[moved_task.task_id] = moved_task
+
+                if not is_balanced(most_loaded_worker):
+                    sorted_workers.add(most_loaded_worker)
+
+                if not is_balanced(receiving_worker):
+                    sorted_workers.add(receiving_worker)
+
+        return balancing_advice
+
+    @staticmethod
+    def __balance_try_reassign_task(task: _TaskHolder, worker_candidates: Iterable[_WorkerHolder]) -> Optional[int]:
+        """Returns the index of the first worker that can accept the task."""
+
+        # Time complexity is O(n_worker * n_tags)
+
+        for worker_index, worker in enumerate(worker_candidates):
+            if task.tags.issubset(worker.tags):
+                return worker_index
+
+        return None
 
     def statistics(self) -> Dict:
         return {

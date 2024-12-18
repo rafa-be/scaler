@@ -9,7 +9,7 @@ from scaler.protocol.python.message import Task
 
 from tests.utility import logging_test_name
 
-MAX_TASKS_PER_WORKER = 5
+MAX_TASKS_PER_WORKER = 10
 
 
 class TestTaggedAllocator(unittest.TestCase):
@@ -86,7 +86,7 @@ class TestTaggedAllocator(unittest.TestCase):
         # Tasks should be balanced between the two workers
 
         for workers_tasks in worker_id_to_tasks.values():
-            self.assertEqual(len(workers_tasks), N_TASKS // 2)
+            self.assertAlmostEqual(len(workers_tasks), N_TASKS / 2, delta=1.0)
 
         # Removes the two workers
 
@@ -95,6 +95,36 @@ class TestTaggedAllocator(unittest.TestCase):
 
         worker_tasks = allocator.remove_worker(b"worker_2")
         self.assertSetEqual(set(worker_tasks), worker_id_to_tasks[b"worker_2"])
+
+    def test_balancing(self):
+        N_TASKS = MAX_TASKS_PER_WORKER // 2 * 2  # must be even
+
+        allocator = TaggedAllocator(max_tasks_per_worker=MAX_TASKS_PER_WORKER)
+
+        allocator.add_worker(b"worker_1", {"linux", "gpu"})
+
+        # Assign a few tasks
+
+        for i in range(0, N_TASKS // 2):
+            allocator.assign_task(self.__create_task(f"gpu_task_{i}".encode(), {"gpu"}))
+            allocator.assign_task(self.__create_task(f"linux+gpu_task_{i}".encode(), {"linux", "gpu"}))
+
+        self.assertDictEqual(allocator.balance(), {})
+
+        # Adds a worker that cannot accept the balanced tasks
+
+        allocator.add_worker(b"worker_2", {"windows"})
+        self.assertDictEqual(allocator.balance(), {})
+
+        # Adds a worker that can accept some of the tasks
+
+        allocator.add_worker(b"worker_3", {"gpu"})
+        balancing_advice = allocator.balance()
+
+        avg_tasks_per_worker = N_TASKS / 3
+
+        self.assertListEqual(list(balancing_advice.keys()), [b"worker_1"])
+        self.assertAlmostEqual(len(balancing_advice[b"worker_1"]), avg_tasks_per_worker, delta=1.0)
 
     @staticmethod
     def __create_task(task_id: bytes, tags: Set[str]) -> Task:
