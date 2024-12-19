@@ -1,5 +1,5 @@
 import dataclasses
-from collections import defaultdict
+from collections import OrderedDict, defaultdict
 from itertools import takewhile
 from sortedcontainers import SortedList
 from typing import Dict, Iterable, List, Optional, Set
@@ -17,13 +17,18 @@ class _TaskHolder:
 class _WorkerHolder:
     worker_id: bytes = dataclasses.field()
     tags: Set[str] = dataclasses.field()
-    tasks: Dict[bytes, _TaskHolder] = dataclasses.field(default_factory=dict)
+
+    # Queued tasks, ordered from oldest to youngest tasks.
+    task_id_to_task: OrderedDict[bytes, _TaskHolder] = dataclasses.field(default_factory=OrderedDict)
+
+    def n_tasks(self) -> int:
+        return len(self.task_id_to_task)
 
     def copy(self) -> "_WorkerHolder":
-        return _WorkerHolder(self.worker_id, self.tags, self.tasks.copy())
+        return _WorkerHolder(self.worker_id, self.tags, self.task_id_to_task.copy())
 
 
-class TaggedAllocator:#(TaskAllocator):
+class TaggedAllocator:#(TaskAllocator):  FIXME: remove async. methods from the TaskAllocator mixin.
     def __init__(self, max_tasks_per_worker: int):
         self._max_tasks_per_worker = max_tasks_per_worker
 
@@ -58,7 +63,7 @@ class TaggedAllocator:#(TaskAllocator):
             if len(self._tag_to_worker_ids[tag]) == 0:
                 self._tag_to_worker_ids.pop(tag)
 
-        task_ids = list(worker.tasks)
+        task_ids = list(worker.task_id_to_task.keys())
         for task_id in task_ids:
             self._task_id_to_worker_id.pop(task_id)
 
@@ -76,8 +81,8 @@ class TaggedAllocator:#(TaskAllocator):
         if len(available_workers) <= 0:
             return None
 
-        min_loaded_worker = min(available_workers, key=lambda worker: len(worker.tasks))
-        min_loaded_worker.tasks[task.task_id] = _TaskHolder(task.task_id, task.tags)
+        min_loaded_worker = min(available_workers, key=lambda worker: worker.n_tasks())
+        min_loaded_worker.task_id_to_task[task.task_id] = _TaskHolder(task.task_id, task.tags)
 
         self._task_id_to_worker_id[task.task_id] = min_loaded_worker.worker_id
 
@@ -90,7 +95,7 @@ class TaggedAllocator:#(TaskAllocator):
             return None
 
         worker = self._worker_id_to_worker[worker_id]
-        worker.tasks.pop(task_id)
+        worker.task_id_to_task.pop(task_id)
 
         return worker_id
 
@@ -109,7 +114,7 @@ class TaggedAllocator:#(TaskAllocator):
     def balance(self) -> Dict[bytes, List[bytes]]:
         """Returns, for every worker id, the list of task ids to balance out."""
 
-        has_idle_workers = any(len(worker.tasks) == 0 for worker in self._worker_id_to_worker.values())
+        has_idle_workers = any(worker.n_tasks() == 0 for worker in self._worker_id_to_worker.values())
 
         if not has_idle_workers:
             return {}
@@ -131,11 +136,11 @@ class TaggedAllocator:#(TaskAllocator):
         #
         # See <https://github.com/Citi/scaler/issues/32#issuecomment-2541897645> for more details.
 
-        n_tasks = sum(len(worker.tasks) for worker in self._worker_id_to_worker.values())
+        n_tasks = sum(worker.n_tasks() for worker in self._worker_id_to_worker.values())
         avg_tasks_per_worker = n_tasks / len(self._worker_id_to_worker)
 
         def is_balanced(worker: _WorkerHolder) -> bool:
-            return abs(len(worker.tasks) - avg_tasks_per_worker) <= 1
+            return abs(worker.n_tasks() - avg_tasks_per_worker) <= 1
 
         # First, we create a copy of the current workers objects so that we can modify their respective task queues.
         # We also filter out workers that are already balanced as we will not touch these.
@@ -148,7 +153,7 @@ class TaggedAllocator:#(TaskAllocator):
         #
         # Time complexity is O(n_workers * log(n_workers))
 
-        sorted_workers: SortedList[_WorkerHolder] = SortedList(workers, key=lambda worker: len(worker.tasks))
+        sorted_workers: SortedList[_WorkerHolder] = SortedList(workers, key=lambda worker: worker.n_tasks())
 
         # Finally, we repeatedly remove one task from the most loaded worker until either:
         #
@@ -164,7 +169,7 @@ class TaggedAllocator:#(TaskAllocator):
         while len(sorted_workers) >= 2:
             most_loaded_worker: _WorkerHolder = sorted_workers.pop(-1)
 
-            if len(most_loaded_worker.tasks) - avg_tasks_per_worker <= 1:
+            if most_loaded_worker.n_tasks() - avg_tasks_per_worker <= 1:
                 # Most loaded worker is not high-load, stop
                 break
 
@@ -173,11 +178,11 @@ class TaggedAllocator:#(TaskAllocator):
             receiving_worker: Optional[_WorkerHolder] = None
             moved_task: Optional[_TaskHolder] = None
 
-            for task in most_loaded_worker.tasks.values():
+            for task in reversed(most_loaded_worker.task_id_to_task.values()):  # Try to balance youngest tasks first.
                 if task.task_id in unbalanceable_tasks:
                     continue
 
-                worker_candidates = takewhile(lambda worker: len(worker.tasks) < avg_tasks_per_worker, sorted_workers)
+                worker_candidates = takewhile(lambda worker: worker.n_tasks() < avg_tasks_per_worker, sorted_workers)
                 receiving_worker_index = self.__balance_try_reassign_task(task, worker_candidates)
 
                 if receiving_worker_index is not None:
@@ -196,8 +201,8 @@ class TaggedAllocator:#(TaskAllocator):
 
                 balancing_advice[most_loaded_worker.worker_id].append(moved_task.task_id)
 
-                most_loaded_worker.tasks.pop(moved_task.task_id)
-                receiving_worker.tasks[moved_task.task_id] = moved_task
+                most_loaded_worker.task_id_to_task.pop(moved_task.task_id)
+                receiving_worker.task_id_to_task[moved_task.task_id] = moved_task
 
                 if not is_balanced(most_loaded_worker):
                     sorted_workers.add(most_loaded_worker)
@@ -221,7 +226,7 @@ class TaggedAllocator:#(TaskAllocator):
 
     def statistics(self) -> Dict:
         return {
-            worker.worker_id: {"free": self._max_tasks_per_worker - len(worker.tasks), "sent": len(worker.tasks)}
+            worker.worker_id: {"free": self._max_tasks_per_worker - worker.n_tasks(), "sent": worker.n_tasks()}
             for worker in self._worker_id_to_worker.values()
         }
 
@@ -236,4 +241,4 @@ class TaggedAllocator:#(TaskAllocator):
 
         matching_workers = [self._worker_id_to_worker[worker_id] for worker_id in matching_worker_ids]
 
-        return [worker for worker in matching_workers if len(worker.tasks) < self._max_tasks_per_worker]
+        return [worker for worker in matching_workers if worker.n_tasks() < self._max_tasks_per_worker]

@@ -124,7 +124,24 @@ class TestTaggedAllocator(unittest.TestCase):
         avg_tasks_per_worker = N_TASKS / 3
 
         self.assertListEqual(list(balancing_advice.keys()), [b"worker_1"])
+
         self.assertAlmostEqual(len(balancing_advice[b"worker_1"]), avg_tasks_per_worker, delta=1.0)
+        self.assertSetEqual(
+            set(balancing_advice[b"worker_1"]),
+            {f"gpu_task_{(N_TASKS // 2) - i - 1}".encode() for i in range(0, int(avg_tasks_per_worker))},
+            msg="youngest task should be advised first for balancing.",
+        )
+
+        # Adds a fourth worker that can accept all tasks
+
+        allocator.add_worker(b"worker_4", {"gpu", "linux"})
+        balancing_advice = allocator.balance()
+
+        avg_tasks_per_worker = N_TASKS / 4
+
+        self.assertListEqual(list(balancing_advice.keys()), [b"worker_1"])
+        self.assertAlmostEqual(len(balancing_advice[b"worker_1"]), avg_tasks_per_worker * 2, delta=1.0)
+
 
     @staticmethod
     def __create_task(task_id: bytes, tags: Set[str]) -> Task:
