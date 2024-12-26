@@ -2,7 +2,7 @@ import asyncio
 import logging
 import multiprocessing
 import signal
-from typing import Optional, Tuple
+from typing import Optional, Set, Tuple
 
 import zmq.asyncio
 
@@ -36,6 +36,7 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
         event_loop: str,
         name: str,
         address: ZMQConfig,
+        tags: Set[str],
         io_threads: int,
         heartbeat_interval_seconds: int,
         garbage_collect_interval_seconds: int,
@@ -51,6 +52,7 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
         self._event_loop = event_loop
         self._name = name
         self._address = address
+        self._tags = tags
         self._io_threads = io_threads
 
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
@@ -93,7 +95,7 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
             identity=None,
         )
 
-        self._heartbeat_manager = VanillaHeartbeatManager()
+        self._heartbeat_manager = VanillaHeartbeatManager(tags=self._tags)
         self._profiling_manager = VanillaProfilingManager()
         self._task_manager = VanillaTaskManager(task_timeout_seconds=self._task_timeout_seconds)
         self._timeout_manager = VanillaTimeoutManager(death_timeout_seconds=self._death_timeout_seconds)

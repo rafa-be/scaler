@@ -1,5 +1,5 @@
 import time
-from typing import Optional
+from typing import Optional, Set
 
 import psutil
 
@@ -12,7 +12,9 @@ from scaler.worker.agent.processor_holder import ProcessorHolder
 
 
 class VanillaHeartbeatManager(Looper, HeartbeatManager):
-    def __init__(self):
+    def __init__(self, tags: Set[str]):
+        self._tags = tags
+
         self._agent_process = psutil.Process()
 
         self._connector_external: Optional[AsyncConnector] = None
@@ -64,7 +66,7 @@ class VanillaHeartbeatManager(Looper, HeartbeatManager):
 
         await self._connector_external.send(
             WorkerHeartbeat.new_msg(
-                set(),
+                self._tags,
                 Resource.new_msg(int(self._agent_process.cpu_percent() * 10), self._agent_process.memory_info().rss),
                 psutil.virtual_memory().available,
                 self._worker_task_manager.get_queued_size() - num_suspended_processors,

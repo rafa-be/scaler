@@ -31,6 +31,12 @@ def get_args():
         help="worker names to replace default worker names (host names), separate by comma",
     )
     parser.add_argument(
+        "--tags",
+        "-t",
+        type=lambda value: set(value.split(",")),
+        help="comma-separated tag names supported by the workers (e.g. \"-t tag_1,tag2\")",
+    )
+    parser.add_argument(
         "--heartbeat-interval",
         "-hi",
         type=int,
@@ -126,6 +132,7 @@ def main():
     cluster = Cluster(
         address=args.address,
         worker_names=worker_names,
+        tags=args.tags or set(),
         heartbeat_interval_seconds=args.heartbeat_interval,
         task_timeout_seconds=args.task_timeout_seconds,
         garbage_collect_interval_seconds=args.garbage_collect_interval_seconds,

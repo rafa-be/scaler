@@ -6,7 +6,7 @@ import threading
 import uuid
 from collections import Counter
 from inspect import signature
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import zmq
 import zmq.asyncio
@@ -173,13 +173,15 @@ class Client:
             heartbeat_interval_seconds=state["heartbeat_interval_seconds"],
         )
 
-    def submit(self, fn: Callable, *args, **kwargs) -> ScalerFuture:
+    def submit(self, fn: Callable, *args, tags_: Optional[Set[str]] = None, **kwargs) -> ScalerFuture:
         """
         Submit a single task (function with arguments) to the scheduler, and return a future
 
         :param fn: function to be executed remotely
         :type fn: Callable
         :param args: positional arguments will be passed to function
+        :param tags_: routing tags
+        :type tags_: Optional[Set[str]]
         :return: future of the submitted task
         :rtype: ScalerFuture
         """
@@ -189,20 +191,23 @@ class Client:
         function_object_id = self._object_buffer.buffer_send_function(fn).object_id
         all_args = Client.__convert_kwargs_to_args(fn, args, kwargs)
 
-        task, future = self.__submit(function_object_id, all_args, delayed=True)
+        task, future = self.__submit(function_object_id, all_args, delayed=True, tags=tags_)
 
         self._object_buffer.commit_send_objects()
         self._connector.send(task)
         return future
 
-    def map(self, fn: Callable, iterable: Iterable[Tuple[Any, ...]]) -> List[Any]:
+    def map(self, fn: Callable, iterable: Iterable[Tuple[Any, ...]], tags: Optional[Set[str]] = None) -> List[Any]:
         if not all(isinstance(args, (tuple, list)) for args in iterable):
             raise TypeError("iterable should be list of arguments(list or tuple-like) of function")
 
         self.__assert_client_not_stopped()
 
         function_object_id = self._object_buffer.buffer_send_function(fn).object_id
-        tasks, futures = zip(*[self.__submit(function_object_id, args, delayed=False) for args in iterable])
+        tasks, futures = zip(*[
+            self.__submit(function_object_id, args, delayed=False, tags=tags)
+            for args in iterable
+        ])
 
         self._object_buffer.commit_send_objects()
         for task in tasks:
@@ -218,7 +223,11 @@ class Client:
         return results
 
     def get(
-        self, graph: Dict[str, Union[Any, Tuple[Union[Callable, str], ...]]], keys: List[str], block: bool = True
+        self,
+        graph: Dict[str, Union[Any, Tuple[Union[Callable, str], ...]]],
+        keys: List[str],
+        block: bool = True,
+        tags: Optional[Set[str]] = None,
     ) -> Dict[str, Union[Any, ScalerFuture]]:
         """
         .. code-block:: python
@@ -248,7 +257,7 @@ class Client:
         self.__check_graph(node_name_to_argument, call_graph, keys)
 
         graph_task, compute_futures, finished_futures = self.__construct_graph(
-            node_name_to_argument, call_graph, keys, block
+            node_name_to_argument, call_graph, keys, block, tags
         )
         self._object_buffer.commit_send_objects()
         self._connector.send(graph_task)
@@ -258,7 +267,7 @@ class Client:
                 task=Task.new_msg(
                     task_id=graph_task.task_id,
                     source=self._identity,
-                    tags=set(),
+                    tags=tags,
                     metadata=b"",
                     func_object_id=b"",
                     function_args=[],
@@ -355,7 +364,13 @@ class Client:
         finally:
             self.__destroy()
 
-    def __submit(self, function_object_id: bytes, args: Tuple[Any, ...], delayed: bool) -> Tuple[Task, ScalerFuture]:
+    def __submit(
+        self,
+        function_object_id: bytes,
+        args: Tuple[Any, ...],
+        delayed: bool,
+        tags: Optional[Set[str]] = None
+    ) -> Tuple[Task, ScalerFuture]:
         task_id = uuid.uuid1().bytes
 
         object_ids = []
@@ -371,7 +386,7 @@ class Client:
         task = Task.new_msg(
             task_id=task_id,
             source=self._identity,
-            tags=set(),
+            tags=tags or set(),
             metadata=task_flags_bytes,
             func_object_id=function_object_id,
             function_args=arguments,
@@ -458,6 +473,7 @@ class Client:
         call_graph: Dict[str, _CallNode],
         keys: List[str],
         block: bool,
+        tags: Set[str],
     ) -> Tuple[GraphTask, Dict[str, ScalerFuture], Dict[str, ScalerFuture]]:
         graph_task_id = uuid.uuid1().bytes
 
@@ -488,7 +504,7 @@ class Client:
             task_id_to_tasks[task_id] = Task.new_msg(
                 task_id=task_id,
                 source=self._identity,
-                tags=set(),
+                tags=tags,
                 metadata=task_flags_bytes,
                 func_object_id=function_cache.object_id,
                 function_args=arguments,
@@ -511,10 +527,10 @@ class Client:
                     task=Task.new_msg(
                         task_id=argument.data,
                         source=self._identity,
-                        tags=set(),
+                        tags=tags,
                         metadata=b"",
                         func_object_id=b"",
-                        function_args=[],
+                        function_args=[]
                     ),
                     is_delayed=False,
                     group_task_id=graph_task_id,

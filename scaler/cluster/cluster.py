@@ -2,7 +2,7 @@ import logging
 import multiprocessing
 import os
 import signal
-from typing import List, Optional, Tuple
+from typing import List, Optional, Set, Tuple
 
 from scaler.utility.logging.utility import setup_logger
 from scaler.utility.zmq_config import ZMQConfig
@@ -15,6 +15,7 @@ class Cluster(multiprocessing.get_context("spawn").Process):  # type: ignore[mis
         address: ZMQConfig,
         worker_io_threads: int,
         worker_names: List[str],
+        tags: Set[str],
         heartbeat_interval_seconds: int,
         task_timeout_seconds: int,
         death_timeout_seconds: int,
@@ -31,6 +32,7 @@ class Cluster(multiprocessing.get_context("spawn").Process):  # type: ignore[mis
         self._address = address
         self._worker_io_threads = worker_io_threads
         self._worker_names = worker_names
+        self._tags = tags
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
         self._task_timeout_seconds = task_timeout_seconds
         self._death_timeout_seconds = death_timeout_seconds
@@ -72,6 +74,7 @@ class Cluster(multiprocessing.get_context("spawn").Process):  # type: ignore[mis
                 event_loop=self._event_loop,
                 name=name,
                 address=self._address,
+                tags=self._tags,
                 io_threads=self._worker_io_threads,
                 heartbeat_interval_seconds=self._heartbeat_interval_seconds,
                 garbage_collect_interval_seconds=self._garbage_collect_interval_seconds,
