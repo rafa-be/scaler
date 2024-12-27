@@ -1,4 +1,5 @@
 import dataclasses
+from multiprocessing.synchronize import Event
 
 from scaler.utility.zmq_config import ZMQConfig
 
@@ -16,3 +17,4 @@ class SchedulerConfig:
     load_balance_seconds: int
     load_balance_trigger_times: int
     protected: bool
+    first_worker_connected_event: Event

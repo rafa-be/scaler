@@ -55,8 +55,10 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
     async def routine(self):
         task_id = await self._unassigned.get()
 
-        if not await self._worker_manager.assign_task_to_worker(self._task_id_to_task[task_id]):
-            await self._unassigned.put(task_id)
+        assigned_worker = await self._worker_manager.assign_task_to_worker(self._task_id_to_task[task_id])
+
+        if not assigned_worker:
+            await self.on_task_done(TaskResult.new_msg(task_id, TaskStatus.NoWorker))
             return
 
         self._running.add(task_id)
@@ -77,10 +79,7 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
         )
 
     async def on_task_new(self, client: bytes, task: Task):
-        if (
-            0 <= self._max_number_of_tasks_waiting <= self._unassigned.qsize()
-            and not self._worker_manager.has_available_worker()
-        ):
+        if 0 <= self._max_number_of_tasks_waiting <= self._unassigned.qsize():
             await self._binder.send(client, TaskResult.new_msg(task.task_id, TaskStatus.NoWorker))
             return
 
@@ -162,5 +161,5 @@ class VanillaTaskManager(TaskManager, Looper, Reporter):
     async def __send_monitor(
         self, task_id: bytes, function_name: bytes, status: TaskStatus, metadata: Optional[bytes] = b""
     ):
-        worker = self._worker_manager.get_worker_by_task_id(task_id)
+        worker = self._worker_manager.get_worker_by_task_id(task_id) or b""
         await self._binder_monitor.send(StateTask.new_msg(task_id, function_name, status, worker, metadata))

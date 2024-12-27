@@ -26,6 +26,7 @@ class TestDeathTimeout(unittest.TestCase):
             address=ZMQConfig.from_string(f"tcp://127.0.0.1:{get_available_tcp_port()}"),
             worker_io_threads=DEFAULT_IO_THREADS,
             worker_names=["a", "b"],
+            tags=set(),
             heartbeat_interval_seconds=DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
             garbage_collect_interval_seconds=DEFAULT_GARBAGE_COLLECT_INTERVAL_SECONDS,
             trim_memory_threshold_bytes=DEFAULT_TRIM_MEMORY_THRESHOLD_BYTES,

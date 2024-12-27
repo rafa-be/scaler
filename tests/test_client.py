@@ -5,10 +5,12 @@ import time
 import unittest
 
 from scaler import Client, SchedulerClusterCombo
-from scaler.utility.exceptions import ProcessorDiedError
+from scaler.utility.exceptions import NoWorkerError, ProcessorDiedError
 from scaler.utility.logging.scoped_logger import ScopedLogger
 from scaler.utility.logging.utility import setup_logger
 from tests.utility import get_available_tcp_port, logging_test_name
+
+CLUSTER_TAGS = {"high-memory", "linux"}
 
 
 def noop(sec: int):
@@ -34,8 +36,13 @@ class TestClient(unittest.TestCase):
         setup_logger()
         logging_test_name(self)
         self.address = f"tcp://127.0.0.1:{get_available_tcp_port()}"
-        self._workers = 3
-        self.cluster = SchedulerClusterCombo(address=self.address, n_workers=self._workers, event_loop="builtin")
+        self.n_workers = 3
+        self.cluster = SchedulerClusterCombo(
+            address=self.address,
+            n_workers=self.n_workers,
+            tags=CLUSTER_TAGS,
+            event_loop="builtin",
+        )
 
     def tearDown(self) -> None:
         self.cluster.shutdown()
@@ -105,7 +112,7 @@ class TestClient(unittest.TestCase):
     def test_heavy_function(self):
         with Client(self.address) as client:
             size = 500_000_000
-            number_of_tasks = 10000
+            number_of_tasks = self.n_workers * self.cluster._scheduler._scheduler_config.per_worker_queue_size
             tasks = [random.randint(0, 100) for _ in range(number_of_tasks)]
             function = functools.partial(heavy_function, payload=b"1" * size)
 
@@ -196,7 +203,7 @@ class TestClient(unittest.TestCase):
             return a * 2
 
         with Client(self.address) as client:
-            client.map(func, [(i,) for i in range(self._workers * 2)])
+            client.map(func, [(i,) for i in range(self.n_workers * 2)])
 
     def test_context_manager(self):
         with Client(self.address) as client:
@@ -287,3 +294,21 @@ class TestClient(unittest.TestCase):
             disconnect_start_time = time.time()
             client.disconnect()
             self.assertLess(time.time() - disconnect_start_time, MAX_DELAY_SECONDS)
+
+    def test_no_worker_available(self):
+        scheduler_config = self.cluster._scheduler._scheduler_config
+        max_cluster_tasks = scheduler_config.per_worker_queue_size * self.n_workers
+
+        with Client(self.address) as client:
+            for _ in range(0, max_cluster_tasks):
+                client.submit(noop_sleep, 5.0)
+
+            with self.assertRaises(NoWorkerError):
+                client.submit(noop_sleep, 1.0).result()
+
+    def test_tags(self):
+        with Client(self.address) as client:
+            with self.assertRaises(NoWorkerError):
+                client.submit(pow, 1, 10, tags_={"unsupported-tag"}).result()
+
+            client.submit(pow, 1, 10, tags_={"linux"}).result()

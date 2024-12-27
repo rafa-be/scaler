@@ -251,6 +251,8 @@ class Client:
 
         self.__assert_client_not_stopped()
 
+        tags = tags or set()
+
         graph = cull_graph(graph, keys)
 
         node_name_to_argument, call_graph = self.__split_data_and_graph(graph)

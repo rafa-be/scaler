@@ -49,6 +49,7 @@ class SchedulerClusterCombo:
         logging_paths: Tuple[str, ...] = ("/dev/stdout",),
         logging_level: str = "INFO",
         logging_config_file: Optional[str] = None,
+        wait_until_initialized: bool = True,
     ):
         self._cluster = Cluster(
             address=ZMQConfig.from_string(address),
@@ -82,9 +83,12 @@ class SchedulerClusterCombo:
             logging_config_file=logging_config_file,
         )
 
-        self._cluster.start()
         self._scheduler.start()
+        self._cluster.start()
         logging.info(f"{self.__get_prefix()} started")
+
+        if wait_until_initialized and n_workers > 0:
+            self._scheduler.wait_until_first_worker_connected()
 
     def __del__(self):
         self.shutdown()

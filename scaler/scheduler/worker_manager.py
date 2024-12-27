@@ -1,5 +1,6 @@
 import logging
 import time
+from multiprocessing.synchronize import Event
 from typing import Dict, List, Optional, Set, Tuple
 
 from scaler.io.async_binder import AsyncBinder
@@ -18,7 +19,7 @@ from scaler.protocol.python.message import (
     WorkerHeartbeatEcho,
 )
 from scaler.protocol.python.status import ProcessorStatus, Resource, WorkerManagerStatus, WorkerStatus
-from scaler.scheduler.allocators.queued import QueuedAllocator
+from scaler.scheduler.allocators.tagged_allocator import TaggedAllocator
 from scaler.scheduler.mixins import TaskManager, WorkerManager
 from scaler.utility.mixins import Looper, Reporter
 
@@ -30,18 +31,21 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
         timeout_seconds: int,
         load_balance_seconds: int,
         load_balance_trigger_times: int,
+        first_worker_connected_event: Event,
     ):
         self._timeout_seconds = timeout_seconds
         self._load_balance_seconds = load_balance_seconds
         self._load_balance_trigger_times = load_balance_trigger_times
+        self._first_worker_connected_event = first_worker_connected_event
 
         self._binder: Optional[AsyncBinder] = None
         self._binder_monitor: Optional[AsyncConnector] = None
         self._task_manager: Optional[TaskManager] = None
 
         self._worker_alive_since: Dict[bytes, Tuple[float, WorkerHeartbeat]] = dict()
-        self._allocator = QueuedAllocator(per_worker_queue_size)
+        self._allocator = TaggedAllocator(per_worker_queue_size)
 
+        self._last_balance_since_seconds = 0
         self._last_balance_advice: Dict[bytes, List[bytes]] = dict()
         self._load_balance_advice_same_count = 0
 
@@ -51,7 +55,7 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
         self._task_manager = task_manager
 
     async def assign_task_to_worker(self, task: Task) -> bool:
-        worker = await self._allocator.assign_task(task.task_id)
+        worker = self._allocator.assign_task(task)
         if worker is None:
             return False
 
@@ -90,8 +94,9 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
         await self._task_manager.on_task_done(task_result)
 
     async def on_heartbeat(self, worker: bytes, info: WorkerHeartbeat):
-        if await self._allocator.add_worker(worker):
+        if self._allocator.add_worker(worker, info.tags):
             logging.info(f"worker {worker!r} connected")
+            self._first_worker_connected_event.set()
             await self._binder_monitor.send(StateWorker.new_msg(worker, b"connected"))
 
         self._worker_alive_since[worker] = (time.time(), info)
@@ -153,17 +158,21 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
             ],
         )
 
-    def has_available_worker(self) -> bool:
-        return self._allocator.has_available_worker()
+    def has_available_worker(self, tags: Optional[Set[str]] = None) -> bool:
+        return self._allocator.has_available_worker(tags)
 
-    def get_worker_by_task_id(self, task_id: bytes) -> bytes:
-        return self._allocator.get_worker_by_task_id(task_id)
+    def get_worker_by_task_id(self, task_id: bytes) -> Optional[bytes]:
+        return self._allocator.get_assigned_worker(task_id)
 
     def get_worker_ids(self) -> Set[bytes]:
         return self._allocator.get_worker_ids()
 
     async def __balance_request(self):
-        if self._load_balance_seconds <= 0:
+        if self._load_balance_seconds <= 0:  # balancing is disabled
+            return
+
+        self._last_balance_since_seconds += 1
+        if self._last_balance_since_seconds < self._load_balance_seconds:
             return
 
         current_advice = self._allocator.balance()
@@ -187,7 +196,7 @@ class VanillaWorkerManager(WorkerManager, Looper, Reporter):
         for worker, task_ids in current_advice.items():
             await self._binder_monitor.send(StateBalanceAdvice.new_msg(worker, task_ids))
 
-        task_cancel_flags = TaskCancel.TaskCancelFlags(force=True, retrieve_task_object=False)
+        task_cancel_flags = TaskCancel.TaskCancelFlags(force=False, retrieve_task_object=False)
 
         self._last_balance_advice = current_advice
         for worker, task_ids in current_advice.items():

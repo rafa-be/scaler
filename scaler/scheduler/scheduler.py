@@ -67,6 +67,7 @@ class Scheduler:
             timeout_seconds=config.worker_timeout_seconds,
             load_balance_seconds=config.load_balance_seconds,
             load_balance_trigger_times=config.load_balance_trigger_times,
+            first_worker_connected_event=config.first_worker_connected_event,
         )
         self._status_reporter = StatusReporter(self._binder_monitor)
 

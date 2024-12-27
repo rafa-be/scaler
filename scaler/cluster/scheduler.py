@@ -1,6 +1,7 @@
 import asyncio
 import multiprocessing
 from asyncio import AbstractEventLoop, Task
+import multiprocessing.context
 from typing import Any, Optional, Tuple
 
 from scaler.scheduler.config import SchedulerConfig
@@ -10,7 +11,10 @@ from scaler.utility.logging.utility import setup_logger
 from scaler.utility.zmq_config import ZMQConfig
 
 
-class SchedulerProcess(multiprocessing.get_context("spawn").Process):  # type: ignore[misc]
+_multiprocessing_context: multiprocessing.context.BaseContext = multiprocessing.get_context("spawn")
+
+
+class SchedulerProcess(_multiprocessing_context.Process):  # type: ignore[misc]
     def __init__(
         self,
         address: ZMQConfig,
@@ -28,6 +32,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):  # type: i
         logging_config_file: Optional[str],
     ):
         multiprocessing.Process.__init__(self, name="Scheduler")
+
         self._scheduler_config = SchedulerConfig(
             event_loop=event_loop,
             address=address,
@@ -40,6 +45,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):  # type: i
             load_balance_seconds=load_balance_seconds,
             load_balance_trigger_times=load_balance_trigger_times,
             protected=protected,
+            first_worker_connected_event=_multiprocessing_context.Event(),
         )
 
         self._logging_path = logging_path
@@ -58,3 +64,8 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):  # type: i
         self._task = self._loop.create_task(scheduler_main(self._scheduler_config))
 
         self._loop.run_until_complete(self._task)
+
+    def wait_until_first_worker_connected(self, timeout: Optional[float] = None):
+        """Blocks until the first worker is connected to the scheduler."""
+
+        return self._scheduler_config.first_worker_connected_event.wait(timeout)

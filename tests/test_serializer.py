@@ -54,8 +54,14 @@ class TestSerializer(unittest.TestCase):
         setup_logger()
         logging_test_name(self)
         self.address = f"tcp://127.0.0.1:{get_available_tcp_port()}"
-        self._workers = 3
-        self.cluster = SchedulerClusterCombo(address=self.address, n_workers=self._workers, event_loop="builtin")
+        self._n_workers = 3
+        self._per_worker_queue_size = 1000
+        self.cluster = SchedulerClusterCombo(
+            address=self.address,
+            n_workers=self._n_workers,
+            event_loop="builtin",
+            per_worker_queue_size=self._per_worker_queue_size
+        )
 
     def tearDown(self) -> None:
         self.cluster.shutdown()
@@ -76,7 +82,8 @@ class TestSerializer(unittest.TestCase):
     def test_heavy_function(self):
         with Client(self.address, serializer=MySerializer()) as client:
             size = 500_000_000
-            tasks = [random.randint(0, 100) for _ in range(10000)]
+            n_tasks = self._n_workers * self._per_worker_queue_size
+            tasks = [random.randint(0, 100) for _ in range(n_tasks)]
             function = functools.partial(heavy_function, payload=b"1" * size)
             with ScopedLogger(f"submit {len(tasks)} heavy function (500mb) tasks"):
                 results = client.map(function, [(i,) for i in tasks])

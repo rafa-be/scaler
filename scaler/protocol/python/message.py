@@ -111,7 +111,7 @@ class TaskCancel(Message):
     @staticmethod
     def new_msg(task_id: bytes, flags: Optional[TaskCancelFlags] = None) -> "TaskCancel":
         if flags is None:
-            flags = TaskCancel.TaskCancelFlags(force=False, retrieve_task_object=False)
+            flags = TaskCancel.TaskCancelFlags(force=True, retrieve_task_object=False)
 
         return TaskCancel(
             _message.TaskCancel(

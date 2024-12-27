@@ -6,6 +6,7 @@ from sortedcontainers import SortedList
 from typing import Dict, Iterable, List, Optional, Set
 
 from scaler.protocol.python.message import Task
+from scaler.scheduler.allocators.mixins import TaskAllocator
 
 
 @dataclasses.dataclass(frozen=True)
@@ -29,7 +30,7 @@ class _WorkerHolder:
         return _WorkerHolder(self.worker_id, self.tags, self.task_id_to_task.copy())
 
 
-class TaggedAllocator:  # FIXME: remove async. methods from the TaskAllocator mixin to make it a derivative.
+class TaggedAllocator(TaskAllocator):
     def __init__(self, max_tasks_per_worker: int):
         self._max_tasks_per_worker = max_tasks_per_worker
 
@@ -73,9 +74,6 @@ class TaggedAllocator:  # FIXME: remove async. methods from the TaskAllocator mi
     def get_worker_ids(self) -> Set[bytes]:
         return set(self._worker_id_to_worker.keys())
 
-    def get_worker_by_task_id(self, task_id: bytes) -> bytes:
-        return self._task_id_to_worker_id.get(task_id, b"")
-
     def assign_task(self, task: Task) -> Optional[bytes]:
         available_workers = self.__get_available_workers_for_tags(task.tags)
 
@@ -99,18 +97,6 @@ class TaggedAllocator:  # FIXME: remove async. methods from the TaskAllocator mi
         worker.task_id_to_task.pop(task_id)
 
         return worker_id
-
-    def get_assigned_worker(self, task_id: bytes) -> Optional[bytes]:
-        if task_id not in self._task_id_to_worker_id:
-            return None
-
-        return self._task_id_to_worker_id[task_id]
-
-    def has_available_worker(self, tags: Optional[Set[str]] = None) -> bool:
-        if tags is None:
-            tags = set()
-
-        return len(self.__get_available_workers_for_tags(tags)) > 0
 
     def balance(self) -> Dict[bytes, List[bytes]]:
         """Returns, for every worker id, the list of task ids to balance out."""
@@ -141,7 +127,7 @@ class TaggedAllocator:  # FIXME: remove async. methods from the TaskAllocator mi
         avg_tasks_per_worker = n_tasks / len(self._worker_id_to_worker)
 
         def is_balanced(worker: _WorkerHolder) -> bool:
-            return abs(worker.n_tasks() - avg_tasks_per_worker) <= 1
+            return abs(worker.n_tasks() - avg_tasks_per_worker) < 1
 
         # First, we create a copy of the current workers objects so that we can modify their respective task queues.
         # We also filter out workers that are already balanced as we will not touch these.
@@ -170,7 +156,7 @@ class TaggedAllocator:  # FIXME: remove async. methods from the TaskAllocator mi
         while len(sorted_workers) >= 2:
             most_loaded_worker: _WorkerHolder = sorted_workers.pop(-1)
 
-            if most_loaded_worker.n_tasks() - avg_tasks_per_worker <= 1:
+            if most_loaded_worker.n_tasks() - avg_tasks_per_worker < 1:
                 # Most loaded worker is not high-load, stop
                 break
 
@@ -224,6 +210,18 @@ class TaggedAllocator:  # FIXME: remove async. methods from the TaskAllocator mi
                 return worker_index
 
         return None
+
+    def get_assigned_worker(self, task_id: bytes) -> Optional[bytes]:
+        if task_id not in self._task_id_to_worker_id:
+            return None
+
+        return self._task_id_to_worker_id[task_id]
+
+    def has_available_worker(self, tags: Optional[Set[str]] = None) -> bool:
+        if tags is None:
+            tags = set()
+
+        return len(self.__get_available_workers_for_tags(tags)) > 0
 
     def statistics(self) -> Dict:
         return {

@@ -56,7 +56,7 @@ def get_args():
         "-ls",
         type=int,
         default=DEFAULT_LOAD_BALANCE_SECONDS,
-        help="number of seconds for load balance operation in scheduler",
+        help="number of seconds between load balance operation in scheduler",
     )
     parser.add_argument(
         "--load-balance-trigger-times",
