@@ -255,3 +255,27 @@ example
 
             return cloudpickle.loads(payload)
 
+Worker tagging
+--------------
+
+Scaler allows workers to advertise specific capabilities through its tagging mechanism. Similarly, tasks can then be
+assigned specific tags, which will determine which worker can process them. Scaler's tags are text literals, do not have
+any specific meaning and can be any user chosen text value.
+
+
+.. code:: bash
+
+    scaler_worker tcp://127.0.0.1:8516 -n 4 --tags gpu,x86,linux
+
+
+When submitting a new task to the cluster, tags can then be specified:
+
+
+.. code:: python
+
+    with Client("tcp://127.0.0.1:8516") as client:
+        future = client.submit(some_gpu_task, tags_={"gpu", "linux"})
+
+
+Only workers that advertise both the ``gpu`` and ``linux`` tags will be able to process the task. More formally, a task can
+be executed on a worker if ``task.tags.issubset(worker.tags)`` is true.

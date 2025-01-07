@@ -5,7 +5,7 @@ Quickstart
 When to use it
 --------------
 
-Scaler is inspired by dask and meant to be yet another parallel backend. It handles the communication between a Client, Scheduler, and Workers to orchestrate the execution of tasks. It is a good fit to scale out compute heavy jobs that are running too slow. Even on a local machine, slow jobs can be speed up through parallelization.
+Scaler is inspired by Dask and meant to be yet another parallel backend. It handles the communication between a Client, Scheduler, and Workers to orchestrate the execution of tasks. It is a good fit to scale out compute heavy jobs that are running too slow. Even on a local machine, slow jobs can be speed up through parallelization.
 
 
 Architecture
