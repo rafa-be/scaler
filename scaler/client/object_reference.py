@@ -8,7 +8,7 @@ class ObjectReference:
     size: int
 
     def __repr__(self):
-        return f"ScalerReference(name={self.name!r}, id={self.object_id!r}, size={self.size})"
+        return f"ObjectReference(name={self.name!r}, id={self.object_id!r}, size={self.size})"
 
     def __hash__(self):
         return hash(self.object_id)

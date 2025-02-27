@@ -1,4 +1,5 @@
 import functools
+import math
 import os
 import random
 import time
@@ -243,7 +244,7 @@ class TestClient(unittest.TestCase):
             ref2 = client.send_object("123456789")
             self.assertEqual(client.map(func, [(ref1,), (ref2,)]), [6, 9])
 
-    def test_send_object2(self):
+    def test_send_object_large(self):
         def add(a, b):
             return a + b
 
@@ -252,6 +253,31 @@ class TestClient(unittest.TestCase):
 
             fut = client.submit(add, ref, [6])
             self.assertEqual(fut.result(), [1, 2, 3, 4, 5, 6])
+
+    def test_send_object_map(self):
+        with Client(address=self.address) as client:
+            refs = [(client.send_object(i),) for i in range(0, 10)]
+
+            results = client.map(math.sqrt, refs)
+
+            self.assertListEqual(results, [math.sqrt(i) for i in range(0, 10)])
+
+    def test_send_object_function(self):
+        with Client(address=self.address) as client:
+            func_ref = client.send_object(math.sqrt)
+
+            # works with submit()
+            fut = client.submit(func_ref, 16)
+            self.assertEqual(fut.result(), 4)
+
+            # works with map()
+            args = [(i,) for i in range(0, 10)]
+            results = client.map(func_ref, args)
+            self.assertListEqual(results, [math.sqrt(*arg) for arg in args])
+
+            # works with get()
+            result = client.get({"a": (func_ref, "b"), "b": 64}, ["a"])
+            self.assertEqual(result["a"], math.sqrt(64))
 
     def test_scheduler_crash(self):
         CLIENT_TIMEOUT_SECONDS = 5

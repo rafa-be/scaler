@@ -6,13 +6,14 @@ import threading
 import uuid
 from collections import Counter
 from inspect import signature
-from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union
+from typing import Any, Callable, Dict, Iterable, List, Optional, Tuple, Union, overload
 
 import zmq
 import zmq.asyncio
 
 from scaler.client.agent.client_agent import ClientAgent
 from scaler.client.agent.future_manager import ClientFutureManager
+from scaler.client.function_reference import FunctionReference
 from scaler.client.future import ScalerFuture
 from scaler.client.object_buffer import ObjectBuffer
 from scaler.client.object_reference import ObjectReference
@@ -32,11 +33,11 @@ from scaler.worker.agent.processor.processor import Processor
 
 @dataclasses.dataclass
 class _CallNode:
-    func: Callable
+    func: Union[Callable, FunctionReference]
     args: Tuple[str, ...]
 
     def __post_init__(self):
-        if not callable(self.func):
+        if not callable(self.func) and not isinstance(self.func, FunctionReference):
             raise TypeError(f"the first item of the tuple must be function, get {self.func}")
 
         if not isinstance(self.args, tuple):
@@ -173,7 +174,7 @@ class Client:
             heartbeat_interval_seconds=state["heartbeat_interval_seconds"],
         )
 
-    def submit(self, fn: Callable, *args, **kwargs) -> ScalerFuture:
+    def submit(self, fn: Union[Callable, FunctionReference], *args, **kwargs) -> ScalerFuture:
         """
         Submit a single task (function with arguments) to the scheduler, and return a future
 
@@ -186,7 +187,7 @@ class Client:
 
         self.__assert_client_not_stopped()
 
-        function_object_id = self._object_buffer.buffer_send_function(fn).object_id
+        function_object_id = self.__get_function_object_id(fn)
         all_args = Client.__convert_kwargs_to_args(fn, args, kwargs)
 
         task, future = self.__submit(function_object_id, all_args, delayed=True)
@@ -195,13 +196,14 @@ class Client:
         self._connector.send(task)
         return future
 
-    def map(self, fn: Callable, iterable: Iterable[Tuple[Any, ...]]) -> List[Any]:
+    def map(self, fn: Union[Callable, FunctionReference], iterable: Iterable[Tuple[Any, ...]]) -> List[Any]:
+        self.__assert_client_not_stopped()
+
+        function_object_id = self.__get_function_object_id(fn)
+
         if not all(isinstance(args, (tuple, list)) for args in iterable):
             raise TypeError("iterable should be list of arguments(list or tuple-like) of function")
 
-        self.__assert_client_not_stopped()
-
-        function_object_id = self._object_buffer.buffer_send_function(fn).object_id
         tasks, futures = zip(*[self.__submit(function_object_id, args, delayed=False) for args in iterable])
 
         self._object_buffer.commit_send_objects()
@@ -218,7 +220,10 @@ class Client:
         return results
 
     def get(
-        self, graph: Dict[str, Union[Any, Tuple[Union[Callable, str], ...]]], keys: List[str], block: bool = True
+        self,
+        graph: Dict[str, Union[Any, Tuple[Union[Callable, FunctionReference, str], ...]]],
+        keys: List[str],
+        block: bool = True,
     ) -> Dict[str, Union[Any, ScalerFuture]]:
         """
         .. code-block:: python
@@ -290,7 +295,19 @@ class Client:
 
         return results
 
+    @overload
+    def send_object(self, obj: Callable, name: Optional[str] = None) -> FunctionReference:
+        ...
+
+    @overload
     def send_object(self, obj: Any, name: Optional[str] = None) -> ObjectReference:
+        ...
+
+    def send_object(
+        self,
+        obj: Union[Callable, Any],
+        name: Optional[str] = None,
+    ) -> Union[FunctionReference, ObjectReference]:
         """
         send object to scheduler, this can be used to cache very large data to scheduler, and reuse it in multiple
         tasks
@@ -306,7 +323,12 @@ class Client:
         self.__assert_client_not_stopped()
 
         cache = self._object_buffer.buffer_send_object(obj, name)
-        return ObjectReference(cache.object_name, cache.object_id, sum(map(len, cache.object_bytes)))
+
+        obj_size = sum(map(len, cache.object_bytes))
+        if callable(obj):
+            return FunctionReference(cache.object_name, cache.object_id, obj_size, signature(obj))
+        else:
+            return ObjectReference(cache.object_name, cache.object_id, obj_size)
 
     def clear(self):
         """
@@ -388,9 +410,27 @@ class Client:
         self._future_manager.add_future(future)
         return task, future
 
+    def __get_function_object_id(self, fn: Union[Callable, FunctionReference]):
+        if isinstance(fn, FunctionReference):
+            return fn.object_id
+        elif callable(fn):
+            return self._object_buffer.buffer_send_function(fn).object_id
+        else:
+            raise TypeError("function should be either a callable or a `FunctionReference` object.")
+
     @staticmethod
-    def __convert_kwargs_to_args(fn: Callable, args: Tuple[Any, ...], kwargs: Dict[str, Any]) -> Tuple[Any, ...]:
-        all_params = [p for p in signature(fn).parameters.values()]
+    def __convert_kwargs_to_args(
+        fn: Union[Callable, FunctionReference],
+        args: Tuple[Any, ...],
+        kwargs: Dict[str, Any]
+    ) -> Tuple[Any, ...]:
+
+        if isinstance(fn, FunctionReference):
+            function_signature = fn.signature
+        else:
+            function_signature = signature(fn)
+
+        all_params = [p for p in function_signature.parameters.values()]
 
         params = [p for p in all_params if p.kind in {p.POSITIONAL_ONLY, p.POSITIONAL_OR_KEYWORD}]
 
@@ -416,13 +456,16 @@ class Client:
         return tuple(args_list)
 
     def __split_data_and_graph(
-        self, graph: Dict[str, Union[Any, Tuple[Union[Callable, str], ...]]]
+        self, graph: Dict[str, Union[Any, Tuple[Union[Callable, FunctionReference, str], ...]]]
     ) -> Tuple[Dict[str, Tuple[Task.Argument, Any]], Dict[str, _CallNode]]:
         call_graph = {}
-        node_name_to_argument: Dict[str, Tuple[Task.Argument, Union[Any, Tuple[Union[Callable, Any], ...]]]] = dict()
+        node_name_to_argument: Dict[
+            str,
+            Tuple[Task.Argument, Union[Any, Tuple[Union[Callable, FunctionReference, Any], ...]]]
+        ] = dict()
 
         for node_name, node in graph.items():
-            if isinstance(node, tuple) and len(node) > 0 and callable(node[0]):
+            if isinstance(node, tuple) and len(node) > 0 and (callable(node[0]) or isinstance(node[0], FunctionReference)):
                 call_graph[node_name] = _CallNode(func=node[0], args=node[1:])  # type: ignore[arg-type]
                 continue
 
@@ -476,7 +519,12 @@ class Client:
 
         for node_name, node in call_graph.items():
             task_id = node_name_to_task_id[node_name]
-            function_cache = self._object_buffer.buffer_send_function(node.func)
+
+            if callable(node.func):
+                function_object_id = self._object_buffer.buffer_send_function(node.func).object_id
+            else:
+                assert isinstance(node.func, FunctionReference)
+                function_object_id = node.func.object_id
 
             arguments: List[Task.Argument] = []
             for arg in node.args:
@@ -496,7 +544,7 @@ class Client:
                 task_id=task_id,
                 source=self._identity,
                 metadata=task_flags_bytes,
-                func_object_id=function_cache.object_id,
+                func_object_id=function_object_id,
                 function_args=arguments,
             )
 
