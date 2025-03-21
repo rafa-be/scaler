@@ -33,7 +33,8 @@ class Session:
         self._clients = []
 
     def __del__(self) -> None:
-        self.destroy()
+        pass
+#        self.destroy()
 
     def destroy(self) -> None:
         if self._destroyed:
@@ -186,7 +187,7 @@ class Connector:
     def __check_destroyed(self) -> None:
         if self._destroyed:
             raise RuntimeError("client is destroyed")
-        
+
     def bind(self, addr: Address) -> None:
         self.__check_destroyed()
 
@@ -237,7 +238,7 @@ class Connector:
         self.__check_destroyed()
 
         return await c_async(C.connector_recv_async, self._obj)
-    
+
     def recv_sync(self) -> Message:
         self.__check_destroyed()
 
