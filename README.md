@@ -10,6 +10,9 @@
   </p>
 
   <p align="center">
+    <a href="https://citi.github.io/scaler/">
+      <img src="https://img.shields.io/badge/read%20our%20documentation-0f1632">
+    </a>
     <a href="./LICENSE">
         <img src="https://img.shields.io/github/license/citi/scaler?label=license&colorA=0f1632&colorB=255be3">
     </a>
@@ -68,6 +71,8 @@ $ pip install scaler[graphblas,uvloop]
 ```
 
 ## Quick Start
+
+The official documentation is available at [citi.github.io/scaler/](https://citi.github.io/scaler/).
 
 Scaler has 3 main components:
 
