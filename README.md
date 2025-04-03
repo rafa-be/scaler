@@ -33,11 +33,14 @@ import math
 from scaler import Client
 
 with Client(address="tcp://127.0.0.1:2345") as client:
-    # Submit 100 tasks
-    results = client.map(math.sqrt, [(i,) for i in range(100)])
+    sqr_99 = client.submit(math.sqrt, 99).result()
+    sqr_98 = client.submit(math.sqrt, 98).result()
+
+    # Submit [0, 98)
+    results = client.map(math.sqrt, [(i,) for i in range(98)])
 
     # Aggregate the result
-    result = sum(results)
+    result = sum(results) + sqr_99 + sqr_98
 
     print(result)  # 661.46
 ```
