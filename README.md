@@ -29,20 +29,25 @@
 with a stable and language-agnostic protocol for client and worker communications.
 
 ```python
+# Start a Scaler scheduler and cluster with:
+#
+# $ scaler_scheduler "tcp://127.0.0.1:2345"
+# $ scaler_cluster tcp://127.0.0.1:2345 --num-of-workers 4
+
 import math
 from scaler import Client
 
 with Client(address="tcp://127.0.0.1:2345") as client:
-    sqr_99 = client.submit(math.sqrt, 99).result()
-    sqr_98 = client.submit(math.sqrt, 98).result()
+    # Compute a single task using `submit()`
+    future = client.submit(math.sqrt, 16)
+    print(future.result())  # 4
 
-    # Submit [0, 98)
-    results = client.map(math.sqrt, [(i,) for i in range(98)])
-
-    # Aggregate the result
-    result = sum(results) + sqr_99 + sqr_98
-
-    print(result)  # 661.46
+    # Submit multiple tasks with `map()`
+    results = client.map(
+        math.sqrt,
+        [(i,) for i in range(0, 100)]
+    )
+    print(sum(results))  # 661.46
 ```
 
 Scaler is a suitable Dask replacement, offering significantly better scheduling performance for jobs with a large number
