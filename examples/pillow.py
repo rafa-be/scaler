@@ -1,4 +1,5 @@
 import os, sys
+from multiprocessing import cpu_count
 from PIL import Image, UnidentifiedImageError
 from scaler import SchedulerClusterCombo, Client
 
@@ -22,11 +23,11 @@ def main():
     address = "tcp://127.0.0.1:2345"
     dir = sys.argv[1]
 
-    _cluster = SchedulerClusterCombo(address=address, n_workers=6)
+    cluster = SchedulerClusterCombo(address=address, n_workers=cpu_count())
     client = Client(address=address)
 
 
-    _results = client.map(process, [(os.path.join(dir, f),) for f in os.listdir(dir)])
+    results = client.map(process, [(os.path.join(dir, f),) for f in os.listdir(dir)])
 
 if __name__ == "__main__":
     main()

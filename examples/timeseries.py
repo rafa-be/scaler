@@ -2,14 +2,15 @@ import pandas as pd
 from prophet import Prophet
 import prophet.diagnostics
 from timeit import default_timer as timer
+from multiprocessing import cpu_count
 from scaler import SchedulerClusterCombo, Client
 
 def main():
     address = "tcp://127.0.0.1:2346"
-    cluster = SchedulerClusterCombo(address=address, n_workers=6)
+    cluster = SchedulerClusterCombo(address=address, n_workers=cpu_count())
     client = Client(address=address)
 
-    # Ensure that the client is connect before proceeding
+    # Ensure that the client is connected before proceeding
     client.submit(lambda _: ..., None).result()
 
     # Load the data
