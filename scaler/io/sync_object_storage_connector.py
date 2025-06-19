@@ -1,11 +1,15 @@
+import collections
 import socket
 from threading import Lock
-from typing import Optional, Iterable, Tuple
+from typing import Optional, Iterable, List, Tuple
 
 from scaler.protocol.capnp._python import _object_storage  # noqa
 from scaler.protocol.python.object_storage import ObjectRequestHeader, ObjectResponseHeader
 from scaler.utility.exceptions import ObjectStorageException
 from scaler.utility.identifiers import ObjectID
+
+# Some OSes raise an OSError when sending buffers too large with send() or sendmsg().
+MAX_CHUNK_SIZE = 128 * 1024 * 1024
 
 
 class SyncObjectStorageConnector:
@@ -118,9 +122,50 @@ class SyncObjectStorageConnector:
         header_bytes = header.get_message().to_bytes()
 
         if payload is not None:
-            self._socket.sendmsg([header_bytes, payload])
+            self.__send_buffers([header_bytes, payload])
         else:
-            self._socket.send(header_bytes)
+            self.__send_buffer(header_bytes)
+
+    def __send_buffers(self, buffers: List[bytes]) -> None:
+        if len(buffers) < 1:
+            return
+
+        total_size = sum(len(buffer) for buffer in buffers)
+
+        # If the message is small enough, first try to send it at once with sendmsg(). This would ensure the message can
+        # be transmitted within a single TCP segment.
+        if total_size < MAX_CHUNK_SIZE:
+            sent = self._socket.sendmsg(buffers)
+
+            if sent <= 0:
+                self.__raise_connection_failure()
+
+            remaining_buffers = collections.deque(buffers)
+            while sent > len(remaining_buffers[0]):
+                removed_buffer = remaining_buffers.popleft()
+                sent -= len(removed_buffer)
+
+            if sent > 0:
+                # Truncate the first partially sent buffer
+                remaining_buffers[0] = memoryview(remaining_buffers[0])[sent:]
+
+            buffers = list(remaining_buffers)
+
+        # Send the remaining buffers sequentially
+        for buffer in buffers:
+            self.__send_buffer(buffer)
+
+    def __send_buffer(self, buffer: bytes) -> None:
+        buffer_view = memoryview(buffer)
+
+        total_sent = 0
+        while total_sent < len(buffer):
+            sent = self._socket.send(buffer_view[total_sent:MAX_CHUNK_SIZE + total_sent])
+
+            if sent <= 0:
+                self.__raise_connection_failure()
+
+            total_sent += sent
 
     def __receive_response(self) -> Tuple[ObjectResponseHeader, bytearray]:
         assert self._socket is not None
@@ -154,7 +199,8 @@ class SyncObjectStorageConnector:
 
         total_received = 0
         while total_received < length:
-            received = self._socket.recv_into(memoryview(buffer)[total_received:], length - total_received)
+            chunk_size = min(MAX_CHUNK_SIZE, length - total_received)
+            received = self._socket.recv_into(memoryview(buffer)[total_received:], chunk_size)
 
             if received <= 0:
                 self.__raise_connection_failure()
