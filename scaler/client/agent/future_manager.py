@@ -76,7 +76,7 @@ class ClientFutureManager(FutureManager):
                     future.set_exception(DisconnectedError("client disconnected"), profile_result)
                     return
 
-                if result.status in [TaskStatus.Success, TaskStatus.Failed]:
+                if result.status in {TaskStatus.Success, TaskStatus.Failed}:
                     assert len(result.results) == 1
                     result_object_id = ObjectID(result.results[0])
                     future.set_result_ready(result_object_id, result.status, profile_result)

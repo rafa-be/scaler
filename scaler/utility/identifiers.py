@@ -28,11 +28,8 @@ class WorkerID(Identifier):
         return f"WorkerID({self.decode()})"
 
     @staticmethod
-    def generate_worker_id(name: Optional[str] = None) -> "WorkerID":
-        if name is None:
-            name = uuid.uuid4().bytes.hex()
-
-        return WorkerID(f"{os.getpid()}|Worker|{name}".encode())
+    def generate_worker_id(name: str) -> "WorkerID":
+        return WorkerID(f"{os.getpid()}|Worker|{name}|{uuid.uuid4().bytes.hex()}".encode())
 
 
 class ProcessorID(Identifier):
@@ -41,7 +38,7 @@ class ProcessorID(Identifier):
 
     @staticmethod
     def generate_processor_id() -> "ProcessorID":
-        return ProcessorID(uuid.uuid1().bytes)
+        return ProcessorID(uuid.uuid4().bytes)
 
 
 class TaskID(Identifier):
