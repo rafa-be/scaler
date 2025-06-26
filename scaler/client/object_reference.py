@@ -6,10 +6,11 @@ from scaler.utility.identifiers import ObjectID
 @dataclasses.dataclass
 class ObjectReference:
     name: bytes
+    size: int
     object_id: ObjectID
 
     def __repr__(self):
-        return f"ScalerReference(name={self.name!r}, id={self.object_id!r})"
+        return f"ObjectReference(name={self.name!r}, size={self.size} bytes, id={self.object_id!r})"
 
     def __hash__(self):
         return hash(self.object_id)

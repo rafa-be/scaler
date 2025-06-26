@@ -319,7 +319,7 @@ class Client:
         self.__assert_client_not_stopped()
 
         cache = self._object_buffer.buffer_send_object(obj, name)
-        return ObjectReference(cache.object_name, cache.object_id)
+        return ObjectReference(cache.object_name, len(cache.object_payload), cache.object_id)
 
     def clear(self):
         """
