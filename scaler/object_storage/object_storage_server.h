@@ -185,16 +185,6 @@ public:
         }
     }
 
-    static void setTcpNoDelay(tcp::socket& socket, bool is_no_delay) {
-        boost::system::error_code ec;
-        socket.set_option(tcp::no_delay(is_no_delay), ec);
-
-        if (ec) {
-            std::cerr << "failed to set TCP_NODELAY on client socket: " << ec.message() << std::endl;
-            std::terminate();
-        }
-    }
-
     awaitable<void> listener(boost::asio::ip::tcp::endpoint endpoint) {
         auto executor = co_await boost::asio::this_coro::executor;
         tcp::acceptor acceptor(executor, endpoint);
@@ -204,7 +194,7 @@ public:
         for (;;) {
             auto shared_socket = std::make_shared<tcp::socket>(executor);
             co_await acceptor.async_accept(*shared_socket, use_awaitable);
-            setTcpNoDelay(*shared_socket, true);
+            setTCPNoDelay(*shared_socket, true);
 
             co_spawn(executor, process_request(std::move(shared_socket)), detached);
         }

@@ -29,6 +29,16 @@ using boost::asio::ip::tcp;
 namespace scaler {
 namespace object_storage {
 
+void setTCPNoDelay(tcp::socket& socket, bool is_no_delay) {
+    boost::system::error_code ec;
+    socket.set_option(tcp::no_delay(is_no_delay), ec);
+
+    if (ec) {
+        std::cerr << "failed to set TCP_NODELAY on client socket: " << ec.message() << std::endl;
+        std::terminate();
+    }
+}
+
 awaitable<void> read_request_header(tcp::socket& socket, ObjectRequestHeader& header) {
     try {
         std::array<uint64_t, CAPNP_HEADER_SIZE / CAPNP_WORD_SIZE> buf;
