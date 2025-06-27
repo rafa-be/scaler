@@ -121,6 +121,8 @@ class VanillaObjectManager(ObjectManager, Looper, Reporter):
                 worker,
                 ObjectInstruction.new_msg(
                     ObjectInstruction.ObjectInstructionType.Delete,
+                    # TODO: ideally object_user should be set to the owning client ID, but then we cannot batch these
+                    # Delete instructions.
                     None,
                     ObjectMetadata.new_msg(tuple(deleted_object_ids)),
                 ),
