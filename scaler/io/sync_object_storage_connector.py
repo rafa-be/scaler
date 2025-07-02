@@ -19,7 +19,7 @@ class SyncObjectStorageConnector:
         self._host = host
         self._port = port
 
-        self._socket: Optional[socket.socket] = socket.create_connection((self._host, self._port))
+        self._socket = socket.create_connection((self._host, self._port))
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
         self._next_request_id = 0

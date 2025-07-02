@@ -12,7 +12,8 @@ import zmq
 
 from scaler.io.config import DUMMY_CLIENT
 from scaler.io.sync_connector import SyncConnector
-from scaler.io.sync_object_storage_connector import SyncObjectStorageConnector
+#from scaler.io.sync_object_storage_connector import SyncObjectStorageConnector
+from scaler.io.batch_sync_object_storage_connector import BatchSyncObjectStorageConnector
 from scaler.protocol.python.common import ObjectMetadata, TaskStatus
 from scaler.protocol.python.message import (
     ObjectInstruction,
@@ -88,7 +89,7 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
         self._connector_agent = SyncConnector(
             context=zmq.Context(), socket_type=zmq.DEALER, address=self._agent_address, identity=None
         )
-        self._connector_storage = SyncObjectStorageConnector(self._storage_address.host, self._storage_address.port)
+        self._connector_storage = BatchSyncObjectStorageConnector(self._storage_address.host, self._storage_address.port)
 
         self._object_cache = ObjectCache(
             garbage_collect_interval_seconds=self._garbage_collect_interval_seconds,
@@ -172,11 +173,22 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
     def __cache_required_object_ids(self, task: Task) -> None:
         required_object_ids = self.__get_required_object_ids_for_task(task)
 
-        for object_id in required_object_ids:
-            if self._object_cache.has_object(object_id):
-                continue
+        # for object_id in required_object_ids:
+        #     if self._object_cache.has_object(object_id):
+        #         continue
 
-            object_content = self._connector_storage.get_object(object_id)
+        #     object_content = self._connector_storage.get_object(object_id)
+        #     self._object_cache.add_object(task.source, object_id, object_content)
+
+        missing_object_ids = [
+            object_id
+            for object_id in required_object_ids
+            if not self._object_cache.has_object(object_id)
+        ]
+
+        missings_objects = self._connector_storage.get_objects(missing_object_ids)
+
+        for object_id, object_content in zip(missing_object_ids, missings_objects):
             self._object_cache.add_object(task.source, object_id, object_content)
 
     @staticmethod
@@ -242,7 +254,7 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
 
         result_object_id = ObjectID.generate_object_id(source)
 
-        self._connector_storage.set_object(result_object_id, result_bytes)
+        self._connector_storage.set_objects([(result_object_id, result_bytes)])
         self._connector_agent.send(
             ObjectInstruction.new_msg(
                 ObjectInstruction.ObjectInstructionType.Create,

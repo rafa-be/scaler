@@ -4,7 +4,8 @@ from typing import Any, Callable, Optional
 
 from scaler.client.serializer.mixins import Serializer
 from scaler.io.sync_connector import SyncConnector
-from scaler.io.sync_object_storage_connector import SyncObjectStorageConnector
+#from scaler.io.sync_object_storage_connector import SyncObjectStorageConnector
+from scaler.io.batch_sync_object_storage_connector import BatchSyncObjectStorageConnector
 from scaler.protocol.python.common import TaskStatus
 from scaler.protocol.python.message import Task, TaskCancel
 from scaler.utility.event_list import EventList
@@ -21,7 +22,7 @@ class ScalerFuture(Future):
         group_task_id: Optional[TaskID],
         serializer: Serializer,
         connector_agent: SyncConnector,
-        connector_storage: SyncObjectStorageConnector,
+        connector_storage: BatchSyncObjectStorageConnector,
     ):
         super().__init__()
 
@@ -33,7 +34,7 @@ class ScalerFuture(Future):
         self._group_task_id: Optional[TaskID] = group_task_id
         self._serializer: Serializer = serializer
         self._connector_agent: SyncConnector = connector_agent
-        self._connector_storage: SyncObjectStorageConnector = connector_storage
+        self._connector_storage: BatchSyncObjectStorageConnector = connector_storage
 
         self._result_object_id: Optional[ObjectID] = None
         self._result_ready_event = threading.Event()

@@ -18,7 +18,8 @@ from scaler.client.serializer.default import DefaultSerializer
 from scaler.client.serializer.mixins import Serializer
 from scaler.io.config import DEFAULT_CLIENT_TIMEOUT_SECONDS, DEFAULT_HEARTBEAT_INTERVAL_SECONDS
 from scaler.io.sync_connector import SyncConnector
-from scaler.io.sync_object_storage_connector import SyncObjectStorageConnector
+#from scaler.io.sync_object_storage_connector import SyncObjectStorageConnector
+from scaler.io.batch_sync_object_storage_connector import BatchSyncObjectStorageConnector
 from scaler.protocol.python.message import ClientDisconnect, ClientShutdownResponse, GraphTask, Task
 from scaler.utility.exceptions import ClientQuitException, MissingObjects
 from scaler.utility.graph.optimization import cull_graph
@@ -114,7 +115,7 @@ class Client:
         self._storage_address = self._agent.get_storage_address()
 
         logging.info(f"ScalerClient: connect to object storage at {self._storage_address}")
-        self._connector_storage = SyncObjectStorageConnector(self._storage_address.host, self._storage_address.port)
+        self._connector_storage = BatchSyncObjectStorageConnector(self._storage_address.host, self._storage_address.port)
 
         self._object_buffer = ObjectBuffer(
             self._identity,

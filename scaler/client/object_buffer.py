@@ -6,7 +6,8 @@ import cloudpickle
 
 from scaler.client.serializer.mixins import Serializer
 from scaler.io.sync_connector import SyncConnector
-from scaler.io.sync_object_storage_connector import SyncObjectStorageConnector
+#from scaler.io.sync_object_storage_connector import SyncObjectStorageConnector
+from scaler.io.batch_sync_object_storage_connector import BatchSyncObjectStorageConnector
 from scaler.protocol.python.common import ObjectMetadata
 from scaler.protocol.python.message import ObjectInstruction
 from scaler.utility.identifiers import ClientID, ObjectID
@@ -26,7 +27,7 @@ class ObjectBuffer:
         identity: ClientID,
         serializer: Serializer,
         connector_agent: SyncConnector,
-        connector_storage: SyncObjectStorageConnector,
+        connector_storage: BatchSyncObjectStorageConnector,
     ):
         self._identity = identity
         self._serializer = serializer
@@ -62,8 +63,13 @@ class ObjectBuffer:
             )
         )
 
-        for obj_cache in self._pending_objects:
-            self._connector_storage.set_object(obj_cache.object_id, obj_cache.object_payload)
+        #for obj_cache in self._pending_objects:
+            #self._connector_storage.set_object(obj_cache.object_id, obj_cache.object_payload)
+
+        self._connector_storage.set_objects([
+            (obj_cache.object_id, obj_cache.object_payload)
+            for obj_cache in self._pending_objects
+        ])
 
         self._pending_objects.clear()
 

@@ -110,7 +110,11 @@ class AsyncObjectStorageConnector:
                 None
             )
 
-        return await pending_get_future
+        result = await pending_get_future
+
+        self._pending_get_requests.pop(object_id, None)
+
+        return result
 
     async def delete_object(self, object_id: ObjectID) -> None:
         await self.__send_request(object_id, 0, ObjectRequestHeader.ObjectRequestType.DeleteObject, None)
