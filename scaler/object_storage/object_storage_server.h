@@ -158,7 +158,7 @@ public:
                 if (!non_blocking_request) {
                     objectIDToMeta[requestHeader.objectID].metaInfo.emplace_back(socket, requestHeader, responseHeader);
                     continue;
-                }
+                    }
 
                 auto payload_view = getMemoryViewForResponsePayload(responseHeader);
 
