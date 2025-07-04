@@ -1,5 +1,8 @@
 #include "io_helper.h"
 
+#include <exception>
+#include <iostream>
+
 #include <capnp/message.h>
 #include <capnp/serialize.h>
 
@@ -15,8 +18,6 @@
 #include <boost/asio/use_awaitable.hpp>
 #include <boost/asio/write.hpp>
 #include <boost/system/system_error.hpp>
-#include <exception>
-#include <iostream>
 
 #include "protocol/object_storage.capnp.h"
 #include "scaler/object_storage/constants.h"

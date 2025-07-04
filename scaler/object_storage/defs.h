@@ -17,7 +17,7 @@ using payload_t       = std::vector<unsigned char>;
 
 struct ObjectRequestHeader {
     object_id_t objectID;
-    uint64_t payloadLength;
+    size_t payloadLength;
     uint64_t requestID;
     ::ObjectRequestHeader::ObjectRequestType reqType;
     ObjectRequestHeader(): objectID {}, payloadLength {}, requestID {}, reqType {} {}
@@ -25,7 +25,7 @@ struct ObjectRequestHeader {
 
 struct ObjectResponseHeader {
     object_id_t objectID;
-    uint64_t payloadLength;
+    size_t payloadLength;
     uint64_t responseID;
     ::ObjectResponseHeader::ObjectResponseType respType;
     ObjectResponseHeader(): objectID {}, payloadLength {}, responseID {}, respType {} {}
