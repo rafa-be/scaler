@@ -41,7 +41,7 @@ elif [ "$1" == "capnp" ]; then
 		./configure --prefix=${PREFIX} \
 			CXXFLAGS="${CXXFLAGS} -I${PREFIX}/include" \
 			LDFLAGS="${LDFLAGS} -L${PREFIX}/lib -Wl,-rpath,${PREFIX}/lib"
-		make -j6 check
+		make -j$(nproc)
 	elif [ "$2" == "install" ]; then
 		cd capnp
 		make install
