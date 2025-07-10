@@ -1,11 +1,8 @@
 #pragma once
 
-#include <algorithm>
-#include <iostream>
-#include <map>
 #include <unistd.h>
-#include <utility>
 
+#include <algorithm>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
@@ -13,15 +10,18 @@
 #include <boost/asio/ip/tcp.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/system/system_error.hpp>
+#include <iostream>
+#include <map>
+#include <utility>
 
 #include "protocol/object_storage.capnp.h"
 #include "scaler/object_storage/defs.h"
 #include "scaler/object_storage/io_helper.h"
 
 template <>
-struct std::hash<scaler::object_storage::object_t> {
-    std::size_t operator()(const scaler::object_storage::object_t& x) const noexcept {
-        return std::hash<std::string_view> {}({reinterpret_cast<const char*>(x.data()), x.size()});
+struct std::hash<scaler::object_storage::ObjectPayload> {
+    std::size_t operator()(const scaler::object_storage::ObjectPayload& payload) const noexcept {
+        return std::hash<std::string_view> {}({reinterpret_cast<const char*>(payload.data()), payload.size()});
     }
 };
 
@@ -42,15 +42,14 @@ class ObjectStorageServer {
     };
 
     struct ObjectWithMeta {
-        shared_object_t object;
+        SharedObjectPayload object;
         std::vector<Meta> metaInfo;
     };
 
     using reqType  = ::ObjectRequestHeader::ObjectRequestType;
     using respType = ::ObjectResponseHeader::ObjectResponseType;
 
-    std::span<const unsigned char> getMemoryViewForResponsePayload(
-        scaler::object_storage::ObjectResponseHeader& header) {
+    std::span<const unsigned char> getMemoryViewForResponsePayload(ObjectResponseHeader& header) {
         switch (header.respType) {
             case respType::GET_O_K: return {objectIDToMeta[header.objectID].object->data(), header.payloadLength};
             case respType::SET_O_K:
@@ -65,17 +64,14 @@ class ObjectStorageServer {
 public:
 #endif
     bool updateRecord(
-        const scaler::object_storage::ObjectRequestHeader& requestHeader,
-        scaler::object_storage::ObjectResponseHeader& responseHeader,
-        scaler::object_storage::payload_t payload) {
+        const ObjectRequestHeader& requestHeader, ObjectResponseHeader& responseHeader, ObjectPayload payload) {
         responseHeader.objectID   = requestHeader.objectID;
         responseHeader.responseID = requestHeader.requestID;
         switch (requestHeader.reqType) {
             case reqType::SET_OBJECT: {
-                auto objectHash = std::hash<object_t> {}(payload);
+                auto objectHash = std::hash<ObjectPayload> {}(payload);
                 if (!objectHashToObject.contains(objectHash)) {
-                    objectHashToObject[objectHash] =
-                        std::make_shared<scaler::object_storage::object_t>(std::move(payload));
+                    objectHashToObject[objectHash] = std::make_shared<ObjectPayload>(std::move(payload));
                 }
                 responseHeader.respType                       = respType::SET_O_K;
                 objectIDToMeta[requestHeader.objectID].object = objectHashToObject[objectHash];
@@ -99,7 +95,7 @@ public:
                 auto sharedObject = objectIDToMeta[requestHeader.objectID].object;
                 objectIDToMeta.erase(requestHeader.objectID);
                 if (sharedObject.use_count() == 2) {
-                    objectHashToObject.erase(std::hash<object_t> {}(*sharedObject));
+                    objectHashToObject.erase(std::hash<ObjectPayload> {}(*sharedObject));
                 }
                 break;
             }
@@ -108,21 +104,21 @@ public:
     }
 
 private:
-    awaitable<void> write_once(Meta meta) {
+    awaitable<void> writeOnce(Meta meta) {
         if (meta.requestHeader.reqType == reqType::GET_OBJECT) {
             uint64_t objectSize = static_cast<uint64_t>(objectIDToMeta[meta.responseHeader.objectID].object->size());
             meta.responseHeader.payloadLength = std::min(objectSize, meta.requestHeader.payloadLength);
         }
 
         auto payload_view = getMemoryViewForResponsePayload(meta.responseHeader);
-        co_await scaler::object_storage::write_response(*meta.socket, meta.responseHeader, payload_view);
+        co_await writeResponse(*meta.socket, meta.responseHeader, payload_view);
     }
 
-    awaitable<void> optionally_send_pending_requests(scaler::object_storage::ObjectRequestHeader requestHeader) {
+    awaitable<void> optionallySendPendingRequests(ObjectRequestHeader requestHeader) {
         if (requestHeader.reqType == reqType::SET_OBJECT) {
             for (auto& curr_meta: objectIDToMeta[requestHeader.objectID].metaInfo) {
                 try {
-                    co_await write_once(std::move(curr_meta));
+                    co_await writeOnce(std::move(curr_meta));
                 } catch (boost::system::system_error& e) {
                     std::cerr << "Mostly because some connections disconnected accidentally.\n";
                 }
@@ -138,31 +134,31 @@ public:
     int _onServerReadyReader;
     int _onServerReadyWriter;
 
-    std::map<scaler::object_storage::object_id_t, ObjectWithMeta> objectIDToMeta;
-    std::map<std::size_t, shared_object_t> objectHashToObject;
+    std::map<ObjectID, ObjectWithMeta> objectIDToMeta;
+    std::map<std::size_t, SharedObjectPayload> objectHashToObject;
 
-    awaitable<void> process_request(std::shared_ptr<tcp::socket> socket) {
+    awaitable<void> processRequest(std::shared_ptr<tcp::socket> socket) {
         try {
             for (;;) {
-                scaler::object_storage::ObjectRequestHeader requestHeader;
-                co_await scaler::object_storage::read_request_header(*socket, requestHeader);
+                ObjectRequestHeader requestHeader;
+                co_await readRequestHeader(*socket, requestHeader);
 
-                scaler::object_storage::payload_t payload;
-                co_await scaler::object_storage::read_request_payload(*socket, requestHeader, payload);
+                ObjectPayload payload;
+                co_await readRequestPayload(*socket, requestHeader, payload);
 
-                scaler::object_storage::ObjectResponseHeader responseHeader;
-                bool non_blocking_request = updateRecord(requestHeader, responseHeader, std::move(payload));
+                ObjectResponseHeader responseHeader;
+                bool nonBlockingRequest = updateRecord(requestHeader, responseHeader, std::move(payload));
 
-                co_await optionally_send_pending_requests(requestHeader);
+                co_await optionallySendPendingRequests(requestHeader);
 
-                if (!non_blocking_request) {
+                if (!nonBlockingRequest) {
                     objectIDToMeta[requestHeader.objectID].metaInfo.emplace_back(socket, requestHeader, responseHeader);
                     continue;
                 }
 
-                auto payload_view = getMemoryViewForResponsePayload(responseHeader);
+                auto payloadView = getMemoryViewForResponsePayload(responseHeader);
 
-                co_await scaler::object_storage::write_response(*socket, responseHeader, payload_view);
+                co_await writeResponse(*socket, responseHeader, payloadView);
             }
         } catch (std::exception& e) {
             // TODO: Logging support
@@ -185,18 +181,18 @@ public:
 
     void setServerReadyFd() {
         uint64_t value = 1;
-        ssize_t ret = write(this->_onServerReadyWriter, &value, sizeof (uint64_t));
+        ssize_t ret    = write(this->_onServerReadyWriter, &value, sizeof(uint64_t));
 
-        if (ret != sizeof (uint64_t)) {
+        if (ret != sizeof(uint64_t)) {
             std::cerr << "write to _onServerReadyWriter failed: errno=" << errno << std::endl;
             std::terminate();
         }
     }
 
     void closeServerReadyFds() {
-        std::array<int, 2> fds { this->_onServerReadyReader, this->_onServerReadyWriter };
+        std::array<int, 2> fds {this->_onServerReadyReader, this->_onServerReadyWriter};
 
-        for (auto fd : fds) {
+        for (auto fd: fds) {
             if (close(fd) != 0) {
                 std::cerr << "close failed: errno=" << errno << std::endl;
                 std::terminate();
@@ -205,41 +201,36 @@ public:
     }
 
     awaitable<void> listener(boost::asio::ip::tcp::endpoint endpoint) {
-
         auto executor = co_await boost::asio::this_coro::executor;
         tcp::acceptor acceptor(executor, endpoint);
 
         setServerReadyFd();
 
         for (;;) {
-            auto shared_socket = std::make_shared<tcp::socket>(executor);
-            co_await acceptor.async_accept(*shared_socket, use_awaitable);
-            setTCPNoDelay(*shared_socket, true);
+            auto sharedSocket = std::make_shared<tcp::socket>(executor);
+            co_await acceptor.async_accept(*sharedSocket, use_awaitable);
+            setTCPNoDelay(*sharedSocket, true);
 
-            co_spawn(executor, process_request(std::move(shared_socket)), detached);
+            co_spawn(executor, processRequest(std::move(sharedSocket)), detached);
         }
     }
 
 public:
-    ObjectStorageServer() {
-        this->initServerReadyFds();
-    }
+    ObjectStorageServer() { this->initServerReadyFds(); }
 
-    ~ObjectStorageServer() {
-        this->closeServerReadyFds();
-    }
+    ~ObjectStorageServer() { this->closeServerReadyFds(); }
 
     void run(std::string name, std::string port) {
         try {
-            boost::asio::io_context io_context(1);
-            tcp::resolver resolver(io_context);
+            boost::asio::io_context ioContext(1);
+            tcp::resolver resolver(ioContext);
             auto res = resolver.resolve(name, port);
 
-            boost::asio::signal_set signals(io_context, SIGINT, SIGTERM);
-            signals.async_wait([&](auto, auto) { io_context.stop(); });
+            boost::asio::signal_set signals(ioContext, SIGINT, SIGTERM);
+            signals.async_wait([&](auto, auto) { ioContext.stop(); });
 
-            co_spawn(io_context, listener(res.begin()->endpoint()), detached);
-            io_context.run();
+            co_spawn(ioContext, listener(res.begin()->endpoint()), detached);
+            ioContext.run();
         } catch (std::exception& e) {
             std::cerr << "Exception: " << e.what() << std::endl;
             std::cerr << "Mostly something serious happen, inspect capnp header corruption" << std::endl;
@@ -248,9 +239,9 @@ public:
 
     void waitUntilReady() {
         uint64_t value;
-        ssize_t ret = read(this->_onServerReadyReader, &value, sizeof (uint64_t));
+        ssize_t ret = read(this->_onServerReadyReader, &value, sizeof(uint64_t));
 
-        if (ret != sizeof (uint64_t)) {
+        if (ret != sizeof(uint64_t)) {
             std::cerr << "read from _onServerReadyReader failed: errno=" << errno << std::endl;
             std::terminate();
         }
