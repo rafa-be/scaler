@@ -30,9 +30,9 @@ using boost::asio::ip::tcp;
 namespace scaler {
 namespace object_storage {
 
-void setTCPNoDelay(tcp::socket& socket, bool is_no_delay) {
+void setTCPNoDelay(tcp::socket& socket, bool isNoDelay) {
     boost::system::error_code ec;
-    socket.set_option(tcp::no_delay(is_no_delay), ec);
+    socket.set_option(tcp::no_delay(isNoDelay), ec);
 
     if (ec) {
         std::cerr << "failed to set TCP_NODELAY on client socket: " << ec.message() << std::endl;
@@ -40,7 +40,7 @@ void setTCPNoDelay(tcp::socket& socket, bool is_no_delay) {
     }
 }
 
-awaitable<void> read_request_header(tcp::socket& socket, ObjectRequestHeader& header) {
+awaitable<void> readRequestHeader(tcp::socket& socket, ObjectRequestHeader& header) {
     try {
         std::array<uint64_t, CAPNP_HEADER_SIZE / CAPNP_WORD_SIZE> buf;
         std::size_t n =
@@ -77,11 +77,10 @@ awaitable<void> read_request_header(tcp::socket& socket, ObjectRequestHeader& he
     }
 }
 
-awaitable<void> read_request_payload(tcp::socket& socket, ObjectRequestHeader& header, payload_t& payload) {
+awaitable<void> readRequestPayload(tcp::socket& socket, ObjectRequestHeader& header, ObjectPayload& payload) {
     using type = ::ObjectRequestHeader::ObjectRequestType;
     switch (header.reqType) {
         case type::SET_OBJECT: break;
-
         case type::GET_OBJECT: co_return;
         case type::DELETE_OBJECT:
         default: header.payloadLength = 0; break;
@@ -109,7 +108,7 @@ awaitable<void> read_request_payload(tcp::socket& socket, ObjectRequestHeader& h
     }
 }
 
-boost::asio::awaitable<void> write_response(
+boost::asio::awaitable<void> writeResponse(
     boost::asio::ip::tcp::socket& socket, ObjectResponseHeader& header, std::span<const unsigned char> payload) {
     capnp::MallocMessageBuilder returnMsg;
     auto respRoot = returnMsg.initRoot<::ObjectResponseHeader>();
