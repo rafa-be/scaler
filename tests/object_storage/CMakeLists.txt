@@ -12,22 +12,22 @@ set(BUILD_GTEST ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
 add_executable(
-  test_update_record
-  test_update_record.cpp
-  ${PROJECT_SOURCE_DIR}/scaler/object_storage/io_helper.cpp
+  test_object_register
+  test_object_register.cpp
+  ${PROJECT_SOURCE_DIR}/scaler/object_storage/object_register.cpp
 )
 
-target_include_directories(test_update_record
+target_include_directories(test_object_register
   PRIVATE ${CMAKE_BINARY_DIR}
 )
 
 target_link_libraries(
-  test_update_record 
+  test_object_register
   PRIVATE GTest::gtest_main
   PRIVATE CapnProto::capnp
 )
 
-add_test(NAME test_update_record COMMAND test_update_record)
+add_test(NAME test_object_register COMMAND test_object_register)
 
 add_executable(
   test_scaler_object
@@ -37,12 +37,12 @@ add_executable(
   ${CMAKE_BINARY_DIR}/protocol/object_storage.capnp.c++
 )
 
-target_include_directories(test_scaler_object 
+target_include_directories(test_scaler_object
   PRIVATE ${CMAKE_BINARY_DIR}
 )
 
 target_link_libraries(
-  test_scaler_object 
+  test_scaler_object
   PRIVATE GTest::gtest_main
   PRIVATE CapnProto::capnp
 )
