@@ -11,8 +11,6 @@ class ObjectRegister {
 public:
     ObjectRegister();
 
-    bool hasObject(const ObjectID& objectID) const noexcept;
-
     void setObject(const ObjectID& objectID, ObjectPayload&& payload) noexcept;
 
     // Returns `nullptr` if the object does not exist.
@@ -20,6 +18,14 @@ public:
 
     // Returns `true` if the deleted object existed, otherwise returns `false`.
     bool deleteObject(const ObjectID& objectID) noexcept;
+
+    bool hasObject(const ObjectID& objectID) const noexcept;
+
+    // Returns the total number of objects stored.
+    size_t size() const noexcept;
+
+    // Returns the total number of unique objects stored (i.e. only count duplicates once).
+    size_t size_unique() const noexcept;
 
 private:
     using ObjectHash = std::size_t;

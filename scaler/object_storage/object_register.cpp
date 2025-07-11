@@ -14,10 +14,6 @@ namespace object_storage {
 
 ObjectRegister::ObjectRegister() {}
 
-bool ObjectRegister::hasObject(const ObjectID& objectID) const noexcept {
-    return objectIDToHash.contains(objectID);
-}
-
 void ObjectRegister::setObject(const ObjectID& objectID, ObjectPayload&& payload) noexcept {
     if (hasObject(objectID)) {
         // Overriding object: delete old first
@@ -28,13 +24,19 @@ void ObjectRegister::setObject(const ObjectID& objectID, ObjectPayload&& payload
 
     objectIDToHash[objectID] = hash;
 
-    if (!hashToObject.contains(hash)) {
+    auto hashIt = hashToObject.find(hash);
+
+    if (hashIt == hashToObject.end()) {
+        // New object payload
         hashToObject.emplace(
             hash,
             RegisteredObject {
                 .useCount = 1,
                 .payload  = std::make_shared<const ObjectPayload>(std::move(payload)),
             });
+    } else {
+        // Known object payload
+        ++hashIt->second.useCount;
     }
 }
 
@@ -67,6 +69,18 @@ bool ObjectRegister::deleteObject(const ObjectID& objectID) noexcept {
     objectIDToHash.erase(hashIt);
 
     return true;
+}
+
+bool ObjectRegister::hasObject(const ObjectID& objectID) const noexcept {
+    return objectIDToHash.contains(objectID);
+}
+
+size_t ObjectRegister::size() const noexcept {
+    return objectIDToHash.size();
+}
+
+size_t ObjectRegister::size_unique() const noexcept {
+    return hashToObject.size();
 }
 
 };  // namespace object_storage
