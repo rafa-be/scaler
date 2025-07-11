@@ -3,6 +3,7 @@ add_library(cc_object_storage_server SHARED)
 target_sources(cc_object_storage_server PRIVATE
   object_storage_server.h
   io_helper.cpp
+  object_register.cpp
 )
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/scaler/object_storage)
