@@ -3,6 +3,7 @@ add_library(cc_object_storage_server SHARED)
 target_sources(cc_object_storage_server PRIVATE
   object_storage_server.h
   io_helper.cpp
+  message.cpp
   object_register.cpp
 )
 
