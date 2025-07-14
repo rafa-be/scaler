@@ -22,6 +22,8 @@
 #include "protocol/object_storage.capnp.h"
 #include "scaler/object_storage/constants.h"
 #include "scaler/object_storage/defs.h"
+#include "scaler/object_storage/message.h"
+
 
 using boost::asio::awaitable;
 using boost::asio::use_awaitable;
@@ -42,25 +44,12 @@ void setTCPNoDelay(tcp::socket& socket, bool isNoDelay) {
 
 awaitable<void> readRequestHeader(tcp::socket& socket, ObjectRequestHeader& header) {
     try {
-        std::array<uint64_t, CAPNP_HEADER_SIZE / CAPNP_WORD_SIZE> buf;
+        std::array<uint8_t, CAPNP_HEADER_SIZE> buffer;
         std::size_t n =
-            co_await boost::asio::async_read(socket, boost::asio::buffer(buf.data(), CAPNP_HEADER_SIZE), use_awaitable);
+            co_await boost::asio::async_read(socket, boost::asio::buffer(buffer.data(), CAPNP_HEADER_SIZE), use_awaitable);
 
-        capnp::FlatArrayMessageReader reader(
-            kj::ArrayPtr<const capnp::word>((const capnp::word*)buf.data(), CAPNP_HEADER_SIZE / CAPNP_WORD_SIZE));
-        auto requestRoot = reader.getRoot<::ObjectRequestHeader>();
-
-        header.reqType       = requestRoot.getRequestType();
-        header.payloadLength = requestRoot.getPayloadLength();
-        header.requestID     = requestRoot.getRequestID();
-
-        auto objectID   = requestRoot.getObjectID();
-        header.objectID = {
-            objectID.getField0(),
-            objectID.getField1(),
-            objectID.getField2(),
-            objectID.getField3(),
-        };
+        // TODO: check the value of `n`
+        header = ObjectRequestHeader::fromBuffer(buffer);
     } catch (boost::system::system_error& e) {
         // TODO: make this a log, since eof is not really an err.
         if (e.code() == boost::asio::error::eof) {
@@ -79,7 +68,7 @@ awaitable<void> readRequestHeader(tcp::socket& socket, ObjectRequestHeader& head
 
 awaitable<void> readRequestPayload(tcp::socket& socket, ObjectRequestHeader& header, ObjectPayload& payload) {
     using type = ::ObjectRequestHeader::ObjectRequestType;
-    switch (header.reqType) {
+    switch (header.requestType) {
         case type::SET_OBJECT: break;
         case type::GET_OBJECT: co_return;
         case type::DELETE_OBJECT:
@@ -99,8 +88,10 @@ awaitable<void> readRequestPayload(tcp::socket& socket, ObjectRequestHeader& hea
     }
 
     payload.resize(header.payloadLength);
+
     try {
         std::size_t n = co_await boost::asio::async_read(socket, boost::asio::buffer(payload), use_awaitable);
+        // TODO: check the value of `n`.
     } catch (boost::system::system_error& e) {
         std::cerr << "payload ends prematurely, e.what() = " << e.what() << '\n';
         std::cerr << "Failing fast. Terminting now...\n";
@@ -110,21 +101,10 @@ awaitable<void> readRequestPayload(tcp::socket& socket, ObjectRequestHeader& hea
 
 boost::asio::awaitable<void> writeResponse(
     boost::asio::ip::tcp::socket& socket, ObjectResponseHeader& header, std::span<const unsigned char> payload) {
-    capnp::MallocMessageBuilder returnMsg;
-    auto respRoot = returnMsg.initRoot<::ObjectResponseHeader>();
-    respRoot.setResponseType(header.respType);
-    respRoot.setPayloadLength(payload.size());
-    respRoot.setResponseID(header.responseID);
-    auto respRootObjectID = respRoot.initObjectID();
-    respRootObjectID.setField0(header.objectID[0]);
-    respRootObjectID.setField1(header.objectID[1]);
-    respRootObjectID.setField2(header.objectID[2]);
-    respRootObjectID.setField3(header.objectID[3]);
-
-    auto msgBuf = capnp::messageToFlatArray(returnMsg);
+    auto headerBuffer = header.toBuffer();
 
     std::array<boost::asio::const_buffer, 2> buffers {
-        boost::asio::buffer(msgBuf.asBytes().begin(), msgBuf.asBytes().size()),
+        boost::asio::buffer(headerBuffer.asBytes().begin(), headerBuffer.asBytes().size()),
         boost::asio::buffer(payload),
     };
 

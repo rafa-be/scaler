@@ -7,6 +7,7 @@
 #include <span>
 
 #include "scaler/object_storage/defs.h"
+#include "scaler/object_storage/message.h"
 
 namespace scaler {
 namespace object_storage {
