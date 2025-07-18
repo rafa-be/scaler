@@ -6,9 +6,9 @@
 using reqType  = ObjectRequestHeader::ObjectRequestType;
 using respType = ObjectResponseHeader::ObjectResponseType;
 
-std::string payload = "Hello, world!";
 
-TEST(ObjectStorageTestSuite, TestSetObject) {
+
+TEST(ObjectRegisterTestSuite, TestSetObject) {
     scaler::object_storage::ObjectStorageServer server;
     scaler::object_storage::ObjectRequestHeader requestHeader;
     requestHeader.objectID      = {0, 1, 2, 3};

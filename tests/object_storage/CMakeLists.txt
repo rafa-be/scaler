@@ -11,40 +11,20 @@ set(BUILD_GMOCK OFF CACHE BOOL "" FORCE)
 set(BUILD_GTEST ON CACHE BOOL "" FORCE)
 FetchContent_MakeAvailable(googletest)
 
-add_executable(
-  test_object_register
-  test_object_register.cpp
-  ${PROJECT_SOURCE_DIR}/scaler/object_storage/object_register.cpp
-)
+# Compile, link and add the provided source CPP file as a test executable
+function(add_test_executable test_name source_file)
+    add_executable(${test_name} ${source_file})
 
-target_include_directories(test_object_register
-  PRIVATE ${CMAKE_BINARY_DIR}
-)
+    target_include_directories(${test_name} PRIVATE ${CMAKE_BINARY_DIR})
 
-target_link_libraries(
-  test_object_register
-  PRIVATE GTest::gtest_main
-  PRIVATE CapnProto::capnp
-)
+    target_link_libraries(
+        ${test_name}
+        PRIVATE GTest::gtest_main
+        PRIVATE cc_object_storage_server
+    )
 
-add_test(NAME test_object_register COMMAND test_object_register)
+    add_test(NAME ${test_name} COMMAND ${test_name})
+endfunction()
 
-add_executable(
-  test_scaler_object
-  test_scaler_object.cpp
-  ${PROJECT_SOURCE_DIR}/scaler/object_storage/io_helper.cpp
-  ${PROJECT_SOURCE_DIR}/scaler/object_storage/object_storage_server.h
-  ${CMAKE_BINARY_DIR}/protocol/object_storage.capnp.c++
-)
-
-target_include_directories(test_scaler_object
-  PRIVATE ${CMAKE_BINARY_DIR}
-)
-
-target_link_libraries(
-  test_scaler_object
-  PRIVATE GTest::gtest_main
-  PRIVATE CapnProto::capnp
-)
-
-add_test(NAME test_scaler_object COMMAND test_scaler_object)
+add_test_executable(test_object_register test_object_register.cpp)
+add_test_executable(test_object_storage_server test_object_storage_server.cpp)
