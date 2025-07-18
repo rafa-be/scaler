@@ -14,7 +14,8 @@ namespace object_storage {
 
 ObjectRegister::ObjectRegister() {}
 
-void ObjectRegister::setObject(const ObjectID& objectID, ObjectPayload&& payload) noexcept {
+std::shared_ptr<const ObjectPayload> ObjectRegister::setObject(
+    const ObjectID& objectID, ObjectPayload&& payload) noexcept {
     if (hasObject(objectID)) {
         // Overriding object: delete old first
         deleteObject(objectID);
@@ -24,20 +25,24 @@ void ObjectRegister::setObject(const ObjectID& objectID, ObjectPayload&& payload
 
     objectIDToHash[objectID] = hash;
 
-    auto hashIt = hashToObject.find(hash);
+    auto objectIt = hashToObject.find(hash);
 
-    if (hashIt == hashToObject.end()) {
+    if (objectIt == hashToObject.end()) {
         // New object payload
-        hashToObject.emplace(
-            hash,
-            RegisteredObject {
-                .useCount = 1,
-                .payload  = std::make_shared<const ObjectPayload>(std::move(payload)),
-            });
+        objectIt = hashToObject
+                       .emplace(
+                           hash,
+                           RegisteredObject {
+                               .useCount = 1,
+                               .payload  = std::make_shared<const ObjectPayload>(std::move(payload)),
+                           })
+                       .first;
     } else {
         // Known object payload
-        ++hashIt->second.useCount;
+        ++(objectIt->second.useCount);
     }
+
+    return objectIt->second.payload;
 }
 
 std::shared_ptr<const ObjectPayload> ObjectRegister::getObject(const ObjectID& objectID) const noexcept {

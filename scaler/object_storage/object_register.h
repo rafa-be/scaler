@@ -11,7 +11,8 @@ class ObjectRegister {
 public:
     ObjectRegister();
 
-    void setObject(const ObjectID& objectID, ObjectPayload&& payload) noexcept;
+    // Returns the pointer to the moved object.
+    std::shared_ptr<const ObjectPayload> setObject(const ObjectID& objectID, ObjectPayload&& payload) noexcept;
 
     // Returns `nullptr` if the object does not exist.
     std::shared_ptr<const ObjectPayload> getObject(const ObjectID& objectID) const noexcept;

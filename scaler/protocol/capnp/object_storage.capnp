@@ -1,5 +1,8 @@
 @0xc2a14174aa42a12a;
 
+using Cxx = import "/capnp/c++.capnp";
+$Cxx.namespace("scaler::protocol");
+
 struct ObjectRequestHeader {
     objectID @0: ObjectID; # 32 bytes
     payloadLength @1: UInt64; # 8 bytes
