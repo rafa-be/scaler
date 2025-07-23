@@ -11,7 +11,7 @@ class ObjectRegister {
 public:
     ObjectRegister();
 
-    // Returns the pointer to the moved object.
+    // Returns the pointer to the created (and moved) object.
     std::shared_ptr<const ObjectPayload> setObject(const ObjectID& objectID, ObjectPayload&& payload) noexcept;
 
     // Returns `nullptr` if the object does not exist.
@@ -19,6 +19,11 @@ public:
 
     // Returns `true` if the deleted object existed, otherwise returns `false`.
     bool deleteObject(const ObjectID& objectID) noexcept;
+
+    // Tries to duplicate `originalObjectID`'s content into a `newObjectID`. Overrides `newObjectID` if it already
+    // exist.
+    // Returns `false` if `originalObjectID` does not exist, otherwise returns `true`.
+    bool duplicateObject(const ObjectID& originalObjectID, const ObjectID& newObjectID) noexcept;
 
     bool hasObject(const ObjectID& objectID) const noexcept;
 

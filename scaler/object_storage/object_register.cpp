@@ -76,6 +76,27 @@ bool ObjectRegister::deleteObject(const ObjectID& objectID) noexcept {
     return true;
 }
 
+bool ObjectRegister::duplicateObject(const ObjectID& originalObjectID, const ObjectID& newObjectID) noexcept {
+    auto hashIt = objectIDToHash.find(originalObjectID);
+
+    if (hashIt == objectIDToHash.end()) {
+        return false;
+    }
+
+    if (hasObject(newObjectID)) {
+        // Overriding object: delete old first
+        deleteObject(newObjectID);
+    }
+
+    auto hash = hashIt->second;
+
+    ++hashToObject[hash].useCount;
+
+    objectIDToHash[newObjectID] = hash;
+
+    return true;
+}
+
 bool ObjectRegister::hasObject(const ObjectID& objectID) const noexcept {
     return objectIDToHash.contains(objectID);
 }
