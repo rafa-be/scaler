@@ -44,7 +44,7 @@ TEST(ObjectRegisterTestSuite, TestGetObject) {
     EXPECT_EQ(*payloadPtr, payload);
 }
 
-TEST(ObjectStorageTestSuite, TestDeleteObject) {
+TEST(ObjectRegisterTestSuite, TestDeleteObject) {
     scaler::object_storage::ObjectRegister objectRegister;
 
     scaler::object_storage::ObjectID objectID1 {0, 1, 2, 3};
@@ -62,7 +62,32 @@ TEST(ObjectStorageTestSuite, TestDeleteObject) {
     EXPECT_FALSE(deleted);
 }
 
-TEST(ObjectStorageTestSuite, ReferenceCountObject) {
+TEST(ObjectRegisterTestSuite, TestDuplicateObject) {
+    scaler::object_storage::ObjectRegister objectRegister;
+
+    scaler::object_storage::ObjectID objectID1 {0, 1, 2, 3};
+    scaler::object_storage::ObjectID objectID2 {0, 1, 2, 4};
+
+    // Cannot duplicate a non existing object.
+    bool success = objectRegister.duplicateObject(objectID1, objectID2);
+    EXPECT_FALSE(success);
+
+    objectRegister.setObject(objectID1, std::move(std::vector(payload)));
+
+    success = objectRegister.duplicateObject(objectID1, objectID2);
+    EXPECT_TRUE(success);
+
+    auto payloadPtr = objectRegister.getObject(objectID2);
+    EXPECT_EQ(*payloadPtr, payload);
+
+    // Deleting the first object does not remove the duplicated one.
+    objectRegister.deleteObject(objectID1);
+    EXPECT_TRUE(objectRegister.hasObject(objectID2));
+    EXPECT_EQ(objectRegister.size(), 1);
+    EXPECT_EQ(objectRegister.size_unique(), 1);
+}
+
+TEST(ObjectRegisterTestSuite, TestReferenceCountObject) {
     scaler::object_storage::ObjectRegister objectRegister;
 
     scaler::object_storage::ObjectID objectID1 {11, 0, 0, 0};
