@@ -48,14 +48,6 @@ struct ObjectID {
 
     static constexpr size_t bufferSize() { return 48; }
 
-    static size_t bufferSize2() {
-        capnp::schema::Node::Struct::Reader structInfo =
-            capnp::Schema::from<scaler::protocol::ObjectID>().getProto().getStruct();
-        uint16_t dataWords    = structInfo.getDataWordCount() * CAPNP_WORD_SIZE;
-        uint16_t pointerWords = structInfo.getPointerCount() * CAPNP_WORD_SIZE;
-        return dataWords + pointerWords;
-    }
-
     kj::Array<const capnp::word> toBuffer() const;
 
     template <typename Buffer>

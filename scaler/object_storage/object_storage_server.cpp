@@ -98,22 +98,18 @@ awaitable<void> ObjectStorageServer::processRequests(std::shared_ptr<tcp::socket
 
             switch (requestHeader.requestType) {
                 case ObjectRequestType::SET_OBJECT: {
-                    std::cerr << "Receice SET\n";
                     co_await processSetRequest(socket, requestHeader);
                     break;
                 }
                 case ObjectRequestType::GET_OBJECT: {
-                    std::cerr << "Receice GET\n";
                     co_await processGetRequest(socket, requestHeader);
                     break;
                 }
                 case ObjectRequestType::DELETE_OBJECT: {
-                    std::cerr << "Receice DEL\n";
                     co_await processDeleteRequest(socket, requestHeader);
                     break;
                 }
                 case ObjectRequestType::DUPLICATE_OBJECT: {
-                    std::cerr << "Receice DUP\n";
                     co_await processDuplicateRequest(socket, requestHeader);
                     break;
                 }
@@ -214,8 +210,6 @@ awaitable<void> ObjectStorageServer::sendGetResponse(
     const ObjectRequestHeader& requestHeader,
     std::shared_ptr<const ObjectPayload> objectPtr) {
     uint64_t payloadLength = std::min(static_cast<uint64_t>(objectPtr->size()), requestHeader.payloadLength);
-
-    std::cerr << "Send GET response with payloadLength=" << payloadLength << std::endl;
 
     ObjectResponseHeader responseHeader {
         .objectID      = requestHeader.objectID,
