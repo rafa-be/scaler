@@ -10,9 +10,22 @@ struct ObjectRequestHeader {
     requestType @3: ObjectRequestType; # 2 bytes
 
     enum ObjectRequestType {
-        setObject @0;       # send object to object storage, in the future, we might provide expiration time
-        getObject @1;       # get object when it's ready, it will be similar like subscribe
+        # Set or override an object to the message's payload.
+        # Overrides the object's content if it already exists
+        # Always immediately answers with a setOK message.
+        setObject @0;
+
+        # Get an object's content.
+        # If the object does not exist, delays the getOk response until the object is created.
+        getObject @1;
+
+        # Remove the object.
         deleteObject @2;
+
+        # Creates the provided object ID by duplicating the content of the object ID provided in payload.
+        # Overrides the object's content if the object already exists.
+        # If the object does not exist, delays the duplicateOK response until the original object is created.
+        duplicateObject @3;
     }
 }
 
@@ -31,8 +44,9 @@ struct ObjectResponseHeader {
 
     enum ObjectResponseType {
         setOK @0;
-        getOK @1;             # if object not exists, it will hang
+        getOK @1;
         delOK @2;
         delNotExists @3;
+        duplicateOK @4;
     }
 }

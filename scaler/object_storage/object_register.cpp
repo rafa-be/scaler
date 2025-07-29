@@ -76,11 +76,12 @@ bool ObjectRegister::deleteObject(const ObjectID& objectID) noexcept {
     return true;
 }
 
-bool ObjectRegister::duplicateObject(const ObjectID& originalObjectID, const ObjectID& newObjectID) noexcept {
+std::shared_ptr<const ObjectPayload> ObjectRegister::duplicateObject(
+    const ObjectID& originalObjectID, const ObjectID& newObjectID) noexcept {
     auto hashIt = objectIDToHash.find(originalObjectID);
 
     if (hashIt == objectIDToHash.end()) {
-        return false;
+        return nullptr;
     }
 
     if (hasObject(newObjectID)) {
@@ -90,11 +91,13 @@ bool ObjectRegister::duplicateObject(const ObjectID& originalObjectID, const Obj
 
     auto hash = hashIt->second;
 
-    ++hashToObject[hash].useCount;
+    RegisteredObject& object = hashToObject[hash];
+
+    ++(object.useCount);
 
     objectIDToHash[newObjectID] = hash;
 
-    return true;
+    return object.payload;
 }
 
 bool ObjectRegister::hasObject(const ObjectID& objectID) const noexcept {

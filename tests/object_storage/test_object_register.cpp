@@ -69,16 +69,14 @@ TEST(ObjectRegisterTestSuite, TestDuplicateObject) {
     scaler::object_storage::ObjectID objectID2 {0, 1, 2, 4};
 
     // Cannot duplicate a non existing object.
-    bool success = objectRegister.duplicateObject(objectID1, objectID2);
-    EXPECT_FALSE(success);
+    auto duplicatedObject = objectRegister.duplicateObject(objectID1, objectID2);
+    EXPECT_EQ(duplicatedObject, nullptr);
 
     objectRegister.setObject(objectID1, std::move(std::vector(payload)));
 
-    success = objectRegister.duplicateObject(objectID1, objectID2);
-    EXPECT_TRUE(success);
-
-    auto payloadPtr = objectRegister.getObject(objectID2);
-    EXPECT_EQ(*payloadPtr, payload);
+    duplicatedObject = objectRegister.duplicateObject(objectID1, objectID2);
+    EXPECT_NE(duplicatedObject, nullptr);
+    EXPECT_EQ(*duplicatedObject, payload);
 
     // Deleting the first object does not remove the duplicated one.
     objectRegister.deleteObject(objectID1);

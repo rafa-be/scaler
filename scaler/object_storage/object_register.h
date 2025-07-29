@@ -2,7 +2,7 @@
 
 #include <map>
 
-#include "scaler/object_storage/defs.h"
+#include "scaler/object_storage/message.h"
 
 namespace scaler {
 namespace object_storage {
@@ -22,8 +22,9 @@ public:
 
     // Tries to duplicate `originalObjectID`'s content into a `newObjectID`. Overrides `newObjectID` if it already
     // exist.
-    // Returns `false` if `originalObjectID` does not exist, otherwise returns `true`.
-    bool duplicateObject(const ObjectID& originalObjectID, const ObjectID& newObjectID) noexcept;
+    // Returns `nullptr` if `originalObjectID` does not exist, otherwise returns the object's content.
+    std::shared_ptr<const ObjectPayload> duplicateObject(
+        const ObjectID& originalObjectID, const ObjectID& newObjectID) noexcept;
 
     bool hasObject(const ObjectID& objectID) const noexcept;
 

@@ -53,7 +53,7 @@ protected:
 
             if (header.payloadLength > 0) {
                 payload.emplace(header.payloadLength);
-                boost::asio::read(socket, boost::asio::buffer(payload->data(), header.payloadLength));
+                boost::asio::read(socket, boost::asio::buffer(*payload));
             } else {
                 payload.reset();
             }
@@ -244,6 +244,70 @@ TEST_F(ObjectStorageServerTest, TestDeleteObject) {
     }
 }
 
+TEST_F(ObjectStorageServerTest, TestDuplicateObject) {
+    ObjectResponseHeader responseHeader;
+    std::optional<ObjectPayload> responsePayload;
+    uint64_t requestID = 655;
+
+    auto client = getClient();
+
+    ObjectID originalObjectID {0, 6, 3, 91};
+    ObjectID newObjectID {0, 91, 3, 6};
+
+    // Set the object
+    {
+        ObjectRequestHeader requestHeader {
+            .objectID      = originalObjectID,
+            .payloadLength = payload.size(),
+            .requestID     = requestID++,
+            .requestType   = ObjectRequestType::SET_OBJECT,
+        };
+
+        client->writeRequest(requestHeader, {payload});
+
+        client->readResponse(responseHeader, responsePayload);
+        EXPECT_EQ(responseHeader.responseType, ObjectResponseType::SET_O_K);
+    }
+
+    // Duplicate the object
+    {
+        ObjectRequestHeader requestHeader {
+            .objectID      = newObjectID,
+            .payloadLength = ObjectID::bufferSize(),
+            .requestID     = requestID++,
+            .requestType   = ObjectRequestType::DUPLICATE_OBJECT,
+        };
+
+        auto originalObjectIDBuffer = originalObjectID.toBuffer();
+        ObjectPayload originalObjectIDPayload {
+            reinterpret_cast<const uint8_t*>(originalObjectIDBuffer.begin()),
+            reinterpret_cast<const uint8_t*>(originalObjectIDBuffer.end())};
+
+        client->writeRequest(requestHeader, {originalObjectIDPayload});
+
+        client->readResponse(responseHeader, responsePayload);
+        EXPECT_EQ(responseHeader.responseType, ObjectResponseType::DUPLICATE_O_K);
+    }
+
+    // Get the duplicated object
+    {
+        ObjectRequestHeader requestHeader {
+            .objectID      = newObjectID,
+            .payloadLength = UINT64_MAX,
+            .requestID     = requestID++,
+            .requestType   = ObjectRequestType::GET_OBJECT,
+        };
+
+        client->writeRequest(requestHeader, {});
+
+        client->readResponse(responseHeader, responsePayload);
+
+        EXPECT_EQ(responseHeader.responseType, ObjectResponseType::GET_O_K);
+        EXPECT_TRUE(responsePayload.has_value());
+        EXPECT_EQ(*responsePayload, payload);
+    }
+}
+
 TEST_F(ObjectStorageServerTest, TestEmptyObject) {
     ObjectResponseHeader responseHeader;
     std::optional<ObjectPayload> responsePayload;
@@ -294,23 +358,44 @@ TEST_F(ObjectStorageServerTest, TestRequestBlocking) {
 
     auto client1 = getClient();
     auto client2 = getClient();
+    auto client3 = getClient();
 
-    // Client 1 sends a blocking get request
+    ObjectID originalObjectID {0, 0, 0, 1};
+    ObjectID duplicatedObjectID {0, 0, 0, 2};
+
+    // Client 1 sends a blocking get request for the not yet duplicated object
     {
         ObjectRequestHeader requestHeader {
-            .objectID      = {0xdead, 0xbeef, 0xdead, 0xbeef},
+            .objectID      = duplicatedObjectID,
             .payloadLength = UINT64_MAX,
             .requestID     = requestID++,
             .requestType   = ObjectRequestType::GET_OBJECT,
         };
 
-        client1->writeRequest(requestHeader, std::nullopt);
+        client1->writeRequest(requestHeader, {});
     }
 
-    // Client 2 sends the object's data
+    // Client 3 duplicates the not yet submitted original object's data
     {
         ObjectRequestHeader requestHeader {
-            .objectID      = {0xdead, 0xbeef, 0xdead, 0xbeef},
+            .objectID      = duplicatedObjectID,
+            .payloadLength = ObjectID::bufferSize(),
+            .requestID     = requestID++,
+            .requestType   = ObjectRequestType::DUPLICATE_OBJECT,
+        };
+
+        auto objectIDBuffer = originalObjectID.toBuffer();
+        ObjectPayload objectIDPayload {
+            reinterpret_cast<const uint8_t*>(objectIDBuffer.begin()),
+            reinterpret_cast<const uint8_t*>(objectIDBuffer.end())};
+
+        client3->writeRequest(requestHeader, {objectIDPayload});
+    }
+
+    // Client 2 sends the original object's data
+    {
+        ObjectRequestHeader requestHeader {
+            .objectID      = originalObjectID,
             .payloadLength = payload.size(),
             .requestID     = requestID++,
             .requestType   = ObjectRequestType::SET_OBJECT,
@@ -322,7 +407,14 @@ TEST_F(ObjectStorageServerTest, TestRequestBlocking) {
         EXPECT_EQ(responseHeader.responseType, ObjectResponseType::SET_O_K);
     }
 
-    // Client 1 receives the data
+    // Client 3 receives the duplicate OK response
+    {
+        client3->readResponse(responseHeader, responsePayload);
+
+        EXPECT_EQ(responseHeader.responseType, ObjectResponseType::DUPLICATE_O_K);
+    }
+
+    // Client 1 receives the duplicated object's data
     {
         client1->readResponse(responseHeader, responsePayload);
 

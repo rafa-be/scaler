@@ -8,7 +8,6 @@
 namespace scaler {
 namespace object_storage {
 
-using ObjectID            = std::array<uint64_t, 4>;
 using ObjectPayload       = std::vector<unsigned char>;
 using SharedObjectPayload = std::shared_ptr<ObjectPayload>;
 

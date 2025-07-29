@@ -1,5 +1,7 @@
 #pragma once
 
+#include <arpa/inet.h>
+
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
@@ -14,13 +16,9 @@ namespace object_storage {
 
 void setTCPNoDelay(boost::asio::ip::tcp::socket& socket, bool isNoDelay);
 
-boost::asio::awaitable<void> readRequestHeader(boost::asio::ip::tcp::socket& socket, ObjectRequestHeader& header);
+uint64_t htonll(uint64_t value);
 
-boost::asio::awaitable<void> readRequestPayload(
-    boost::asio::ip::tcp::socket& socket, ObjectRequestHeader& header, ObjectPayload& payload);
-
-boost::asio::awaitable<void> writeResponse(
-    boost::asio::ip::tcp::socket& socket, ObjectResponseHeader& header, std::span<const unsigned char> payloadView);
+uint64_t ntohll(uint64_t value);
 
 };  // namespace object_storage
 };  // namespace scaler
