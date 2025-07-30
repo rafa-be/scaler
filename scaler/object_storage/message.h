@@ -1,12 +1,10 @@
 #pragma once
 
-#include <capnp/message.h>
-#include <capnp/schema.h>
 #include <capnp/serialize.h>
 
+#include <vector>
+
 #include "protocol/object_storage.capnp.h"
-#include "scaler/object_storage/constants.h"
-#include "scaler/object_storage/defs.h"
 
 namespace scaler {
 namespace object_storage {

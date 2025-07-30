@@ -1,8 +1,5 @@
 #pragma once
 
-#include <array>
-#include <boost/asio/ip/tcp.hpp>
-#include <memory>
 #include <vector>
 
 namespace scaler {

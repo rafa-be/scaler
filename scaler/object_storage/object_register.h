@@ -1,7 +1,9 @@
 #pragma once
 
 #include <map>
+#include <memory>
 
+#include "scaler/object_storage/defs.h"
 #include "scaler/object_storage/message.h"
 
 namespace scaler {

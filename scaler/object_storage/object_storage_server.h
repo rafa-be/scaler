@@ -1,24 +1,20 @@
 #pragma once
 
-#include <unistd.h>
-
-#include <algorithm>
 #include <boost/asio/awaitable.hpp>
 #include <boost/asio/co_spawn.hpp>
 #include <boost/asio/detached.hpp>
-#include <boost/asio/io_context.hpp>
 #include <boost/asio/ip/tcp.hpp>
+#include <boost/asio/read.hpp>
 #include <boost/asio/signal_set.hpp>
 #include <boost/asio/write.hpp>
-#include <boost/system/system_error.hpp>
 #include <iostream>
-#include <map>
 #include <memory>
-#include <utility>
+#include <span>
 
-#include "protocol/object_storage.capnp.h"
+#include "scaler/object_storage/constants.h"
 #include "scaler/object_storage/defs.h"
 #include "scaler/object_storage/io_helper.h"
+#include "scaler/object_storage/message.h"
 #include "scaler/object_storage/object_register.h"
 
 namespace scaler {
@@ -88,10 +84,9 @@ private:
     awaitable<T> readMessage(std::shared_ptr<tcp::socket> socket) {
         try {
             std::array<uint64_t, T::bufferSize() / CAPNP_WORD_SIZE> buffer;
-            std::size_t n = co_await boost::asio::async_read(
+            co_await boost::asio::async_read(
                 *socket, boost::asio::buffer(buffer.data(), T::bufferSize()), use_awaitable);
 
-            // TODO: check the value of `n`
             co_return T::fromBuffer(buffer);
         } catch (boost::system::system_error& e) {
             // TODO: make this a log, since eof is not really an err.

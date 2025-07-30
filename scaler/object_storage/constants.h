@@ -1,10 +1,5 @@
 #pragma once
 
-#include <capnp/common.h>
-
-#include <cstddef>
-#include <string_view>
-
 namespace scaler {
 namespace object_storage {
 

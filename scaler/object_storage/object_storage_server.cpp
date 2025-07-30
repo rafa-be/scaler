@@ -137,8 +137,7 @@ awaitable<void> ObjectStorageServer::processSetRequest(
     requestPayload.resize(requestHeader.payloadLength);
 
     try {
-        std::size_t n = co_await boost::asio::async_read(*socket, boost::asio::buffer(requestPayload), use_awaitable);
-        // TODO: check the value of `n`.
+        co_await boost::asio::async_read(*socket, boost::asio::buffer(requestPayload), use_awaitable);
     } catch (boost::system::system_error& e) {
         std::cerr << "payload ends prematurely, e.what() = " << e.what() << '\n';
         std::cerr << "Failing fast. Terminting now...\n";
