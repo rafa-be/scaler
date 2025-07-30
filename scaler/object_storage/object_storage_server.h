@@ -1,12 +1,6 @@
 #pragma once
 
-#include <boost/asio/awaitable.hpp>
-#include <boost/asio/co_spawn.hpp>
-#include <boost/asio/detached.hpp>
-#include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/read.hpp>
-#include <boost/asio/signal_set.hpp>
-#include <boost/asio/write.hpp>
+#include <boost/asio.hpp>
 #include <iostream>
 #include <memory>
 #include <span>
@@ -39,8 +33,21 @@ public:
     void shutdown();
 
 private:
+    struct Client {
+        Client(boost::asio::any_io_executor executor): socket(executor), writeStrand(executor) {}
+
+        tcp::socket socket;
+
+        // As multiple detached coroutines can concurrently write to the client's socket (because of
+        // `optionallySendPendingRequests()`), we must ensure that the calls to `async_write()` are sequenced in the
+        // same strand (i.e. an asio execution queue).
+        // As all `async_read()` calls are made from a single coroutine, we don't need to protect these.
+        // See https://www.boost.org/doc/libs/latest/doc/html/boost_asio/reference/async_write/overload1.html.
+        boost::asio::strand<boost::asio::any_io_executor> writeStrand;
+    };
+
     struct PendingRequest {
-        std::shared_ptr<tcp::socket> socket;
+        std::shared_ptr<Client> client;
         ObjectRequestHeader requestHeader;
     };
 
@@ -65,22 +72,22 @@ private:
 
     awaitable<void> listener(tcp::endpoint endpoint);
 
-    awaitable<void> processRequests(std::shared_ptr<tcp::socket> socket);
+    awaitable<void> processRequests(std::shared_ptr<Client> client);
 
-    awaitable<void> processSetRequest(std::shared_ptr<tcp::socket> socket, ObjectRequestHeader& requestHeader);
+    awaitable<void> processSetRequest(std::shared_ptr<Client> client, ObjectRequestHeader& requestHeader);
 
-    awaitable<void> processGetRequest(std::shared_ptr<tcp::socket> socket, const ObjectRequestHeader& requestHeader);
+    awaitable<void> processGetRequest(std::shared_ptr<Client> client, const ObjectRequestHeader& requestHeader);
 
-    awaitable<void> processDeleteRequest(std::shared_ptr<tcp::socket> socket, ObjectRequestHeader& requestHeader);
+    awaitable<void> processDeleteRequest(std::shared_ptr<Client> client, ObjectRequestHeader& requestHeader);
 
-    awaitable<void> processDuplicateRequest(std::shared_ptr<tcp::socket> socket, ObjectRequestHeader& requestHeader);
+    awaitable<void> processDuplicateRequest(std::shared_ptr<Client> client, ObjectRequestHeader& requestHeader);
 
     template <Message T>
-    awaitable<T> readMessage(std::shared_ptr<tcp::socket> socket) {
+    awaitable<T> readMessage(std::shared_ptr<Client> client) {
         try {
             std::array<uint64_t, T::bufferSize() / CAPNP_WORD_SIZE> buffer;
             co_await boost::asio::async_read(
-                *socket, boost::asio::buffer(buffer.data(), T::bufferSize()), use_awaitable);
+                client->socket, boost::asio::buffer(buffer.data(), T::bufferSize()), use_awaitable);
 
             co_return T::fromBuffer(buffer);
         } catch (boost::system::system_error& e) {
@@ -100,7 +107,7 @@ private:
 
     template <Message T>
     boost::asio::awaitable<void> writeMessage(
-        std::shared_ptr<tcp::socket> socket, T& message, std::span<const unsigned char> payload) {
+        std::shared_ptr<Client> client, T& message, std::span<const unsigned char> payload) {
         auto messageBuffer = message.toBuffer();
 
         std::array<boost::asio::const_buffer, 2> buffers {
@@ -109,10 +116,9 @@ private:
         };
 
         try {
-            // FIXME: all calls to async_write should be protected by an asio lock, as async_write is a "composed" asio
-            // operation.
-            // See https://www.boost.org/doc/libs/1_72_0/doc/html/boost_asio/reference/async_write/overload1.html.
-            co_await boost::asio::async_write(*socket, buffers, use_awaitable);
+            co_await boost::asio::async_write(
+                client->socket, buffers, boost::asio::bind_executor(client->writeStrand, boost::asio::use_awaitable));
+
         } catch (boost::system::system_error& e) {
             // TODO: Log support
             if (e.code() == boost::asio::error::broken_pipe) {
@@ -128,12 +134,11 @@ private:
     }
 
     awaitable<void> sendGetResponse(
-        std::shared_ptr<tcp::socket> socket,
+        std::shared_ptr<Client> client,
         const ObjectRequestHeader& requestHeader,
         std::shared_ptr<const ObjectPayload> objectPtr);
 
-    awaitable<void> sendDuplicateResponse(
-        std::shared_ptr<tcp::socket> socket, const ObjectRequestHeader& requestHeader);
+    awaitable<void> sendDuplicateResponse(std::shared_ptr<Client> client, const ObjectRequestHeader& requestHeader);
 
     awaitable<void> optionallySendPendingRequests(
         const ObjectID& objectID, std::shared_ptr<const ObjectPayload> objectPtr);

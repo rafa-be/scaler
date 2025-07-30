@@ -50,14 +50,14 @@ static PyMethodDef PyObjectStorageServerMethods[] = {
 };
 
 static PyTypeObject PyObjectStorageServerType = {
-    PyVarObject_HEAD_INIT(NULL, 0).tp_name = "object_storage_server.ObjectStorageServer",
-    .tp_basicsize                          = sizeof(PyObjectStorageServer),
-    .tp_dealloc                            = (destructor)PyObjectStorageServerDealloc,
-    .tp_flags                              = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    .tp_doc                                = "ObjectStorageServer",
-    .tp_methods                            = PyObjectStorageServerMethods,
-    .tp_init                               = (initproc)PyObjectStorageServerInit,
-    .tp_new                                = PyObjectStorageServerNew,
+    .tp_name      = "object_storage_server.ObjectStorageServer",
+    .tp_basicsize = sizeof(PyObjectStorageServer),
+    .tp_dealloc   = (destructor)PyObjectStorageServerDealloc,
+    .tp_flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
+    .tp_doc       = "ObjectStorageServer",
+    .tp_methods   = PyObjectStorageServerMethods,
+    .tp_init      = (initproc)PyObjectStorageServerInit,
+    .tp_new       = PyObjectStorageServerNew,
 };
 
 static PyModuleDef PyObjectStorageServerModule = {

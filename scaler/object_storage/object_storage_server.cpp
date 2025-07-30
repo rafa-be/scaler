@@ -83,34 +83,35 @@ awaitable<void> ObjectStorageServer::listener(tcp::endpoint endpoint) {
     setServerReadyFd();
 
     for (;;) {
-        auto clientSocket = std::make_shared<tcp::socket>(executor);
-        co_await acceptor.async_accept(*clientSocket, use_awaitable);
-        setTCPNoDelay(*clientSocket, true);
+        auto client = std::make_shared<Client>(executor);
 
-        co_spawn(executor, processRequests(clientSocket), detached);
+        co_await acceptor.async_accept(client->socket, use_awaitable);
+        setTCPNoDelay(client->socket, true);
+
+        co_spawn(executor, processRequests(client), detached);
     }
 }
 
-awaitable<void> ObjectStorageServer::processRequests(std::shared_ptr<tcp::socket> socket) {
+awaitable<void> ObjectStorageServer::processRequests(std::shared_ptr<Client> client) {
     try {
         for (;;) {
-            ObjectRequestHeader requestHeader = co_await readMessage<ObjectRequestHeader>(socket);
+            ObjectRequestHeader requestHeader = co_await readMessage<ObjectRequestHeader>(client);
 
             switch (requestHeader.requestType) {
                 case ObjectRequestType::SET_OBJECT: {
-                    co_await processSetRequest(socket, requestHeader);
+                    co_await processSetRequest(client, requestHeader);
                     break;
                 }
                 case ObjectRequestType::GET_OBJECT: {
-                    co_await processGetRequest(socket, requestHeader);
+                    co_await processGetRequest(client, requestHeader);
                     break;
                 }
                 case ObjectRequestType::DELETE_OBJECT: {
-                    co_await processDeleteRequest(socket, requestHeader);
+                    co_await processDeleteRequest(client, requestHeader);
                     break;
                 }
                 case ObjectRequestType::DUPLICATE_OBJECT: {
-                    co_await processDuplicateRequest(socket, requestHeader);
+                    co_await processDuplicateRequest(client, requestHeader);
                     break;
                 }
             }
@@ -122,7 +123,7 @@ awaitable<void> ObjectStorageServer::processRequests(std::shared_ptr<tcp::socket
 }
 
 awaitable<void> ObjectStorageServer::processSetRequest(
-    std::shared_ptr<tcp::socket> socket, ObjectRequestHeader& requestHeader) {
+    std::shared_ptr<Client> client, ObjectRequestHeader& requestHeader) {
     if (requestHeader.payloadLength > MEMORY_LIMIT_IN_BYTES) {
         std::cerr << "payload length is larger than MEMORY_LIMIT_IN_BYTES = " << MEMORY_LIMIT_IN_BYTES << '\n';
         std::terminate();
@@ -137,7 +138,7 @@ awaitable<void> ObjectStorageServer::processSetRequest(
     requestPayload.resize(requestHeader.payloadLength);
 
     try {
-        co_await boost::asio::async_read(*socket, boost::asio::buffer(requestPayload), use_awaitable);
+        co_await boost::asio::async_read(client->socket, boost::asio::buffer(requestPayload), use_awaitable);
     } catch (boost::system::system_error& e) {
         std::cerr << "payload ends prematurely, e.what() = " << e.what() << '\n';
         std::cerr << "Failing fast. Terminting now...\n";
@@ -155,23 +156,23 @@ awaitable<void> ObjectStorageServer::processSetRequest(
         .responseType  = ObjectResponseType::SET_O_K,
     };
 
-    co_await writeMessage(socket, responseHeader, {});
+    co_await writeMessage(client, responseHeader, {});
 }
 
 awaitable<void> ObjectStorageServer::processGetRequest(
-    std::shared_ptr<tcp::socket> socket, const ObjectRequestHeader& requestHeader) {
+    std::shared_ptr<Client> client, const ObjectRequestHeader& requestHeader) {
     auto objectPtr = objectRegister.getObject(requestHeader.objectID);
 
     if (objectPtr != nullptr) {
-        co_await sendGetResponse(socket, requestHeader, objectPtr);
+        co_await sendGetResponse(client, requestHeader, objectPtr);
     } else {
         // We don't have the object yet. Send the response later after once we receive the SET request.
-        pendingRequests[requestHeader.objectID].emplace_back(socket, requestHeader);
+        pendingRequests[requestHeader.objectID].emplace_back(client, requestHeader);
     }
 }
 
 awaitable<void> ObjectStorageServer::processDeleteRequest(
-    std::shared_ptr<tcp::socket> socket, ObjectRequestHeader& requestHeader) {
+    std::shared_ptr<Client> client, ObjectRequestHeader& requestHeader) {
     bool success = objectRegister.deleteObject(requestHeader.objectID);
 
     ObjectResponseHeader responseHeader {
@@ -181,31 +182,31 @@ awaitable<void> ObjectStorageServer::processDeleteRequest(
         .responseType  = success ? ObjectResponseType::DEL_O_K : ObjectResponseType::DEL_NOT_EXISTS,
     };
 
-    co_await writeMessage(socket, responseHeader, {});
+    co_await writeMessage(client, responseHeader, {});
 }
 
 awaitable<void> ObjectStorageServer::processDuplicateRequest(
-    std::shared_ptr<tcp::socket> socket, ObjectRequestHeader& requestHeader) {
+    std::shared_ptr<Client> client, ObjectRequestHeader& requestHeader) {
     if (requestHeader.payloadLength != ObjectID::bufferSize()) {
         std::cerr << "payload length should be the size of ObjectID = " << ObjectID::bufferSize() << '\n';
         std::terminate();
     }
 
-    ObjectID originalObjectID = co_await readMessage<ObjectID>(socket);
+    ObjectID originalObjectID = co_await readMessage<ObjectID>(client);
 
     auto objectPtr = objectRegister.duplicateObject(originalObjectID, requestHeader.objectID);
 
     if (objectPtr != nullptr) {
         co_await optionallySendPendingRequests(requestHeader.objectID, objectPtr);
-        co_await sendDuplicateResponse(socket, requestHeader);
+        co_await sendDuplicateResponse(client, requestHeader);
     } else {
         // We don't have the referenced original object yet. Send the response later once we receive the SET request.
-        pendingRequests[originalObjectID].emplace_back(socket, requestHeader);
+        pendingRequests[originalObjectID].emplace_back(client, requestHeader);
     }
 }
 
 awaitable<void> ObjectStorageServer::sendGetResponse(
-    std::shared_ptr<tcp::socket> socket,
+    std::shared_ptr<Client> client,
     const ObjectRequestHeader& requestHeader,
     std::shared_ptr<const ObjectPayload> objectPtr) {
     uint64_t payloadLength = std::min(static_cast<uint64_t>(objectPtr->size()), requestHeader.payloadLength);
@@ -217,11 +218,11 @@ awaitable<void> ObjectStorageServer::sendGetResponse(
         .responseType  = ObjectResponseType::GET_O_K,
     };
 
-    co_await writeMessage(socket, responseHeader, {objectPtr->data(), payloadLength});
+    co_await writeMessage(client, responseHeader, {objectPtr->data(), payloadLength});
 }
 
 awaitable<void> ObjectStorageServer::sendDuplicateResponse(
-    std::shared_ptr<tcp::socket> socket, const ObjectRequestHeader& requestHeader) {
+    std::shared_ptr<Client> client, const ObjectRequestHeader& requestHeader) {
     ObjectResponseHeader responseHeader {
         .objectID      = requestHeader.objectID,
         .payloadLength = 0,
@@ -229,7 +230,7 @@ awaitable<void> ObjectStorageServer::sendDuplicateResponse(
         .responseType  = ObjectResponseType::DUPLICATE_O_K,
     };
 
-    co_await writeMessage(socket, responseHeader, {});
+    co_await writeMessage(client, responseHeader, {});
 }
 
 awaitable<void> ObjectStorageServer::optionallySendPendingRequests(
@@ -246,16 +247,16 @@ awaitable<void> ObjectStorageServer::optionallySendPendingRequests(
 
     for (auto& request: requests) {
         if (request.requestHeader.requestType == ObjectRequestType::GET_OBJECT) {
-            if (request.socket->is_open()) {
-                co_await sendGetResponse(request.socket, request.requestHeader, objectPtr);
+            if (request.client->socket.is_open()) {
+                co_await sendGetResponse(request.client, request.requestHeader, objectPtr);
             }
         } else {
             assert(request.requestHeader.requestType == ObjectRequestType::DUPLICATE_OBJECT);
 
             objectRegister.duplicateObject(objectID, request.requestHeader.objectID);
 
-            if (request.socket->is_open()) {
-                co_await sendDuplicateResponse(request.socket, request.requestHeader);
+            if (request.client->socket.is_open()) {
+                co_await sendDuplicateResponse(request.client, request.requestHeader);
             }
 
             // Some other pending requests might be themselves dependent on this duplicated object.

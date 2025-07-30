@@ -13,11 +13,10 @@ int getAvailableTCPPort() {
         return -1;
     }
 
-    sockaddr_in addr {
-        .sin_family = AF_INET,
-        .sin_addr   = {.s_addr = INADDR_ANY},
-        .sin_port   = 0,
-    };
+    sockaddr_in addr {};
+    addr.sin_family      = AF_INET;
+    addr.sin_addr.s_addr = htonl(INADDR_ANY);
+    addr.sin_port        = 0;  // Let OS choose port
 
     if (bind(sockfd, reinterpret_cast<sockaddr*>(&addr), sizeof(addr)) < 0) {
         close(sockfd);

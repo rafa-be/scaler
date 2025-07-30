@@ -1,13 +1,11 @@
 add_compile_options(
     -Wall
-    -Wextra
     -Wpedantic
     -Wunused
     -Wunused-parameter
     -Wunused-function
     -Wunused-variable
     -Wunused-local-typedefs
-    -Wno-c99-designator
 )
 
 add_library(cc_object_storage_server SHARED)
@@ -46,9 +44,6 @@ set_target_properties(object_storage_server PROPERTIES  PREFIX "")
 set_target_properties(object_storage_server PROPERTIES SUFFIX ".so")
 
 target_sources(object_storage_server PRIVATE pymod_object_storage_server.cpp)
-
-# Disable missing field warnings for Python modules, as these are ultra verbose to fix for internal Python structs.
-set_source_files_properties(pymod_object_storage_server PROPERTIES COMPILE_FLAGS "-Wno-missing-field-initializers")
 
 target_link_libraries(object_storage_server PRIVATE cc_object_storage_server
                                             PRIVATE Python3::Module)
