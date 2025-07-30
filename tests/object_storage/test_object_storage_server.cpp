@@ -17,13 +17,12 @@ using ObjectResponseType = scaler::protocol::ObjectResponseHeader::ObjectRespons
 class ObjectStorageServerTest: public ::testing::Test {
 protected:
     static constexpr std::string SERVER_HOST = "127.0.0.1";
-    static constexpr std::string SERVER_PORT = "55555";
 
     class ObjectStorageClient {
     public:
-        ObjectStorageClient(boost::asio::io_context& ioContext): socket(ioContext) {
+        ObjectStorageClient(boost::asio::io_context& ioContext, std::string serverPort): socket(ioContext) {
             tcp::resolver resolver(ioContext);
-            boost::asio::connect(socket, resolver.resolve(SERVER_HOST, SERVER_PORT));
+            boost::asio::connect(socket, resolver.resolve(SERVER_HOST, serverPort));
         }
 
         ~ObjectStorageClient() {
@@ -64,6 +63,8 @@ protected:
     };
 
     std::unique_ptr<ObjectStorageServer> server;
+
+    std::string serverPort;
     std::thread serverThread;
 
     boost::asio::io_context ioContext;
@@ -71,7 +72,9 @@ protected:
     void SetUp() override {
         server = std::make_unique<ObjectStorageServer>();
 
-        serverThread = std::thread([this] { server->run(SERVER_HOST, SERVER_PORT); });
+        serverPort = std::to_string(getAvailableTCPPort());
+
+        serverThread = std::thread([this] { server->run(SERVER_HOST, serverPort); });
 
         server->waitUntilReady();
     }
@@ -84,7 +87,9 @@ protected:
         server.reset();
     }
 
-    std::unique_ptr<ObjectStorageClient> getClient() { return std::make_unique<ObjectStorageClient>(ioContext); }
+    std::unique_ptr<ObjectStorageClient> getClient() {
+        return std::make_unique<ObjectStorageClient>(ioContext, serverPort);
+    }
 };
 
 const ObjectPayload payload {'H', 'e', 'l', 'l', 'o'};

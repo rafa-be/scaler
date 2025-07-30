@@ -44,11 +44,6 @@ private:
         ObjectRequestHeader requestHeader;
     };
 
-    struct PendingDuplicateRequest {
-        std::shared_ptr<tcp::socket> socket;
-        ObjectRequestHeader requestHeader;
-    };
-
     using ObjectRequestType  = scaler::protocol::ObjectRequestHeader::ObjectRequestType;
     using ObjectResponseType = scaler::protocol::ObjectResponseHeader::ObjectResponseType;
 
