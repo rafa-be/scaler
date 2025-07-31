@@ -29,7 +29,7 @@ int getAvailableTCPPort() {
         return -1;
     }
 
-    int port = ntohs(addr.sin_port);
+    const int port = ntohs(addr.sin_port);
 
     close(sockfd);
 

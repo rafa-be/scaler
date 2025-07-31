@@ -11,13 +11,13 @@ TEST(ObjectRegisterTestSuite, TestSetObject) {
 
     EXPECT_FALSE(objectRegister.hasObject(objectID1));
     EXPECT_EQ(objectRegister.size(), 0);
-    EXPECT_EQ(objectRegister.size_unique(), 0);
+    EXPECT_EQ(objectRegister.sizeUnique(), 0);
 
     objectRegister.setObject(objectID1, std::move(std::vector(payload)));
 
     EXPECT_TRUE(objectRegister.hasObject(objectID1));
     EXPECT_EQ(objectRegister.size(), 1);
-    EXPECT_EQ(objectRegister.size_unique(), 1);
+    EXPECT_EQ(objectRegister.sizeUnique(), 1);
 
     scaler::object_storage::ObjectID objectID2 {3, 2, 1, 0};
 
@@ -25,7 +25,7 @@ TEST(ObjectRegisterTestSuite, TestSetObject) {
 
     EXPECT_TRUE(objectRegister.hasObject(objectID2));
     EXPECT_EQ(objectRegister.size(), 2);
-    EXPECT_EQ(objectRegister.size_unique(), 1);
+    EXPECT_EQ(objectRegister.sizeUnique(), 1);
 }
 
 TEST(ObjectRegisterTestSuite, TestGetObject) {
@@ -56,7 +56,7 @@ TEST(ObjectRegisterTestSuite, TestDeleteObject) {
 
     EXPECT_FALSE(objectRegister.hasObject(objectID1));
     EXPECT_EQ(objectRegister.size(), 0);
-    EXPECT_EQ(objectRegister.size_unique(), 0);
+    EXPECT_EQ(objectRegister.sizeUnique(), 0);
 
     deleted = objectRegister.deleteObject(objectID1);  // deleting unknown object
     EXPECT_FALSE(deleted);
@@ -82,7 +82,7 @@ TEST(ObjectRegisterTestSuite, TestDuplicateObject) {
     objectRegister.deleteObject(objectID1);
     EXPECT_TRUE(objectRegister.hasObject(objectID2));
     EXPECT_EQ(objectRegister.size(), 1);
-    EXPECT_EQ(objectRegister.size_unique(), 1);
+    EXPECT_EQ(objectRegister.sizeUnique(), 1);
 }
 
 TEST(ObjectRegisterTestSuite, TestReferenceCountObject) {
@@ -95,7 +95,7 @@ TEST(ObjectRegisterTestSuite, TestReferenceCountObject) {
     objectRegister.setObject(objectID2, std::move(std::vector(payload)));
 
     EXPECT_EQ(objectRegister.size(), 2);
-    EXPECT_EQ(objectRegister.size_unique(), 1);
+    EXPECT_EQ(objectRegister.sizeUnique(), 1);
 
     auto payloadPtr1 = objectRegister.getObject(objectID1);
     auto payloadPtr2 = objectRegister.getObject(objectID2);
@@ -105,10 +105,10 @@ TEST(ObjectRegisterTestSuite, TestReferenceCountObject) {
     objectRegister.deleteObject(objectID1);
 
     EXPECT_EQ(objectRegister.size(), 1);
-    EXPECT_EQ(objectRegister.size_unique(), 1);
+    EXPECT_EQ(objectRegister.sizeUnique(), 1);
 
     objectRegister.deleteObject(objectID2);
 
     EXPECT_EQ(objectRegister.size(), 0);
-    EXPECT_EQ(objectRegister.size_unique(), 0);
+    EXPECT_EQ(objectRegister.sizeUnique(), 0);
 }

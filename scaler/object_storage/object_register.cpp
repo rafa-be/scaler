@@ -108,7 +108,7 @@ size_t ObjectRegister::size() const noexcept {
     return objectIDToHash.size();
 }
 
-size_t ObjectRegister::size_unique() const noexcept {
+size_t ObjectRegister::sizeUnique() const noexcept {
     return hashToObject.size();
 }
 

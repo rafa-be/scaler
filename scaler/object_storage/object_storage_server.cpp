@@ -25,6 +25,7 @@ void ObjectStorageServer::run(std::string name, std::string port) {
     } catch (std::exception& e) {
         std::cerr << "Exception: " << e.what() << std::endl;
         std::cerr << "Mostly something serious happen, inspect capnp header corruption" << std::endl;
+        std::terminate();
     }
 }
 
@@ -43,7 +44,7 @@ void ObjectStorageServer::shutdown() {
 }
 
 void ObjectStorageServer::initServerReadyFds() {
-    int pipeFds[2];
+    int pipeFds[2] {};
     int ret = pipe(pipeFds);
 
     if (ret != 0) {
@@ -66,9 +67,9 @@ void ObjectStorageServer::setServerReadyFd() {
 }
 
 void ObjectStorageServer::closeServerReadyFds() {
-    std::array<int, 2> fds {onServerReadyReader, onServerReadyWriter};
+    const std::array<int, 2> fds {onServerReadyReader, onServerReadyWriter};
 
-    for (auto fd: fds) {
+    for (const int fd: fds) {
         if (close(fd) != 0) {
             std::cerr << "close failed: errno=" << errno << std::endl;
             std::terminate();

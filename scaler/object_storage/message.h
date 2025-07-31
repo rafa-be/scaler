@@ -14,7 +14,7 @@ static constexpr size_t CAPNP_HEADER_SIZE = 80;
 static constexpr size_t CAPNP_WORD_SIZE   = sizeof(capnp::word);
 
 template <typename T>
-concept Message = requires(const T obj, std::vector<capnp::word> buffer) {
+concept ObjectStorageMessage = requires(const T obj, std::vector<capnp::word> buffer) {
     { T::bufferSize() } -> std::same_as<size_t>;
 
     { obj.toBuffer() } -> std::same_as<kj::Array<const capnp::word>>;
@@ -33,17 +33,7 @@ struct ObjectID {
 
     constexpr const uint64_t& operator[](size_t index) const { return value[index]; }
 
-    constexpr bool operator==(const ObjectID& other) const { return value == other.value; }
-
-    constexpr bool operator!=(const ObjectID& other) const { return value != other.value; }
-
-    constexpr bool operator<(const ObjectID& other) const { return value < other.value; }
-
-    constexpr bool operator<=(const ObjectID& other) const { return value <= other.value; }
-
-    constexpr bool operator>(const ObjectID& other) const { return value > other.value; }
-
-    constexpr bool operator>=(const ObjectID& other) const { return value >= other.value; }
+    constexpr std::strong_ordering operator<=>(const ObjectID& other) const = default;
 
     static constexpr size_t bufferSize() { return 48; }
 
@@ -60,7 +50,7 @@ struct ObjectID {
     }
 };
 
-static_assert(Message<ObjectID>);
+static_assert(ObjectStorageMessage<ObjectID>);
 
 struct ObjectRequestHeader {
     ObjectID objectID;
@@ -95,7 +85,7 @@ struct ObjectRequestHeader {
     }
 };
 
-static_assert(Message<ObjectRequestHeader>);
+static_assert(ObjectStorageMessage<ObjectRequestHeader>);
 
 struct ObjectResponseHeader {
     ObjectID objectID;
@@ -130,7 +120,7 @@ struct ObjectResponseHeader {
     }
 };
 
-static_assert(Message<ObjectResponseHeader>);
+static_assert(ObjectStorageMessage<ObjectResponseHeader>);
 
 };  // namespace object_storage
 };  // namespace scaler
