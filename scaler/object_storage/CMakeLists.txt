@@ -11,10 +11,10 @@ add_compile_options(
 add_library(cc_object_storage_server SHARED)
 
 target_sources(cc_object_storage_server PRIVATE
-  object_storage_server.cpp
   io_helper.cpp
   message.cpp
-  object_register.cpp
+  object_storage_server.cpp
+  object_manager.cpp
 )
 
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/scaler/object_storage)

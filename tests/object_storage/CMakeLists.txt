@@ -26,5 +26,5 @@ function(add_test_executable test_name source_file)
     add_test(NAME ${test_name} COMMAND ${test_name})
 endfunction()
 
-add_test_executable(test_object_register test_object_register.cpp)
+add_test_executable(test_object_manager test_object_manager.cpp)
 add_test_executable(test_object_storage_server test_object_storage_server.cpp)

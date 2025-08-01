@@ -9,7 +9,7 @@
 #include "scaler/object_storage/defs.h"
 #include "scaler/object_storage/io_helper.h"
 #include "scaler/object_storage/message.h"
-#include "scaler/object_storage/object_register.h"
+#include "scaler/object_storage/object_manager.h"
 
 namespace scaler {
 namespace object_storage {
@@ -59,7 +59,7 @@ private:
     int onServerReadyReader;
     int onServerReadyWriter;
 
-    ObjectRegister objectRegister;
+    ObjectManager objectManager;
 
     // Some GET and DUPLICATE requests might be delayed if the referenced object isn't available yet.
     std::map<ObjectID, std::vector<PendingRequest>> pendingRequests;

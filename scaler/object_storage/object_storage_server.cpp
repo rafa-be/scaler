@@ -146,7 +146,7 @@ awaitable<void> ObjectStorageServer::processSetRequest(
         std::terminate();
     }
 
-    auto objectPtr = objectRegister.setObject(requestHeader.objectID, std::move(requestPayload));
+    auto objectPtr = objectManager.setObject(requestHeader.objectID, std::move(requestPayload));
 
     co_await optionallySendPendingRequests(requestHeader.objectID, objectPtr);
 
@@ -162,7 +162,7 @@ awaitable<void> ObjectStorageServer::processSetRequest(
 
 awaitable<void> ObjectStorageServer::processGetRequest(
     std::shared_ptr<Client> client, const ObjectRequestHeader& requestHeader) {
-    auto objectPtr = objectRegister.getObject(requestHeader.objectID);
+    auto objectPtr = objectManager.getObject(requestHeader.objectID);
 
     if (objectPtr != nullptr) {
         co_await sendGetResponse(client, requestHeader, objectPtr);
@@ -174,7 +174,7 @@ awaitable<void> ObjectStorageServer::processGetRequest(
 
 awaitable<void> ObjectStorageServer::processDeleteRequest(
     std::shared_ptr<Client> client, ObjectRequestHeader& requestHeader) {
-    bool success = objectRegister.deleteObject(requestHeader.objectID);
+    bool success = objectManager.deleteObject(requestHeader.objectID);
 
     ObjectResponseHeader responseHeader {
         .objectID      = requestHeader.objectID,
@@ -195,7 +195,7 @@ awaitable<void> ObjectStorageServer::processDuplicateRequest(
 
     ObjectID originalObjectID = co_await readMessage<ObjectID>(client);
 
-    auto objectPtr = objectRegister.duplicateObject(originalObjectID, requestHeader.objectID);
+    auto objectPtr = objectManager.duplicateObject(originalObjectID, requestHeader.objectID);
 
     if (objectPtr != nullptr) {
         co_await optionallySendPendingRequests(requestHeader.objectID, objectPtr);
@@ -254,7 +254,7 @@ awaitable<void> ObjectStorageServer::optionallySendPendingRequests(
         } else {
             assert(request.requestHeader.requestType == ObjectRequestType::DUPLICATE_OBJECT);
 
-            objectRegister.duplicateObject(objectID, request.requestHeader.objectID);
+            objectManager.duplicateObject(objectID, request.requestHeader.objectID);
 
             if (request.client->socket.is_open()) {
                 co_await sendDuplicateResponse(request.client, request.requestHeader);
