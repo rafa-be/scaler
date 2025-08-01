@@ -15,7 +15,7 @@ class ObjectRequestHeader(Message):
         SetObject = _object_storage.ObjectRequestHeader.ObjectRequestType.setObject
         GetObject = _object_storage.ObjectRequestHeader.ObjectRequestType.getObject
         DeleteObject = _object_storage.ObjectRequestHeader.ObjectRequestType.deleteObject
-        DuplicateObject = _object_storage.ObjectRequestHeader.ObjectRequestType.duplicateObject
+        DuplicateObjectID = _object_storage.ObjectRequestHeader.ObjectRequestType.duplicateObjectID
 
     def __init__(self, msg):
         super().__init__(msg)

@@ -111,7 +111,7 @@ awaitable<void> ObjectStorageServer::processRequests(std::shared_ptr<Client> cli
                     co_await processDeleteRequest(client, requestHeader);
                     break;
                 }
-                case ObjectRequestType::DUPLICATE_OBJECT: {
+                case ObjectRequestType::DUPLICATE_OBJECT_I_D: {
                     co_await processDuplicateRequest(client, requestHeader);
                     break;
                 }
@@ -252,7 +252,7 @@ awaitable<void> ObjectStorageServer::optionallySendPendingRequests(
                 co_await sendGetResponse(request.client, request.requestHeader, objectPtr);
             }
         } else {
-            assert(request.requestHeader.requestType == ObjectRequestType::DUPLICATE_OBJECT);
+            assert(request.requestHeader.requestType == ObjectRequestType::DUPLICATE_OBJECT_I_D);
 
             objectManager.duplicateObject(objectID, request.requestHeader.objectID);
 

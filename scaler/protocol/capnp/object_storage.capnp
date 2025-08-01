@@ -22,10 +22,10 @@ struct ObjectRequestHeader {
         # Remove the object.
         deleteObject @2;
 
-        # Creates the provided object ID by duplicating the content of the object ID provided in payload.
-        # Overrides the object's content if the object already exists.
-        # If the object does not exist, delays the duplicateOK response until the original object is created.
-        duplicateObject @3;
+        # Creates the provided object ID by linking it to the content of the object ID provided in payload.
+        # Overrides the object content if the new object ID already exists.
+        # If the referenced object does not exist, delays the duplicateOK response until the original object is created.
+        duplicateObjectID @3;
     }
 }
 

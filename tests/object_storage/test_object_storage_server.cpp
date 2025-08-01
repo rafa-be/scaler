@@ -280,7 +280,7 @@ TEST_F(ObjectStorageServerTest, TestDuplicateObject) {
             .objectID      = newObjectID,
             .payloadLength = ObjectID::bufferSize(),
             .requestID     = requestID++,
-            .requestType   = ObjectRequestType::DUPLICATE_OBJECT,
+            .requestType   = ObjectRequestType::DUPLICATE_OBJECT_I_D,
         };
 
         auto originalObjectIDBuffer = originalObjectID.toBuffer();
@@ -386,7 +386,7 @@ TEST_F(ObjectStorageServerTest, TestRequestBlocking) {
             .objectID      = duplicatedObjectID,
             .payloadLength = ObjectID::bufferSize(),
             .requestID     = requestID++,
-            .requestType   = ObjectRequestType::DUPLICATE_OBJECT,
+            .requestType   = ObjectRequestType::DUPLICATE_OBJECT_I_D,
         };
 
         auto objectIDBuffer = originalObjectID.toBuffer();

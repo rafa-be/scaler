@@ -85,9 +85,9 @@ class SyncObjectStorageConnector:
 
         return response_header.response_type == ObjectResponseHeader.ObjectResponseType.DelOK
 
-    def duplicate_object(self, object_id: ObjectID, new_object_id: ObjectID) -> None:
+    def duplicate_object_id(self, object_id: ObjectID, new_object_id: ObjectID) -> None:
         """
-        Creates a copy of the object on the object storage server.
+        Link an object's content to a new object ID on the object storage server.
         """
 
         object_id_payload = to_capnp_object_id(object_id).to_bytes()
@@ -96,7 +96,7 @@ class SyncObjectStorageConnector:
             self.__send_request(
                 new_object_id,
                 len(object_id_payload),
-                ObjectRequestHeader.ObjectRequestType.DuplicateObject,
+                ObjectRequestHeader.ObjectRequestType.DuplicateObjectID,
                 object_id_payload,
             )
             response_header, response_payload = self.__receive_response()

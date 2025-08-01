@@ -14,7 +14,7 @@ echo "Build directory: $BUILD_DIR"
 
 # YMQ only supported on Linux for now
 TARGETS=("object_storage_server" "cc_object_storage_server")
-TEST_TARGETS=("test_object_register" "test_object_storage_server")
+TEST_TARGETS=("test_object_manager" "test_object_storage_server")
 if [[ "$OS" == "linux" ]]; then
   TARGETS+=("ymq")
 fi

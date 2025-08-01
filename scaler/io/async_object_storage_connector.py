@@ -112,13 +112,13 @@ class AsyncObjectStorageConnector:
     async def delete_object(self, object_id: ObjectID) -> None:
         await self.__send_request(object_id, 0, ObjectRequestHeader.ObjectRequestType.DeleteObject, None)
 
-    async def duplicate_object(self, object_id: ObjectID, new_object_id: ObjectID) -> None:
+    async def duplicate_object_id(self, object_id: ObjectID, new_object_id: ObjectID) -> None:
         object_id_payload = to_capnp_object_id(object_id).to_bytes()
 
         await self.__send_request(
             new_object_id,
             len(object_id_payload),
-            ObjectRequestHeader.ObjectRequestType.DuplicateObject,
+            ObjectRequestHeader.ObjectRequestType.DuplicateObjectID,
             object_id_payload,
         )
 
