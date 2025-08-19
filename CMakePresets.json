@@ -3,7 +3,7 @@
   "configurePresets": [
     {
       "name": "linux-x86_64",
-      "displayName": "Linux 64 bit Intel build",
+      "displayName": "Linux 64 bit x86-64 build",
       "cacheVariables": {
         "CMAKE_BUILD_TYPE": "Debug",
         "CMAKE_INSTALL_PREFIX": "${sourceDir}"
@@ -46,7 +46,7 @@
   "buildPresets": [
     {
       "name": "linux-x86_64",
-      "displayName": "Linux 64 bit Intel build",
+      "displayName": "Linux 64 bit x86-64 build",
       "configurePreset": "linux-x86_64",
       "condition": {
         "type": "equals",
