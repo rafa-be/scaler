@@ -115,6 +115,8 @@ private:
 
     awaitable<void> sendDuplicateResponse(std::shared_ptr<Client> client, const ObjectRequestHeader& requestHeader);
 
+    awaitable<void> withOpenSocket(std::shared_ptr<ObjectStorageServer::Client> client, awaitable<void>&& coroutine);
+
     awaitable<void> optionallySendPendingRequests(
         const ObjectID& objectID, std::shared_ptr<const ObjectPayload> objectPtr);
 };

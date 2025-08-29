@@ -260,6 +260,14 @@ awaitable<void> ObjectStorageServer::sendDuplicateResponse(
     co_await writeMessage(client, responseHeader, {});
 }
 
+awaitable<void> ObjectStorageServer::withOpenSocket(
+    std::shared_ptr<ObjectStorageServer::Client> client, awaitable<void>&& coroutine)
+{
+    if (client->socket.is_open()) {
+        co_await std::move(coroutine);
+    }
+}
+
 awaitable<void> ObjectStorageServer::optionallySendPendingRequests(
     const ObjectID& objectID, std::shared_ptr<const ObjectPayload> objectPtr)
 {
@@ -270,26 +278,41 @@ awaitable<void> ObjectStorageServer::optionallySendPendingRequests(
     }
 
     // Immediately remove the object's pending requests, or else another coroutine might process them too.
+
     auto requests = std::move(it->second);
     pendingRequests.erase(it);
 
+    // Builds and starts the response tasks as parallel coroutines.
+
+    std::vector<awaitable<void>> tasks;
+    tasks.reserve(requests.size());
+
     for (auto& request: requests) {
         if (request.requestHeader.requestType == ObjectRequestType::GET_OBJECT) {
-            if (request.client->socket.is_open()) {
-                co_await sendGetResponse(request.client, request.requestHeader, objectPtr);
-            }
+            tasks.emplace_back(co_spawn(
+                ioContext,
+                withOpenSocket(request.client, sendGetResponse(request.client, request.requestHeader, objectPtr)),
+                use_awaitable));
         } else {
             assert(request.requestHeader.requestType == ObjectRequestType::DUPLICATE_OBJECT_I_D);
 
             objectManager.duplicateObject(objectID, request.requestHeader.objectID);
 
-            if (request.client->socket.is_open()) {
-                co_await sendDuplicateResponse(request.client, request.requestHeader);
-            }
+            tasks.emplace_back(co_spawn(
+                ioContext,
+                withOpenSocket(request.client, sendDuplicateResponse(request.client, request.requestHeader)),
+                use_awaitable));
 
             // Some other pending requests might be themselves dependent on this duplicated object.
-            co_await optionallySendPendingRequests(request.requestHeader.objectID, objectPtr);
+            tasks.emplace_back(co_spawn(
+                ioContext, optionallySendPendingRequests(request.requestHeader.objectID, objectPtr), use_awaitable));
         }
+    }
+
+    // Waits for all tasks to finish
+
+    for (auto&& task: tasks) {
+        co_await std::move(task);
     }
 }
 };  // namespace object_storage
