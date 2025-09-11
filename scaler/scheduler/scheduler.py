@@ -190,6 +190,14 @@ class Scheduler:
             await self._task_controller.on_task_result(message)
             return
 
+        if isinstance(message, TaskCancelConfirm):
+            await self._task_controller.on_task_cancel_confirm(message)
+            return
+
+        if isinstance(message, TaskResult):
+            await self._task_controller.on_task_result(message)
+            return
+
         if isinstance(message, TaskLog):
             client = self._client_manager.get_client_id(message.task_id)
             if client is not None:

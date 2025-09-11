@@ -52,6 +52,8 @@ class ScalerFuture(concurrent.futures.Future):
 
         self._profiling_info: Optional[ProfileResult] = None
 
+        print(f"{self._task_id!r}: create future, {self._is_graph_sub_task()=}")
+
     @property
     def task_id(self) -> TaskID:
         return self._task_id
@@ -66,6 +68,7 @@ class ScalerFuture(concurrent.futures.Future):
     def set_result_ready(
         self, object_id: Optional[ObjectID], task_state: TaskState, profile_result: Optional[ProfileResult] = None
     ) -> None:
+        print(f"{self._task_id!r}: get result")
         with self._condition:  # type: ignore[attr-defined]
             if self.done():
                 raise concurrent.futures.InvalidStateError(f"invalid future state: {self._state}")
@@ -84,6 +87,22 @@ class ScalerFuture(concurrent.futures.Future):
                 self._get_result_object()
 
             self._condition.notify_all()  # type: ignore[attr-defined]
+
+    def set_canceled(self):
+        with self._condition:
+            if self.done():
+                return
+
+            self._state = "CANCELLED_AND_NOTIFIED"
+            self._result_received = True
+            self._cancel_requested = True
+
+            for waiter in self._waiters:
+                waiter.add_cancelled(self)
+
+            self._condition.notify_all()  # type: ignore[attr-defined]
+
+        self._invoke_callbacks()  # type: ignore[attr-defined]
 
     def set_canceled(self):
         with self._condition:
@@ -176,15 +195,19 @@ class ScalerFuture(concurrent.futures.Future):
                 cancel_flags = TaskCancel.TaskCancelFlags(force=True)
 
                 if self._group_task_id is not None:
-                    self._connector_agent.send(TaskCancel.new_msg(self._group_task_id, flags=cancel_flags))
+                    print(f"{self._task_id!r}: cancel graph task")
+                    self._connector_agent.send(TaskCancel.new_msg(self._group_task_id))
                 else:
+                    print(f"{self._task_id!r}: cancel normal task")
                     self._connector_agent.send(TaskCancel.new_msg(self._task_id, flags=cancel_flags))
 
                 self._cancel_requested = True
 
             # Wait for the answer from the server, can either be a cancel confirmation, or the results if the task
             # finished while being canceled.
+            print(f"{self._task_id!r}: wait result")
             self._wait_result_ready(timeout)
+            print(f"{self._task_id!r}: wait result done")
 
         return self.cancelled()
 

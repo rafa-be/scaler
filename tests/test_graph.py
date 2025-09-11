@@ -4,7 +4,7 @@ import math
 import time
 import unittest
 
-from scaler import Client, SchedulerClusterCombo
+from scaler import Client
 from scaler.utility.graph.optimization import cull_graph
 from scaler.utility.logging.scoped_logger import ScopedLogger
 from scaler.utility.logging.utility import setup_logger
@@ -43,7 +43,7 @@ class TestGraph(unittest.TestCase):
         # self.address = "tcp://127.0.0.1:2345"
 
     def tearDown(self) -> None:
-        self.cluster.shutdown()
+        #self.cluster.shutdown()
         pass
 
     def test_graph(self):

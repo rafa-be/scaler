@@ -6,7 +6,7 @@ from typing import Dict, List, Optional, Set, Tuple, Union
 
 from scaler.io.mixins import AsyncBinder, AsyncConnector, AsyncObjectStorageConnector
 from scaler.protocol.python.common import ObjectMetadata, TaskCancelConfirmType, TaskResultType
-from scaler.protocol.python.message import GraphTask, StateGraphTask, Task, TaskCancel, TaskCancelConfirm, TaskResult
+from scaler.protocol.python.message import GraphTask, StateGraphTask, Task, TaskCancel, TaskResult, TaskCancelConfirm
 from scaler.scheduler.controllers.config_controller import VanillaConfigController
 from scaler.scheduler.controllers.mixins import ClientController, GraphTaskController, ObjectController, TaskController
 from scaler.utility.graph.topological_sorter import TopologicalSorter
@@ -117,6 +117,7 @@ class VanillaGraphTaskController(GraphTaskController, Looper, Reporter):
         await self.__cancel_whole_graph(graph_task_id)
 
     async def on_graph_sub_task_result(self, result: TaskResult):
+        print(f"{result.task_id!r}: received result")
         graph_task_id = self._task_id_to_graph_task_id[result.task_id]
         graph_info = self._graph_task_id_to_graph[graph_task_id]
 
@@ -215,7 +216,7 @@ class VanillaGraphTaskController(GraphTaskController, Looper, Reporter):
                 metadata=task_info.task.metadata,
                 func_object_id=task_info.task.func_object_id,
                 function_args=[self.__get_argument_object(graph_task_id, arg) for arg in task_info.task.function_args],
-                tags=set(),
+                resources={},
             )
 
             await self._task_controller.on_task_new(task)
