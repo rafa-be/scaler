@@ -21,7 +21,7 @@ class EvenLoadAllocatePolicy(TaskAllocatePolicy):
 
     def add_worker(self, worker: WorkerID, resources: Dict[str, int], queue_size: int) -> bool:
         if len(resources) > 0:
-            logging.warning("allocate policy ignores worker resources: {resources!r}.")
+            logging.warning(f"allocate policy ignores worker resources: {resources!r}.")
 
         # TODO: handle uneven queue size for each worker
         if worker in self._workers_to_task_ids:
@@ -112,7 +112,7 @@ class EvenLoadAllocatePolicy(TaskAllocatePolicy):
 
     def assign_task(self, task: Task) -> WorkerID:
         if len(task.resources) > 0:
-            logging.warning("allocate policy ignores task resources: {resources!r}.")
+            logging.warning(f"allocate policy ignores task resources: {task.resources!r}.")
 
         task_id = task.task_id
 

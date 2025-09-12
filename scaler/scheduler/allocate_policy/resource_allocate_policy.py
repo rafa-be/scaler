@@ -52,7 +52,7 @@ class ResourceAllocatePolicy(TaskAllocatePolicy):
 
     def add_worker(self, worker: WorkerID, resources: Dict[str, int], queue_size: int) -> bool:
         if any(resource_value != -1 for resource_value in resources.values()):
-            logging.warning("allocate policy ignores non-infinite worker resources: {resources!r}.")
+            logging.warning(f"allocate policy ignores non-infinite worker resources: {resources!r}.")
 
         if worker in self._worker_id_to_worker:
             return False
