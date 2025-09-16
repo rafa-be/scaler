@@ -117,7 +117,6 @@ class VanillaGraphTaskController(GraphTaskController, Looper, Reporter):
         await self.__cancel_whole_graph(graph_task_id)
 
     async def on_graph_sub_task_result(self, result: TaskResult):
-        print(f"{result.task_id!r}: received result")
         graph_task_id = self._task_id_to_graph_task_id[result.task_id]
         graph_info = self._graph_task_id_to_graph[graph_task_id]
 
@@ -291,7 +290,6 @@ class VanillaGraphTaskController(GraphTaskController, Looper, Reporter):
         # mark all running tasks done
         results: List[TaskResult] = list()
         for task_id in graph_info.running_task_ids.copy():
-            print(f"{task_id!r}: mark done running")
             new_result_object_ids = await self.__duplicate_objects(graph_info.client, result_objects)
             result = TaskResult.new_msg(
                 task_id, result.result_type, result.metadata, [bytes(object_id) for object_id in new_result_object_ids]

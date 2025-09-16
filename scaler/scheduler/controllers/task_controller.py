@@ -254,7 +254,8 @@ class VanillaTaskController(TaskController, Looper, Reporter):
         assert state_machine.current_state() == TaskState.Canceled
 
         if task_cancel_confirm.task_id in self._unassigned:
-            pass  # if task is not assigned to any worker, we don't need to deal with worker manager
+            # if task is not assigned to any worker, we don't need to deal with worker manager
+            self._unassigned.remove(task_cancel_confirm.task_id)
         else:
             await self._worker_controller.on_task_done(task_cancel_confirm.task_id)
 
