@@ -209,8 +209,8 @@ class TestGraph(unittest.TestCase):
 
         with Client(self.address) as client:
             graph = {
-                "a": 1.5,
-                "b": 2.5,
+                "a": 1.3,
+                "b": 2.6,
                 "c": (round, "a"),
                 "d": (round, "b"),
                 "e": (add, "c", "d")
@@ -243,6 +243,6 @@ class TestGraph(unittest.TestCase):
             gpu_cluster.start()
 
             # Now the task should be accepted and executed
-            self.assertEqual(future.result(), 6)
+            self.assertEqual(future.result(), 4)
 
             gpu_cluster.terminate()

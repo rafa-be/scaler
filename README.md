@@ -224,6 +224,50 @@ with Client(address="tcp://127.0.0.1:2345") as client:
     print(future.result()) # 21
 ```
 
+## Task Routing and Resource Management (Experimental)
+
+Scaler provides an *experimental* task routing and resource management capability, allowing you to specify resource
+requirements for tasks and allocate them to workers supporting these.
+
+### Starting the Scheduler with Resource Allocation Policy
+
+The scheduler can be started with the experimental resource allocation policy using the `--allocate-policy/-ap`
+argument.
+
+```bash
+$ scaler_scheduler --allocate-policy resources tcp://127.0.0.1:2345
+```
+
+### Defining Worker Supported Resources
+
+When starting a cluster of workers, you can define the resources available on each worker using the
+`--worker-resources/-wr` argument. This allows the scheduler to allocate tasks to workers based on the resources these
+provide.
+
+```bash
+$ scaler_cluster -n 4 --worker-resources "gpu,linux" tcp://127.0.0.1:2345
+```
+
+### Specifying Resource Requirements for Tasks
+
+When submitting tasks using the Scaler client, you can specify the resource requirements for each task using the
+`resources` argument in the `submit_verbose()` and `get()` methods. This ensures that tasks are allocated to workers
+supporting these resources.
+
+```python
+from scaler import Client
+
+with Client(address="tcp://127.0.0.1:2345") as client:
+    future = client.submit_verbose(round, args=(3.15,), kwargs={}, resources={"gpu": -1})
+    print(future.result())  # 3
+```
+
+The scheduler will route a task to a worker if `task.resources.is_subset(worker.resources)`.
+
+Integer values specified for resources (e.g., `gpu=10`) are *currently* ignored by the resource allocation policy.
+This means that the presence of a resource is considered, but not its quantity. Support for resource tracking might be
+added in the future.
+
 ## IBM Spectrum Symphony integration
 
 A Scaler scheduler can interface with IBM Spectrum Symphony to provide distributed computing across Symphony clusters.
