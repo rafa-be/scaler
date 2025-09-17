@@ -15,7 +15,7 @@ Ensure that the scheduler and cluster are set up before running clients.
     Shows how to use client.map
 - `nested_client.py`
     Shows how to send a nested task to scheduler
-- `resources_client.py`
-    Shows how to use resources to route task to various workers
 - `simple_client.py`
     Shows how to send a basic task to scheduler
+- `task_capabilities.py`
+    Shows how to use capabilities to route task to various workers

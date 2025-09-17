@@ -4,7 +4,7 @@ import os
 import signal
 import socket
 
-from scaler.entry_points.cluster import parse_resources
+from scaler.entry_points.cluster import parse_capabilities
 from scaler.io.config import (
     DEFAULT_HEARTBEAT_INTERVAL_SECONDS,
     DEFAULT_IO_THREADS,
@@ -29,10 +29,10 @@ def get_args():
         "--worker-name", "-w", type=str, default=None, help="worker name, if not specified, it will be hostname"
     )
     parser.add_argument(
-        "--worker-resources",
-        "-wr",
-        type=parse_resources,
-        help='comma-separated resources provided by the workers (e.g. "-wr linux,cpu=4")',
+        "--worker-capabilities",
+        "-wc",
+        type=parse_capabilities,
+        help='comma-separated capabilities provided by the worker (e.g. "-wr linux,cpu=4")',
     )
     parser.add_argument(
         "--worker-task-queue-size",
@@ -98,7 +98,7 @@ def main():
     worker = SymphonyWorker(
         address=args.address,
         name=args.worker_name,
-        resources=args.worker_resources,
+        capabilities=args.worker_capabilities,
         task_queue_size=args.worker_task_queue_size,
         service_name=args.service_name,
         base_concurrency=args.base_concurrency,

@@ -1,8 +1,8 @@
 import unittest
 from typing import Dict, Set
 
-from scaler.scheduler.allocate_policy.resource_allocate_policy import ResourceAllocatePolicy
 from scaler.protocol.python.message import Task
+from scaler.scheduler.allocate_policy.capability_allocate_policy import CapabilityAllocatePolicy
 from scaler.utility.identifiers import ClientID, TaskID, WorkerID
 from scaler.utility.logging.utility import setup_logger
 from tests.utility import logging_test_name
@@ -10,13 +10,13 @@ from tests.utility import logging_test_name
 MAX_TASKS_PER_WORKER = 10
 
 
-class TestResourceAllocatePolicy(unittest.TestCase):
+class TestCapabilityAllocatePolicy(unittest.TestCase):
     def setUp(self) -> None:
         setup_logger()
         logging_test_name(self)
 
     def test_assign_task(self):
-        allocator = ResourceAllocatePolicy()
+        allocator = CapabilityAllocatePolicy()
 
         regular_task = self.__create_task(TaskID(b"task_regular"), {})
 
@@ -62,7 +62,7 @@ class TestResourceAllocatePolicy(unittest.TestCase):
         self.assertFalse(assigned_worker.is_valid())
 
     def test_remove_task(self):
-        allocator = ResourceAllocatePolicy()
+        allocator = CapabilityAllocatePolicy()
 
         allocator.add_worker(WorkerID(b"worker"), {}, MAX_TASKS_PER_WORKER)
 
@@ -84,7 +84,7 @@ class TestResourceAllocatePolicy(unittest.TestCase):
     def test_remove_worker(self):
         N_TASKS = MAX_TASKS_PER_WORKER + 3
 
-        allocator = ResourceAllocatePolicy()
+        allocator = CapabilityAllocatePolicy()
 
         allocator.add_worker(WorkerID(b"worker_1"), {}, MAX_TASKS_PER_WORKER)
         allocator.add_worker(WorkerID(b"worker_2"), {}, MAX_TASKS_PER_WORKER)
@@ -119,7 +119,7 @@ class TestResourceAllocatePolicy(unittest.TestCase):
 
         n_workers = 0
 
-        allocator = ResourceAllocatePolicy()
+        allocator = CapabilityAllocatePolicy()
 
         allocator.add_worker(WorkerID(b"worker_1"), {"linux": -1, "gpu": -1}, MAX_TASKS_PER_WORKER)
         n_workers += 1
@@ -170,5 +170,5 @@ class TestResourceAllocatePolicy(unittest.TestCase):
         self.assertAlmostEqual(len(balancing_advice[WorkerID(b"worker_1")]), avg_tasks_per_worker * 2, delta=1.0)
 
     @staticmethod
-    def __create_task(task_id: TaskID, resources: Dict[str, int]) -> Task:
-        return Task.new_msg(task_id, ClientID(b"client_id"), b"", None, [], resources)
+    def __create_task(task_id: TaskID, capabilities: Dict[str, int]) -> Task:
+        return Task.new_msg(task_id, ClientID(b"client_id"), b"", None, [], capabilities)

@@ -204,7 +204,7 @@ class TestGraph(unittest.TestCase):
                     fut.result()
                 logging.info(f"Raised ValueError exception for {k}")
 
-    def test_graph_resources(self):
+    def test_graph_capabilities(self):
         base_cluster = self.combo._cluster
 
         with Client(self.address) as client:
@@ -216,7 +216,7 @@ class TestGraph(unittest.TestCase):
                 "e": (add, "c", "d")
             }
 
-            future = client.get(graph, keys=["e"], resources={"gpu": 1}, block=False)["e"]
+            future = client.get(graph, keys=["e"], capabilities={"gpu": 1}, block=False)["e"]
 
             with self.assertRaises(TimeoutError):
                 future.result(timeout=1.0)
@@ -227,7 +227,7 @@ class TestGraph(unittest.TestCase):
                 storage_address=None,
                 worker_io_threads=1,
                 worker_names=["gpu_worker"],
-                worker_resources={"gpu": -1},
+                per_worker_capabilities={"gpu": -1},
                 per_worker_task_queue_size=base_cluster._per_worker_task_queue_size,
                 heartbeat_interval_seconds=base_cluster._heartbeat_interval_seconds,
                 task_timeout_seconds=base_cluster._task_timeout_seconds,

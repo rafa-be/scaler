@@ -46,7 +46,7 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
         name: str,
         address: ZMQConfig,
         storage_address: Optional[ObjectStorageConfig],
-        resources: Dict[str, int],
+        capabilities: Dict[str, int],
         io_threads: int,
         task_queue_size: int,
         heartbeat_interval_seconds: int,
@@ -64,7 +64,7 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
         self._name = name
         self._address = address
         self._storage_address = storage_address
-        self._resources = resources
+        self._capabilities = capabilities
         self._io_threads = io_threads
         self._task_queue_size = task_queue_size
 
@@ -124,7 +124,9 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
         self._connector_storage = PyAsyncObjectStorageConnector()
 
         self._heartbeat_manager = VanillaHeartbeatManager(
-            storage_address=self._storage_address, resources=self._resources, task_queue_size=self._task_queue_size
+            storage_address=self._storage_address,
+            capabilities=self._capabilities,
+            task_queue_size=self._task_queue_size
         )
 
         self._profiling_manager = VanillaProfilingManager()

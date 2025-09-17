@@ -58,12 +58,12 @@ Shows how to disconnect a client from scheduler
 .. literalinclude:: ../../../examples/disconnect_client.py
    :language: python
 
-Resource Allocation
-~~~~~~~~~~~~~~~~~~~
+Capability Allocation
+~~~~~~~~~~~~~~~~~~~~~
 
-Shows how to use resources for task routing
+Shows how to use capabilities for task routing
 
-.. literalinclude:: ../../../examples/resources_client.py
+.. literalinclude:: ../../../examples/capabilities_client.py
    :language: python
 
 Applications

@@ -9,7 +9,7 @@ struct Task {
     metadata @2 :Data;
     funcObjectId @3 :Data;
     functionArgs @4 :List(Argument);
-    resources @5 :List(CommonType.TaskResource);
+    capabilities @5 :List(CommonType.TaskCapability);
 
     struct Argument {
         type @0 :ArgumentType;
@@ -78,7 +78,7 @@ struct WorkerHeartbeat {
     latencyUS @4 :UInt32;
     taskLock @5 :Bool;
     processors @6 :List(Status.ProcessorStatus);
-    resources @7 :List(CommonType.TaskResource);
+    capabilities @7 :List(CommonType.TaskCapability);
 }
 
 struct WorkerHeartbeatEcho {

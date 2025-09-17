@@ -19,9 +19,9 @@ class EvenLoadAllocatePolicy(TaskAllocatePolicy):
 
         self._worker_queue: AsyncPriorityQueue = AsyncPriorityQueue()
 
-    def add_worker(self, worker: WorkerID, resources: Dict[str, int], queue_size: int) -> bool:
-        if len(resources) > 0:
-            logging.warning(f"allocate policy ignores worker resources: {resources!r}.")
+    def add_worker(self, worker: WorkerID, capabilities: Dict[str, int], queue_size: int) -> bool:
+        if len(capabilities) > 0:
+            logging.warning(f"allocate policy ignores worker capabilities: {capabilities!r}.")
 
         # TODO: handle uneven queue size for each worker
         if worker in self._workers_to_task_ids:
@@ -111,8 +111,8 @@ class EvenLoadAllocatePolicy(TaskAllocatePolicy):
         return balance_count
 
     def assign_task(self, task: Task) -> WorkerID:
-        if len(task.resources) > 0:
-            logging.warning(f"allocate policy ignores task resources: {task.resources!r}.")
+        if len(task.capabilities) > 0:
+            logging.warning(f"allocate policy ignores task capabilities: {task.capabilities!r}.")
 
         task_id = task.task_id
 
@@ -142,7 +142,7 @@ class EvenLoadAllocatePolicy(TaskAllocatePolicy):
         self._worker_queue.decrease_priority(worker)
         return worker
 
-    def has_available_worker(self, resources: Optional[Dict[str, int]] = None) -> bool:
+    def has_available_worker(self, capabilities: Optional[Dict[str, int]] = None) -> bool:
         if not len(self._worker_queue):
             return False
 

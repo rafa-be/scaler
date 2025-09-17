@@ -15,14 +15,14 @@ from scaler.utility.identifiers import TaskID, WorkerID
 @dataclasses.dataclass(frozen=True)
 class _TaskHolder:
     task_id: TaskID = dataclasses.field()
-    resources: Set[str] = dataclasses.field()
+    capabilities: Set[str] = dataclasses.field()
 
 
 @dataclasses.dataclass(frozen=True)
 class _WorkerHolder:
     worker_id: WorkerID = dataclasses.field()
 
-    resources: Set[str] = dataclasses.field()
+    capabilities: Set[str] = dataclasses.field()
     queue_size: int = dataclasses.field()
 
     # Queued tasks, ordered from oldest to youngest tasks.
@@ -35,12 +35,12 @@ class _WorkerHolder:
         return self.queue_size - self.n_tasks()
 
     def copy(self) -> "_WorkerHolder":
-        return _WorkerHolder(self.worker_id, self.resources, self.queue_size, self.task_id_to_task.copy())
+        return _WorkerHolder(self.worker_id, self.capabilities, self.queue_size, self.task_id_to_task.copy())
 
 
-class ResourceAllocatePolicy(TaskAllocatePolicy):
+class CapabilityAllocatePolicy(TaskAllocatePolicy):
     """
-    This allocator policy assigns the tasks to workers supporting the requested task resources, trying to make all
+    This allocator policy assigns the tasks to workers supporting the requested task capabilities, trying to make all
     workers load as equal as possible.
     """
 
@@ -48,23 +48,23 @@ class ResourceAllocatePolicy(TaskAllocatePolicy):
         self._worker_id_to_worker: Dict[WorkerID, _WorkerHolder] = {}
 
         self._task_id_to_worker_id: Dict[TaskID, WorkerID] = {}
-        self._resource_to_worker_ids: Dict[str, Set[WorkerID]] = {}
+        self._capability_to_worker_ids: Dict[str, Set[WorkerID]] = {}
 
-    def add_worker(self, worker: WorkerID, resources: Dict[str, int], queue_size: int) -> bool:
-        if any(resource_value != -1 for resource_value in resources.values()):
-            logging.warning(f"allocate policy ignores non-infinite worker resources: {resources!r}.")
+    def add_worker(self, worker: WorkerID, capabilities: Dict[str, int], queue_size: int) -> bool:
+        if any(capability_value != -1 for capability_value in capabilities.values()):
+            logging.warning(f"allocate policy ignores non-infinite worker capabilities: {capabilities!r}.")
 
         if worker in self._worker_id_to_worker:
             return False
 
-        worker_holder = _WorkerHolder(worker_id=worker, resources=set(resources.keys()), queue_size=queue_size)
+        worker_holder = _WorkerHolder(worker_id=worker, capabilities=set(capabilities.keys()), queue_size=queue_size)
         self._worker_id_to_worker[worker] = worker_holder
 
-        for resource in worker_holder.resources:
-            if resource not in self._resource_to_worker_ids:
-                self._resource_to_worker_ids[resource] = set()
+        for capability in worker_holder.capabilities:
+            if capability not in self._capability_to_worker_ids:
+                self._capability_to_worker_ids[capability] = set()
 
-            self._resource_to_worker_ids[resource].add(worker)
+            self._capability_to_worker_ids[capability].add(worker)
 
         return True
 
@@ -74,10 +74,10 @@ class ResourceAllocatePolicy(TaskAllocatePolicy):
         if worker_holder is None:
             return []
 
-        for resource in worker_holder.resources:
-            self._resource_to_worker_ids[resource].discard(worker)
-            if len(self._resource_to_worker_ids[resource]) == 0:
-                self._resource_to_worker_ids.pop(resource)
+        for capability in worker_holder.capabilities:
+            self._capability_to_worker_ids[capability].discard(worker)
+            if len(self._capability_to_worker_ids[capability]) == 0:
+                self._capability_to_worker_ids.pop(capability)
 
         task_ids = list(worker_holder.task_id_to_task.keys())
         for task_id in task_ids:
@@ -104,27 +104,27 @@ class ResourceAllocatePolicy(TaskAllocatePolicy):
         #
         # The overall worst-case time complexity of the balancing algorithm is:
         #
-        #     O(n_workers • log(n_workers) + n_tasks • n_workers • n_resources)
+        #     O(n_workers • log(n_workers) + n_tasks • n_workers • n_capabilities)
         #
-        # However, if the cluster does not use any resource, time complexity is always:
+        # However, if the cluster does not use any capability, time complexity is always:
         #
         #     O(n_workers • log(n_workers) + n_tasks • log(n_workers))
         #
-        # If resource constraints are used, this might result in less than optimal balancing. That's because, in some
+        # If capability constraints are used, this might result in less than optimal balancing. That's because, in some
         # cases, the optimal balancing might require to move tasks between more than two workers. Consider this
         # cluster's state:
         #
         #   Worker 1
-        #       Supported resources: {Linux, GPU}
+        #       Supported capabilities: {Linux, GPU}
         #       Tasks:
         #           Task 1: {Linux}
         #
         #   Worker 2
-        #       Supported resources: {Linux}
+        #       Supported capabilities: {Linux}
         #       Tasks: None
         #
         #   Worker 3:
-        #       Supported resources: {GPU}
+        #       Supported capabilities: {GPU}
         #       Tasks:
         #           Task 2: {GPU}
         #           Task 3: {GPU}
@@ -161,7 +161,7 @@ class ResourceAllocatePolicy(TaskAllocatePolicy):
         # - all workers are balanced;
         # - we cannot find a low-load worker than can accept tasks from a high-load worker.
         #
-        # Worst-case time complexity is O(n_tasks • n_workers • n_resources).
+        # Worst-case time complexity is O(n_tasks • n_workers • n_capabilities).
         # If no tag is used in the cluster, complexity is always O(n_tasks • log(n_workers))
 
         balancing_advice: Dict[WorkerID, List[TaskID]] = defaultdict(list)
@@ -218,18 +218,18 @@ class ResourceAllocatePolicy(TaskAllocatePolicy):
     def __balance_try_reassign_task(task: _TaskHolder, worker_candidates: Iterable[_WorkerHolder]) -> Optional[int]:
         """Returns the index of the first worker that can accept the task."""
 
-        # Time complexity is O(n_workers • len(task.resources))
+        # Time complexity is O(n_workers • len(task.capabilities))
 
         for worker_index, worker in enumerate(worker_candidates):
-            if task.resources.issubset(worker.resources):
+            if task.capabilities.issubset(worker.capabilities):
                 return worker_index
 
         return None
 
     def assign_task(self, task: Task) -> WorkerID:
-        # Worst-case time complexity is O(n_workers • len(task.resources))
+        # Worst-case time complexity is O(n_workers • len(task.capabilities))
 
-        available_workers = self.__get_available_workers_for_resources(task.resources)
+        available_workers = self.__get_available_workers_for_capabilities(task.capabilities)
 
         if len(available_workers) == 0:
             return WorkerID.invalid_worker_id()
@@ -238,7 +238,7 @@ class ResourceAllocatePolicy(TaskAllocatePolicy):
         # free queue task slots, but that might needlessly idle workers that have a smaller queue.
 
         min_loaded_worker = min(available_workers, key=lambda worker: worker.n_tasks())
-        min_loaded_worker.task_id_to_task[task.task_id] = _TaskHolder(task.task_id, set(task.resources.keys()))
+        min_loaded_worker.task_id_to_task[task.task_id] = _TaskHolder(task.task_id, set(task.capabilities.keys()))
 
         self._task_id_to_worker_id[task.task_id] = min_loaded_worker.worker_id
 
@@ -255,25 +255,25 @@ class ResourceAllocatePolicy(TaskAllocatePolicy):
 
         return worker_id
 
-    def has_available_worker(self, resources: Optional[Dict[str, int]] = None) -> bool:
-        return len(self.__get_available_workers_for_resources(resources or {})) > 0
+    def has_available_worker(self, capabilities: Optional[Dict[str, int]] = None) -> bool:
+        return len(self.__get_available_workers_for_capabilities(capabilities or {})) > 0
 
     def statistics(self) -> Dict:
         return {
-            worker.worker_id: {"free": worker.n_free(), "sent": worker.n_tasks(), "resources": worker.resources}
+            worker.worker_id: {"free": worker.n_free(), "sent": worker.n_tasks(), "capabilities": worker.capabilities}
             for worker in self._worker_id_to_worker.values()
         }
 
-    def __get_available_workers_for_resources(self, resources: Dict[str, int]) -> List[_WorkerHolder]:
-        # Worst-case time complexity is O(n_workers • len(resources))
+    def __get_available_workers_for_capabilities(self, capabilities: Dict[str, int]) -> List[_WorkerHolder]:
+        # Worst-case time complexity is O(n_workers • len(capabilities))
 
-        if any(resource not in self._resource_to_worker_ids for resource in resources.keys()):
+        if any(capability not in self._capability_to_worker_ids for capability in capabilities.keys()):
             return []
 
         matching_worker_ids = set(self._worker_id_to_worker.keys())
 
-        for resource in resources.keys():
-            matching_worker_ids.intersection_update(self._resource_to_worker_ids[resource])
+        for capability in capabilities.keys():
+            matching_worker_ids.intersection_update(self._capability_to_worker_ids[capability])
 
         matching_workers = [self._worker_id_to_worker[worker_id] for worker_id in matching_worker_ids]
 

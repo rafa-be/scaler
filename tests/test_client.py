@@ -311,11 +311,11 @@ class TestClient(unittest.TestCase):
             # but new tasks should work fine
             self.assertEqual(client.submit(round, 3.14).result(), 3.0)
 
-    def test_resources(self):
+    def test_capabilities(self):
         base_cluster = self.combo._cluster
 
         with Client(self.address) as client:
-            future = client.submit_verbose(round, args=(3.14,), kwargs={}, resources={"gpu": 1})
+            future = client.submit_verbose(round, args=(3.14,), kwargs={}, capabilities={"gpu": 1})
 
             # No worker can accept the task, should timeout
             with self.assertRaises(TimeoutError):
@@ -327,7 +327,7 @@ class TestClient(unittest.TestCase):
                 storage_address=None,
                 worker_io_threads=1,
                 worker_names=["gpu_worker"],
-                worker_resources={"gpu": -1},
+                per_worker_capabilities={"gpu": -1},
                 per_worker_task_queue_size=base_cluster._per_worker_task_queue_size,
                 heartbeat_interval_seconds=base_cluster._heartbeat_interval_seconds,
                 task_timeout_seconds=base_cluster._task_timeout_seconds,

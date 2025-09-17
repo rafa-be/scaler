@@ -214,7 +214,7 @@ class Client:
         fn: Callable,
         args: Tuple[Any, ...],
         kwargs: Dict[str, Any],
-        resources: Optional[Dict[str, int]] = None,
+        capabilities: Optional[Dict[str, int]] = None,
     ) -> ScalerFuture:
         """
         Submit a single task (function with arguments) to the scheduler, and return a future. Possibly route the task to
@@ -224,8 +224,8 @@ class Client:
         :type fn: Callable
         :param args: positional arguments will be passed to function
         :param kwargs: keyword arguments will be passed to function
-        :param resources: resources used for routing the tasks, e.g. `{"gpu": 2, "memory": 1_000_000_000}`.
-        :type resources: Optional[Dict[str, int]]
+        :param capabilities: capabilities used for routing the tasks, e.g. `{"gpu": 2, "memory": 1_000_000_000}`.
+        :type capabilities: Optional[Dict[str, int]]
         :return: future of the submitted task
         :rtype: ScalerFuture
         """
@@ -235,7 +235,7 @@ class Client:
         function_object_id = self._object_buffer.buffer_send_function(fn).object_id
         all_args = Client.__convert_kwargs_to_args(fn, args, kwargs)
 
-        task, future = self.__submit(function_object_id, all_args, delayed=True, resources=resources)
+        task, future = self.__submit(function_object_id, all_args, delayed=True, capabilities=capabilities)
 
         self._object_buffer.commit_send_objects()
         self._connector_agent.send(task)
@@ -245,7 +245,7 @@ class Client:
         self,
         fn: Callable,
         iterable: Iterable[Tuple[Any, ...]],
-        resources: Optional[Dict[str, int]] = None
+        capabilities: Optional[Dict[str, int]] = None
     ) -> List[Any]:
         if not all(isinstance(args, (tuple, list)) for args in iterable):
             raise TypeError("iterable should be list of arguments(list or tuple-like) of function")
@@ -254,7 +254,7 @@ class Client:
 
         function_object_id = self._object_buffer.buffer_send_function(fn).object_id
         tasks, futures = zip(
-            *[self.__submit(function_object_id, args, delayed=False, resources=resources) for args in iterable]
+            *[self.__submit(function_object_id, args, delayed=False, capabilities=capabilities) for args in iterable]
         )
 
         self._object_buffer.commit_send_objects()
@@ -275,7 +275,7 @@ class Client:
         graph: Dict[str, Union[Any, Tuple[Union[Callable, str], ...]]],
         keys: List[str],
         block: bool = True,
-        resources: Optional[Dict[str, int]] = None,
+        capabilities: Optional[Dict[str, int]] = None,
     ) -> Dict[str, Union[Any, ScalerFuture]]:
         """
         .. code-block:: python
@@ -294,14 +294,14 @@ class Client:
         :type keys: List[str]
         :param block: if True, it will directly return a dictionary that maps from keys to results
         :return: dictionary of mapping keys to futures, or map to results if block=True is specified
-        :param resources: resources used for routing the tasks, e.g. `{"gpu": 2, "memory": 1_000_000_000}`.
-        :type resources: Optional[Dict[str, int]]
+        :param capabilities: capabilities used for routing the tasks, e.g. `{"gpu": 2, "memory": 1_000_000_000}`.
+        :type capabilities: Optional[Dict[str, int]]
         :rtype: Dict[ScalerFuture]
         """
 
         self.__assert_client_not_stopped()
 
-        resources = resources or {}
+        capabilities = capabilities or {}
 
         graph = cull_graph(graph, keys)
 
@@ -309,7 +309,7 @@ class Client:
         self.__check_graph(node_name_to_argument, call_graph, keys)
 
         graph_task, compute_futures, finished_futures = self.__construct_graph(
-            node_name_to_argument, call_graph, keys, block, resources,
+            node_name_to_argument, call_graph, keys, block, capabilities,
         )
         self._object_buffer.commit_send_objects()
         self._connector_agent.send(graph_task)
@@ -322,7 +322,7 @@ class Client:
                     metadata=b"",
                     func_object_id=None,
                     function_args=[],
-                    resources=resources,
+                    capabilities=capabilities,
                 ),
                 is_delayed=not block,
                 group_task_id=graph_task.task_id,
@@ -433,11 +433,11 @@ class Client:
         function_object_id: ObjectID,
         args: Tuple[Any, ...],
         delayed: bool,
-        resources: Optional[Dict[str, int]] = None,
+        capabilities: Optional[Dict[str, int]] = None,
     ) -> Tuple[Task, ScalerFuture]:
         task_id = TaskID.generate_task_id()
 
-        resources = resources or {}
+        capabilities = capabilities or {}
 
         function_args: List[Union[ObjectID, TaskID]] = []
         for arg in args:
@@ -457,7 +457,7 @@ class Client:
             metadata=task_flags_bytes,
             func_object_id=function_object_id,
             function_args=function_args,
-            resources=resources,
+            capabilities=capabilities,
         )
 
         future = self._future_factory(task=task, is_delayed=delayed, group_task_id=None)
@@ -541,7 +541,7 @@ class Client:
         call_graph: Dict[str, _CallNode],
         keys: List[str],
         block: bool,
-        resources: Dict[str, int],
+        capabilities: Dict[str, int],
     ) -> Tuple[GraphTask, Dict[str, ScalerFuture], Dict[str, ScalerFuture]]:
         graph_task_id = TaskID.generate_task_id()
 
@@ -573,7 +573,7 @@ class Client:
                 metadata=task_flags_bytes,
                 func_object_id=function_cache.object_id,
                 function_args=arguments,
-                resources=resources,
+                capabilities=capabilities,
             )
 
         result_task_ids = [node_name_to_task_id[key] for key in keys if key in call_graph]
@@ -596,7 +596,7 @@ class Client:
                         metadata=b"",
                         func_object_id=None,
                         function_args=[],
-                        resources={},
+                        capabilities={},
                     ),
                     is_delayed=False,
                     group_task_id=graph_task_id,

@@ -48,7 +48,7 @@ class TaskState(enum.Enum):
 
 
 @dataclasses.dataclass
-class TaskResource(Message):
+class TaskCapability(Message):
     def __init__(self, msg):
         super().__init__(msg)
 
@@ -61,8 +61,8 @@ class TaskResource(Message):
         return self._msg.value
 
     @staticmethod
-    def new_msg(name: str, value: int) -> "TaskResource":
-        return TaskResource(_common.TaskResource(name=name, value=value))
+    def new_msg(name: str, value: int) -> "TaskCapability":
+        return TaskCapability(_common.TaskCapability(name=name, value=value))
 
     def get_message(self):
         return self._msg

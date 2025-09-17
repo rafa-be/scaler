@@ -34,10 +34,10 @@ def get_args():
         help="worker names to replace default worker names (host names), separate by comma",
     )
     parser.add_argument(
-        "--worker-resources",
-        "-wr",
-        type=parse_resources,
-        help='comma-separated resources provided by the workers (e.g. "-wr linux,cpu=4")',
+        "--per-worker-capabilities",
+        "-pwc",
+        type=parse_capabilities,
+        help='comma-separated capabilities provided by the workers (e.g. "-pwc linux,cpu=4")',
     )
     parser.add_argument(
         "--worker-task-queue-size",
@@ -133,15 +133,15 @@ def get_args():
     return parser.parse_args()
 
 
-def parse_resources(resource_string: str) -> Dict[str, int]:
-    resources = {}
-    for item in resource_string.split(","):
+def parse_capabilities(capability_string: str) -> Dict[str, int]:
+    capabilities = {}
+    for item in capability_string.split(","):
         name, _, value = item.partition("=")
         if value != "":
-            resources[name] = int(value)
+            capabilities[name] = int(value)
         else:
-            resources[name] = -1
-    return resources
+            capabilities[name] = -1
+    return capabilities
 
 
 def main():
@@ -162,7 +162,7 @@ def main():
         address=args.address,
         storage_address=args.object_storage_address,
         worker_names=worker_names,
-        worker_resources=args.worker_resources,
+        per_worker_capabilities=args.per_worker_capabilities,
         per_worker_task_queue_size=args.worker_task_queue_size,
         heartbeat_interval_seconds=args.heartbeat_interval,
         task_timeout_seconds=args.task_timeout_seconds,
