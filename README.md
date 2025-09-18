@@ -224,12 +224,14 @@ with Client(address="tcp://127.0.0.1:2345") as client:
     print(future.result()) # 21
 ```
 
-## Task Routing and Capability Management (Experimental)
+## Task Routing and Capability Management
 
-Scaler provides an *experimental* task routing and capability management capability, allowing you to specify capability
-requirements for tasks and allocate them to workers supporting these.
+> **Note**: This feature is experimental and may change in future releases.
 
-### Starting the Scheduler with Capability Allocation Policy
+Scaler provides a task routing mechanism, allowing you to specify capability requirements for tasks and allocate them to
+workers supporting these.
+
+### Starting the Scheduler with the Capability Allocation Policy
 
 The scheduler can be started with the experimental capability allocation policy using the `--allocate-policy/-ap`
 argument.

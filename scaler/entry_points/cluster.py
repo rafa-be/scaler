@@ -37,6 +37,7 @@ def get_args():
         "--per-worker-capabilities",
         "-pwc",
         type=parse_capabilities,
+        default="",
         help='comma-separated capabilities provided by the workers (e.g. "-pwc linux,cpu=4")',
     )
     parser.add_argument(

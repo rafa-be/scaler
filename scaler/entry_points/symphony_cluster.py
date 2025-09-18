@@ -32,6 +32,7 @@ def get_args():
         "--worker-capabilities",
         "-wc",
         type=parse_capabilities,
+        default="",
         help='comma-separated capabilities provided by the worker (e.g. "-wr linux,cpu=4")',
     )
     parser.add_argument(
