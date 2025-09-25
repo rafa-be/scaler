@@ -13,7 +13,7 @@ import zmq
 
 from scaler.io.mixins import SyncConnector, SyncObjectStorageConnector
 from scaler.io.sync_connector import ZMQSyncConnector
-from scaler.io.sync_object_storage_connector import PySyncObjectStorageConnector
+from scaler.io.sync_object_storage_connector import YMQSyncObjectStorageConnector
 from scaler.protocol.python.common import ObjectMetadata, TaskResultType
 from scaler.protocol.python.message import ObjectInstruction, ProcessorInitialized, Task, TaskLog, TaskResult
 from scaler.protocol.python.mixins import Message
@@ -86,7 +86,7 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
         self._connector_agent: SyncConnector = ZMQSyncConnector(
             context=zmq.Context(), socket_type=zmq.DEALER, address=self._agent_address, identity=None
         )
-        self._connector_storage: SyncObjectStorageConnector = PySyncObjectStorageConnector(
+        self._connector_storage: SyncObjectStorageConnector = YMQSyncObjectStorageConnector(
             self._storage_address.host, self._storage_address.port
         )
 

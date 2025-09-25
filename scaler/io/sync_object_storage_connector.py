@@ -1,10 +1,11 @@
-import collections
+import socket
+
+import uuid
 import os
 import socket
-import struct
 import uuid
 from threading import Lock
-from typing import Iterable, List, Optional, Tuple
+from typing import Iterable, Optional, Tuple
 
 from scaler.io.mixins import SyncObjectStorageConnector
 from scaler.io.ymq import ymq
@@ -17,7 +18,7 @@ from scaler.utility.identifiers import ObjectID
 MAX_CHUNK_SIZE = 128 * 1024 * 1024
 
 
-class PySyncObjectStorageConnector(SyncObjectStorageConnector):
+class YMQSyncObjectStorageConnector(SyncObjectStorageConnector):
     """An synchronous connector that uses a YMQ socket to connect to a Scaler's object storage instance."""
 
     def __init__(self, host: str, port: int):
