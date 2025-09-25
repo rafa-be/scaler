@@ -18,7 +18,7 @@ MAX_CHUNK_SIZE = 128 * 1024 * 1024
 
 
 class PySyncObjectStorageConnector(SyncObjectStorageConnector):
-    """An synchronous connector that uses an raw TCP socket to connect to a Scaler's object storage instance."""
+    """An synchronous connector that uses a YMQ socket to connect to a Scaler's object storage instance."""
 
     def __init__(self, host: str, port: int):
         self._host = host
@@ -179,10 +179,6 @@ class PySyncObjectStorageConnector(SyncObjectStorageConnector):
 
     def __read_framed_message(self) -> bytearray:
         try:
-            bytearray(self._io_socket.recv_sync().payload.data)
+            return bytearray(self._io_socket.recv_sync().payload.data)
         except ymq.YMQInterruptedException:
             return bytearray()
-
-    @staticmethod
-    def __raise_connection_failure():
-        raise ObjectStorageException("connection failure to object storage server.")
