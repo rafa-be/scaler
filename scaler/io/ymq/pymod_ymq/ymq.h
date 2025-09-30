@@ -252,6 +252,8 @@ static int YMQ_createType(
     releasebufferproc releasebuffer = nullptr)
 {
     assert(storage != nullptr);
+    (void)getbuffer;
+    (void)releasebuffer;
 
     *storage = PyType_FromModuleAndSpec(pyModule, spec, bases);
     if (!*storage)
@@ -346,7 +348,10 @@ static PyModuleDef YMQ_module = {
     .m_name  = "_ymq",
     .m_doc   = PyDoc_STR("YMQ Python bindings"),
     .m_size  = sizeof(YMQState),
+    .m_methods = nullptr,
     .m_slots = YMQ_slots,
+    .m_traverse = nullptr,
+    .m_clear    = nullptr,
     .m_free  = (freefunc)YMQ_free,
 };
 
