@@ -24,7 +24,7 @@
 #include "scaler/io/ymq/pymod_ymq/bytes.h"
 #include "scaler/io/ymq/pymod_ymq/exception.h"
 #include "scaler/io/ymq/pymod_ymq/message.h"
-#include "scaler/io/ymq/pymod_ymq/utils.h"
+#include "scaler/io/ymq/pymod_ymq/waiter.h"
 #include "scaler/io/ymq/pymod_ymq/ymq.h"
 
 using namespace scaler::ymq;
@@ -97,26 +97,26 @@ static PyObject* PyIOSocket_send_sync(PyIOSocket* self, PyObject* args, PyObject
     Bytes address = message->address.is_none() ? Bytes() : std::move(message->address->bytes);
     Bytes payload = std::move(message->payload->bytes);
 
-    PyThreadState* _save = PyEval_SaveThread();
+    state->threadState = PyEval_SaveThread();
 
     std::shared_ptr<std::expected<void, Error>> result = std::make_shared<std::expected<void, Error>>();
     try {
-        Waiter waiter(state->wakeupfd_rd);
+        Waiter waiter(state);
 
         self->socket->sendMessage({.address = std::move(address), .payload = std::move(payload)}, [=](auto r) mutable {
             *result = std::move(r);
             waiter.signal();
         });
 
-        if (waiter.wait())
-            CHECK_SIGNALS;
+        if (!waiter.wait())
+            return nullptr;
     } catch (...) {
-        PyEval_RestoreThread(_save);
+        PyEval_RestoreThread(state->threadState);
         PyErr_SetString(PyExc_RuntimeError, "Failed to send synchronously");
         return nullptr;
     }
 
-    PyEval_RestoreThread(_save);
+    PyEval_RestoreThread(state->threadState);
 
     if (!result) {
         YMQException_setFromCoreError(state, &result->error());
@@ -170,26 +170,26 @@ static PyObject* PyIOSocket_recv_sync(PyIOSocket* self, PyObject* args)
     if (!state)
         return nullptr;
 
-    PyThreadState* _save = PyEval_SaveThread();
+    state->threadState = PyEval_SaveThread();
 
     std::shared_ptr<std::pair<Message, Error>> result = std::make_shared<std::pair<Message, Error>>();
     try {
-        Waiter waiter(state->wakeupfd_rd);
+        Waiter waiter(state);
 
         self->socket->recvMessage([=](auto r) mutable {
             *result = std::move(r);
             waiter.signal();
         });
 
-        if (waiter.wait())
-            CHECK_SIGNALS;
+        if (!waiter.wait())
+            return nullptr;
     } catch (...) {
-        PyEval_RestoreThread(_save);
+        PyEval_RestoreThread(state->threadState);
         PyErr_SetString(PyExc_RuntimeError, "Failed to recv synchronously");
         return nullptr;
     }
 
-    PyEval_RestoreThread(_save);
+    PyEval_RestoreThread(state->threadState);
 
     if (result->second._errorCode != Error::ErrorCode::Uninit) {
         YMQException_setFromCoreError(state, &result->second);
@@ -256,26 +256,26 @@ static PyObject* PyIOSocket_bind_sync(PyIOSocket* self, PyObject* args, PyObject
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#", (char**)kwlist, &address, &addressLen))
         return nullptr;
 
-    PyThreadState* _save = PyEval_SaveThread();
+    state->threadState = PyEval_SaveThread();
 
     auto result = std::make_shared<std::expected<void, Error>>();
     try {
-        Waiter waiter(state->wakeupfd_rd);
+        Waiter waiter(state);
 
         self->socket->bindTo(std::string(address, addressLen), [=](auto r) mutable {
             *result = std::move(r);
             waiter.signal();
         });
 
-        if (waiter.wait())
-            CHECK_SIGNALS;
+        if (!waiter.wait())
+            return nullptr;
     } catch (...) {
-        PyEval_RestoreThread(_save);
+        PyEval_RestoreThread(state->threadState);
         PyErr_SetString(PyExc_RuntimeError, "Failed to bind synchronously");
         return nullptr;
     }
 
-    PyEval_RestoreThread(_save);
+    PyEval_RestoreThread(state->threadState);
 
     if (!result) {
         YMQException_setFromCoreError(state, &result->error());
@@ -323,26 +323,26 @@ static PyObject* PyIOSocket_connect_sync(PyIOSocket* self, PyObject* args, PyObj
     if (!PyArg_ParseTupleAndKeywords(args, kwargs, "s#", (char**)kwlist, &address, &addressLen))
         return nullptr;
 
-    PyThreadState* _save = PyEval_SaveThread();
+    state->threadState = PyEval_SaveThread();
 
     std::shared_ptr<std::expected<void, Error>> result = std::make_shared<std::expected<void, Error>>();
     try {
-        Waiter waiter(state->wakeupfd_rd);
+        Waiter waiter(state);
 
         self->socket->connectTo(std::string(address, addressLen), [=](auto r) mutable {
             *result = std::move(r);
             waiter.signal();
         });
 
-        if (waiter.wait())
-            CHECK_SIGNALS;
+        if (!waiter.wait())
+            return nullptr;
     } catch (...) {
-        PyEval_RestoreThread(_save);
+        PyEval_RestoreThread(state->threadState);
         PyErr_SetString(PyExc_RuntimeError, "Failed to connect synchronously");
         return nullptr;
     }
 
-    PyEval_RestoreThread(_save);
+    PyEval_RestoreThread(state->threadState);
 
     if (!result && result->error()._errorCode != Error::ErrorCode::InitialConnectFailedWithInProgress) {
         YMQException_setFromCoreError(state, &result->error());

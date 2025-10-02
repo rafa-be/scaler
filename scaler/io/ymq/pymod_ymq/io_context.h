@@ -13,6 +13,7 @@
 #include "scaler/io/ymq/io_context.h"
 #include "scaler/io/ymq/io_socket.h"
 #include "scaler/io/ymq/pymod_ymq/io_socket.h"
+#include "scaler/io/ymq/pymod_ymq/waiter.h"
 #include "scaler/io/ymq/pymod_ymq/ymq.h"
 
 // TODO: move ymq's python module into this namespace
@@ -145,11 +146,11 @@ static PyObject* PyIOContext_createIOSocket_sync(PyIOContext* self, PyObject* ar
 
     return PyIOContext_createIOSocket_(
         self, args, kwargs, [self, state](auto ioSocket, Identity identity, IOSocketType socketType) {
-            PyThreadState* _save = PyEval_SaveThread();
+            state->threadState = PyEval_SaveThread();
 
             std::shared_ptr<IOSocket> socket {};
             try {
-                Waiter waiter(state->wakeupfd_rd);
+                Waiter waiter(state);
 
                 self->ioContext->createIOSocket(
                     identity, socketType, [waiter, &socket](std::shared_ptr<IOSocket> s) mutable {
@@ -157,15 +158,15 @@ static PyObject* PyIOContext_createIOSocket_sync(PyIOContext* self, PyObject* ar
                         waiter.signal();
                     });
 
-                if (waiter.wait())
-                    CHECK_SIGNALS;
+                if (!waiter.wait())
+                    return (PyObject*)nullptr;
             } catch (...) {
-                PyEval_RestoreThread(_save);
+                PyEval_RestoreThread(state->threadState);
                 PyErr_SetString(PyExc_RuntimeError, "Failed to create io socket synchronously");
                 return (PyObject*)nullptr;
             }
 
-            PyEval_RestoreThread(_save);
+            PyEval_RestoreThread(state->threadState);
 
             ioSocket->socket = socket;
             return (PyObject*)ioSocket;

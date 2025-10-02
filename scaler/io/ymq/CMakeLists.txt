@@ -61,14 +61,6 @@ if(LINUX)
     find_package(Python3 COMPONENTS Development.Module REQUIRED)
 
     add_library(py_ymq SHARED
-        pymod_ymq/async.h
-        pymod_ymq/bytes.h
-        pymod_ymq/exception.h
-        pymod_ymq/message.h
-        pymod_ymq/io_context.h
-        pymod_ymq/io_socket.h
-        pymod_ymq/utils.h
-        pymod_ymq/ymq.h
         pymod_ymq/ymq.cpp
     )
 

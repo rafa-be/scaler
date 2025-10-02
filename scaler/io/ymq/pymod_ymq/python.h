@@ -4,8 +4,6 @@
 #include <Python.h>
 #include <structmember.h>
 
-#include "scaler/io/ymq/pymod_ymq/utils.h"
-
 #if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 8
 static inline PyObject* Py_NewRef(PyObject* obj)
 {

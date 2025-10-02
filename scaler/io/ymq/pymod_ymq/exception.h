@@ -7,7 +7,6 @@
 #include <functional>
 
 // First-party
-#include "scaler/io/ymq/pymod_ymq/utils.h"
 #include "scaler/io/ymq/pymod_ymq/ymq.h"
 
 // the order of the members in the exception args tuple

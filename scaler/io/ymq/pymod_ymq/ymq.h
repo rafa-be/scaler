@@ -17,11 +17,13 @@
 
 // First-party
 #include "scaler/io/ymq/error.h"
-#include "scaler/io/ymq/pymod_ymq/utils.h"
 
 struct YMQState {
-    int wakeupfd_wr;
-    int wakeupfd_rd;
+    PyThreadState* threadState;
+
+    // Python will signal to these FDs when an OS signal gets raised
+    int signalWakeupFDWr;
+    int signalWakeupFDRd;
 
     OwnedPyObject<> enumModule;     // Reference to the enum module
     OwnedPyObject<> asyncioModule;  // Reference to the asyncio module
@@ -36,15 +38,6 @@ struct YMQState {
     OwnedPyObject<> PyInterruptedExceptionType;  // Reference to the YMQInterruptedException type
     OwnedPyObject<> PyAwaitableType;             // Reference to the Awaitable type
 };
-
-#define CHECK_SIGNALS                                                                                           \
-    do {                                                                                                        \
-        PyEval_RestoreThread(_save);                                                                            \
-        if (PyErr_CheckSignals() >= 0)                                                                          \
-            PyErr_SetString(                                                                                    \
-                *state->PyInterruptedExceptionType, "A synchronous YMQ operation was interrupted by a signal"); \
-        return (PyObject*)nullptr;                                                                              \
-    } while (0);
 
 static bool future_do_(PyObject* future_, const std::function<std::expected<PyObject*, PyObject*>()>& fn)
 {
@@ -180,13 +173,13 @@ static void YMQ_free(YMQState* state)
         PyErr_WriteUnraisable(nullptr);
     }
 
-    if (close(state->wakeupfd_wr) < 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to close waitfd_wr");
+    if (close(state->signalWakeupFDWr) < 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to close signalWakeupFDWr");
         PyErr_WriteUnraisable(nullptr);
     }
 
-    if (close(state->wakeupfd_rd) < 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to close waitfd_rd");
+    if (close(state->signalWakeupFDRd) < 0) {
+        PyErr_SetString(PyExc_RuntimeError, "Failed to close signalWakeupFDRd");
         PyErr_WriteUnraisable(nullptr);
     }
 }
@@ -378,22 +371,22 @@ static int YMQ_createType(
     return 0;
 }
 
-static int YMQ_setupWakeupFd(YMQState* state)
+static int YMQ_setupSignalWakeupFd(YMQState* state)
 {
     int pipefd[2];
     if (pipe2(pipefd, O_NONBLOCK | O_CLOEXEC) < 0) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to create pipe for wakeup fd");
+        PyErr_SetString(PyExc_RuntimeError, "Failed to create pipe for signal wakeup fd");
         return -1;
     }
 
-    state->wakeupfd_rd = pipefd[0];
-    state->wakeupfd_wr = pipefd[1];
+    state->signalWakeupFDRd = pipefd[0];
+    state->signalWakeupFDWr = pipefd[1];
 
     OwnedPyObject signalModule = PyImport_ImportModule("signal");
     if (!signalModule)
         return -1;
 
-    OwnedPyObject result = PyObject_CallMethod(*signalModule, "set_wakeup_fd", "i", state->wakeupfd_wr);
+    OwnedPyObject result = PyObject_CallMethod(*signalModule, "set_wakeup_fd", "i", state->signalWakeupFDWr);
     if (!result)
         return -1;
     return 0;
@@ -405,7 +398,7 @@ static int YMQ_exec(PyObject* pyModule)
     if (!state)
         return -1;
 
-    if (YMQ_setupWakeupFd(state) < 0)
+    if (YMQ_setupSignalWakeupFd(state) < 0)
         return -1;
 
     state->enumModule = PyImport_ImportModule("enum");

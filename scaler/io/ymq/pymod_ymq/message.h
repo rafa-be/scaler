@@ -5,7 +5,6 @@
 
 // First-party
 #include "scaler/io/ymq/pymod_ymq/bytes.h"
-#include "scaler/io/ymq/pymod_ymq/utils.h"
 #include "scaler/io/ymq/pymod_ymq/ymq.h"
 
 struct PyMessage {
