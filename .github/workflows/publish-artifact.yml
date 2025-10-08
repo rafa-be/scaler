@@ -3,11 +3,6 @@ name: Publish Python package to PyPI
 on:
   release:
     types: [ created ]
-    secrets:
-      PYPI_USERNAME:
-        required: true
-      PYPI_PASSWORD:
-        required: true
 
 permissions:
   contents: read
@@ -35,8 +30,15 @@ jobs:
         with:
           os: ${{ runner.os }}
 
-      - uses: ./.github/actions/publish-pypi
+      - uses: ./.github/actions/3rd-party-libraries-download
         with:
           os: ${{ runner.os }}
-          username: ${{ secrets.PYPI_USERNAME }}
-          password: ${{ secrets.PYPI_PASSWORD }}
+
+      - uses: ./.github/actions/create-artifacts
+        with:
+          os: ${{ runner.os }}
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          packages-dir: ./dist/

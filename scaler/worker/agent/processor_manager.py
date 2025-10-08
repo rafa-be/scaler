@@ -12,7 +12,7 @@ from scaler.utility.exceptions import ProcessorDiedError
 from scaler.utility.identifiers import ObjectID, ProcessorID, TaskID, WorkerID
 from scaler.utility.metadata.profile_result import ProfileResult
 from scaler.utility.serialization import serialize_failure
-from scaler.utility.zmq_config import ZMQConfig
+from scaler.config.types.zmq import ZMQConfig
 from scaler.worker.agent.mixins import HeartbeatManager, ProcessorManager, ProfilingManager, TaskManager
 from scaler.worker.agent.processor_holder import ProcessorHolder
 
@@ -23,6 +23,7 @@ class VanillaProcessorManager(ProcessorManager):
         identity: WorkerID,
         event_loop: str,
         address_internal: ZMQConfig,
+        preload: Optional[str],
         garbage_collect_interval_seconds: int,
         trim_memory_threshold_bytes: int,
         hard_processor_suspend: bool,
@@ -33,6 +34,7 @@ class VanillaProcessorManager(ProcessorManager):
 
         self._identity = identity
         self._event_loop = event_loop
+        self._preload = preload
 
         self._garbage_collect_interval_seconds = garbage_collect_interval_seconds
         self._trim_memory_threshold_bytes = trim_memory_threshold_bytes
@@ -298,6 +300,7 @@ class VanillaProcessorManager(ProcessorManager):
             self._event_loop,
             self._address_internal,
             storage_address,
+            self._preload,
             self._garbage_collect_interval_seconds,
             self._trim_memory_threshold_bytes,
             self._hard_processor_suspend,

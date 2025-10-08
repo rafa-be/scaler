@@ -3,7 +3,7 @@ import time
 import unittest
 
 from scaler import Client, Cluster, SchedulerClusterCombo
-from scaler.io.config import DEFAULT_LOAD_BALANCE_SECONDS
+from scaler.config.defaults import DEFAULT_LOAD_BALANCE_SECONDS
 from scaler.utility.logging.utility import setup_logger
 from scaler.utility.network_util import get_available_tcp_port
 from tests.utility import logging_test_name
@@ -45,6 +45,7 @@ class TestBalance(unittest.TestCase):
         new_cluster = Cluster(
             address=combo._cluster._address,
             storage_address=None,
+            preload=None,
             worker_io_threads=1,
             worker_names=[str(i) for i in range(0, N_WORKERS - 1)],
             per_worker_capabilities={},

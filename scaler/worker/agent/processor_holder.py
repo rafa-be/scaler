@@ -6,11 +6,11 @@ from typing import Optional, Tuple
 
 import psutil
 
-from scaler.io.config import DEFAULT_PROCESSOR_KILL_DELAY_SECONDS
+from scaler.config.defaults import DEFAULT_PROCESSOR_KILL_DELAY_SECONDS
 from scaler.protocol.python.message import Task
 from scaler.utility.identifiers import ProcessorID
-from scaler.utility.object_storage_config import ObjectStorageConfig
-from scaler.utility.zmq_config import ZMQConfig
+from scaler.config.types.object_storage_server import ObjectStorageConfig
+from scaler.config.types.zmq import ZMQConfig
 from scaler.worker.agent.processor.processor import SUSPEND_SIGNAL, Processor
 
 
@@ -20,6 +20,7 @@ class ProcessorHolder:
         event_loop: str,
         agent_address: ZMQConfig,
         storage_address: ObjectStorageConfig,
+        preload: Optional[str],
         garbage_collect_interval_seconds: int,
         trim_memory_threshold_bytes: int,
         hard_suspend: bool,
@@ -43,6 +44,7 @@ class ProcessorHolder:
             event_loop=event_loop,
             agent_address=agent_address,
             storage_address=storage_address,
+            preload=preload,
             resume_event=self._resume_event,
             resumed_event=self._resumed_event,
             garbage_collect_interval_seconds=garbage_collect_interval_seconds,
