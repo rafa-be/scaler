@@ -57,12 +57,12 @@ static PyObject* PyIOSocket_send(PyIOSocket* self, PyObject* args, PyObject* kwa
     if (!state)
         return nullptr;
 
-    OwnedPyObject callback;
+    PyObject* callback = nullptr;
     PyMessage* message = nullptr;
 
     // empty str -> positional only
     const char* kwlist[] = {"", "message", nullptr};
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", (char**)kwlist, *callback, &message))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", (char**)kwlist, &callback, &message))
         return nullptr;
 
     if (!PyObject_TypeCheck(message, (PyTypeObject*)*state->PyMessageType)) {
@@ -74,16 +74,20 @@ static PyObject* PyIOSocket_send(PyIOSocket* self, PyObject* args, PyObject* kwa
     auto payload = std::move(message->payload->bytes);
 
     try {
+        Py_INCREF(callback);
+
         self->socket->sendMessage(
             {.address = std::move(address), .payload = std::move(payload)}, [callback, state](auto result) {
                 AcquireGIL _;
 
                 if (result) {
-                    OwnedPyObject result = PyObject_CallFunctionObjArgs(*callback, Py_None, nullptr);
+                    OwnedPyObject result = PyObject_CallFunctionObjArgs(callback, Py_None, nullptr);
                 } else {
                     OwnedPyObject obj = YMQException_createFromCoreError(state, &result.error());
-                    OwnedPyObject _   = PyObject_CallFunctionObjArgs(*callback, *obj, nullptr);
+                    OwnedPyObject _   = PyObject_CallFunctionObjArgs(callback, *obj, nullptr);
                 }
+
+                Py_DECREF(callback);
             });
     } catch (...) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to send message");
@@ -99,40 +103,53 @@ static PyObject* PyIOSocket_recv(PyIOSocket* self, PyObject* args, PyObject* kwa
     if (!state)
         return nullptr;
 
-    OwnedPyObject callback;
+    PyObject* callback   = nullptr;
     const char* kwlist[] = {"", nullptr};
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", (char**)kwlist, *callback))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "O", (char**)kwlist, &callback))
         return nullptr;
 
     try {
+        Py_INCREF(callback);
+
         self->socket->recvMessage([callback, state](std::pair<Message, Error> result) {
             AcquireGIL _;
 
             if (result.second._errorCode != Error::ErrorCode::Uninit) {
                 OwnedPyObject obj = YMQException_createFromCoreError(state, &result.second);
-                OwnedPyObject _   = PyObject_CallFunctionObjArgs(*callback, *obj, nullptr);
+                OwnedPyObject _   = PyObject_CallFunctionObjArgs(callback, *obj, nullptr);
+                Py_DECREF(callback);
                 return;
             }
 
             auto message                      = result.first;
             OwnedPyObject<PyBytesYMQ> address = (PyBytesYMQ*)PyObject_CallNoArgs(*state->PyBytesYMQType);
-            if (!address)
-                return completeCallbackWithRaisedException(*callback);
+            if (!address) {
+                completeCallbackWithRaisedException(callback);
+                Py_DECREF(callback);
+                return;
+            }
 
             address->bytes = std::move(message.address);
 
             OwnedPyObject<PyBytesYMQ> payload = (PyBytesYMQ*)PyObject_CallNoArgs(*state->PyBytesYMQType);
-            if (!payload)
-                return completeCallbackWithRaisedException(*callback);
+            if (!payload) {
+                completeCallbackWithRaisedException(callback);
+                Py_DECREF(callback);
+                return;
+            }
 
             payload->bytes = std::move(message.payload);
 
             OwnedPyObject<PyMessage> pyMessage =
                 (PyMessage*)PyObject_CallFunction(*state->PyMessageType, "OO", *address, *payload);
-            if (!pyMessage)
-                return completeCallbackWithRaisedException(*callback);
+            if (!pyMessage) {
+                completeCallbackWithRaisedException(callback);
+                Py_DECREF(callback);
+                return;
+            }
 
-            OwnedPyObject _result = PyObject_CallFunctionObjArgs(*callback, *pyMessage, nullptr);
+            OwnedPyObject _result = PyObject_CallFunctionObjArgs(callback, *pyMessage, nullptr);
+            Py_DECREF(callback);
         });
     } catch (...) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to receive message");
@@ -148,23 +165,27 @@ static PyObject* PyIOSocket_bind(PyIOSocket* self, PyObject* args, PyObject* kwa
     if (!state)
         return nullptr;
 
-    OwnedPyObject callback;
+    PyObject* callback    = nullptr;
     const char* address   = nullptr;
     Py_ssize_t addressLen = 0;
     const char* kwlist[]  = {"", "address", nullptr};
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Os#", (char**)kwlist, *callback, &address, &addressLen))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Os#", (char**)kwlist, &callback, &address, &addressLen))
         return nullptr;
 
     try {
+        Py_INCREF(callback);
+
         self->socket->bindTo(std::string(address, addressLen), [callback, state](auto result) {
             AcquireGIL _;
 
             if (!result) {
                 OwnedPyObject exc = YMQException_createFromCoreError(state, &result.error());
-                OwnedPyObject _   = PyObject_CallFunctionObjArgs(*callback, *exc, nullptr);
+                OwnedPyObject _   = PyObject_CallFunctionObjArgs(callback, *exc, nullptr);
             } else {
-                OwnedPyObject _ = PyObject_CallFunctionObjArgs(*callback, Py_None, nullptr);
+                OwnedPyObject _ = PyObject_CallFunctionObjArgs(callback, Py_None, nullptr);
             }
+
+            Py_DECREF(callback);
         });
     } catch (...) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to bind to address");
@@ -180,23 +201,27 @@ static PyObject* PyIOSocket_connect(PyIOSocket* self, PyObject* args, PyObject* 
     if (!state)
         return nullptr;
 
-    OwnedPyObject callback;
+    PyObject* callback    = nullptr;
     const char* address   = nullptr;
     Py_ssize_t addressLen = 0;
     const char* kwlist[]  = {"", "address", nullptr};
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Os#", (char**)kwlist, *callback, &address, &addressLen))
+    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "Os#", (char**)kwlist, &callback, &address, &addressLen))
         return nullptr;
 
     try {
+        Py_INCREF(callback);
+
         self->socket->connectTo(std::string(address, addressLen), [callback, state](auto result) {
             AcquireGIL _;
 
             if (result || result.error()._errorCode == Error::ErrorCode::InitialConnectFailedWithInProgress) {
-                OwnedPyObject _ = PyObject_CallFunctionObjArgs(*callback, Py_None, nullptr);
+                OwnedPyObject _ = PyObject_CallFunctionObjArgs(callback, Py_None, nullptr);
             } else {
                 OwnedPyObject exc = YMQException_createFromCoreError(state, &result.error());
-                OwnedPyObject _   = PyObject_CallFunctionObjArgs(*callback, *exc, nullptr);
+                OwnedPyObject _   = PyObject_CallFunctionObjArgs(callback, *exc, nullptr);
             }
+
+            Py_DECREF(callback);
         });
     } catch (...) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to connect to address");
