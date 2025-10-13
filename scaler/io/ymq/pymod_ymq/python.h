@@ -134,8 +134,10 @@ private:
         if (!_ptr)
             return;
 
-        if (!PyGILState_Check())
+        if (!PyGILState_Check()) {
+            PyErr_SetString(PyExc_RuntimeError, "trying to free OwnedPyObject outside of the Python GIL");
             return;
+        }
 
         Py_CLEAR(_ptr);
     }
