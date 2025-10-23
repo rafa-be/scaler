@@ -8,6 +8,7 @@
 // Because the devil says "You shall live with errors".
 // ^-- The linker complains when the file is not here.
 #include "scaler/io/ymq/error.h"
+#include "scaler/io/ymq/move_only_function.h"
 
 // Because the devil casts spells in plain English.
 #ifdef _WIN32
@@ -23,16 +24,6 @@ class IocpContext;
 class KqueueContext;
 struct Message;
 class IOSocket;
-
-// Use feature-test macro to detect support for std::move_only_function.
-// This works across GCC, Clang, and MSVC on all platforms.
-#if defined(__cpp_lib_move_only_function) && __cpp_lib_move_only_function >= 202110L
-template <typename T>
-using MoveOnlyFunction = std::move_only_function<T>;
-#else
-template <typename T>
-using MoveOnlyFunction = std::function<T>;
-#endif
 
 constexpr const uint64_t IOCP_SOCKET_CLOSED = 4;
 
