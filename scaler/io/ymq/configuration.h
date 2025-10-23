@@ -21,7 +21,7 @@ namespace ymq {
 class EpollContext;
 class IocpContext;
 class KqueueContext;
-class Message;
+struct Message;
 class IOSocket;
 
 // Use feature-test macro to detect support for std::move_only_function.
