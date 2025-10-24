@@ -183,68 +183,21 @@ void ObjectStorageServer::processRequests(std::function<bool()> running)
 
             auto it = identityToFullRequest.find(identity);
             if (it == identityToFullRequest.end()) {
-                ObjectRequestHeader requestHeader;
-                try {
-                    requestHeader = ObjectRequestHeader::fromBuffer(headerOrPayload);
-                } catch (const kj::Exception& e) {
-                    _ioSocket->closeConnection(identity);
-                    _logger.log(
-                        scaler::ymq::Logger::LoggingLevel::error,
-                        "ObjectStorageServer: Malformed capnp message. Connection closed, details: ",
-                        e.getDescription().cStr());
-                    continue;
-                } catch (const std::exception& e) {
-                    _ioSocket->closeConnection(identity);
-                    _logger.log(
-                        scaler::ymq::Logger::LoggingLevel::error,
-                        "ObjectStorageServer: Failed to decode request header. Connection closed, reason: ",
-                        e.what());
-                    continue;
-                } catch (...) {
-                    _ioSocket->closeConnection(identity);
-                    _logger.log(
-                        scaler::ymq::Logger::LoggingLevel::error,
-                        "ObjectStorageServer: Unknown exception while decoding header. Connection closed.");
+                identityToFullRequest[identity].first = ObjectRequestHeader::fromBuffer(headerOrPayload);
+                const auto& requestType               = identityToFullRequest[identity].first.requestType;
+                if (requestType == ObjectRequestType::DUPLICATE_OBJECT_I_D ||
+                    requestType == ObjectRequestType::SET_OBJECT) {
                     continue;
                 }
-
-                switch (requestHeader.requestType) {
-                    case ObjectRequestType::SET_OBJECT:
-                    case ObjectRequestType::DUPLICATE_OBJECT_I_D: {
-                        identityToFullRequest.emplace(identity, std::make_pair(std::move(requestHeader), Bytes {}));
-                        continue;
-                    }
-                    case ObjectRequestType::GET_OBJECT: {
-                        auto client = std::make_shared<Client>(_ioSocket, identity);
-                        processGetRequest(std::move(client), requestHeader);
-                        continue;
-                    }
-                    case ObjectRequestType::DELETE_OBJECT: {
-                        auto client = std::make_shared<Client>(_ioSocket, identity);
-                        processDeleteRequest(std::move(client), requestHeader);
-                        continue;
-                    }
-                }
+            } else {
+                assert(it->second.first.payloadLength == headerOrPayload.len());
+                (it->second).second = std::move(headerOrPayload);
             }
 
-            auto& pendingRequest = it->second;
-            if (pendingRequest.first.payloadLength != headerOrPayload.len()) {
-                _logger.log(
-                    scaler::ymq::Logger::LoggingLevel::error,
-                    "ObjectStorageServer: Payload length mismatch. Expected ",
-                    pendingRequest.first.payloadLength,
-                    ", received ",
-                    headerOrPayload.len(),
-                    ". Connection closed.");
-                _ioSocket->closeConnection(identity);
-                identityToFullRequest.erase(it);
-                continue;
-            }
+            // NOTE: PostCondition of the previous statement: We have a full request here
 
-            pendingRequest.second = std::move(headerOrPayload);
-            auto request          = std::move(pendingRequest);
-            identityToFullRequest.erase(it);
-
+            auto request = std::move(identityToFullRequest[identity]);
+            identityToFullRequest.erase(identity);
             auto client = std::make_shared<Client>(_ioSocket, identity);
 
             switch (request.first.requestType) {
