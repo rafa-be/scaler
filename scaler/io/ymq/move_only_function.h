@@ -31,12 +31,12 @@ public:
     {
     }
 
+    MoveOnlyFunction(const MoveOnlyFunction&)            = delete;
+    MoveOnlyFunction& operator=(const MoveOnlyFunction&) = delete;
+
     R operator()(Args... args) const { return (*callable_)(std::forward<Args>(args)...); }
 
     explicit operator bool() const noexcept { return static_cast<bool>(callable_); }
-
-    MoveOnlyFunction(const MoveOnlyFunction&)            = delete;
-    MoveOnlyFunction& operator=(const MoveOnlyFunction&) = delete;
 
 private:
     // Required for type-erasure, so that we support std::function, lambdas, function pointers ...
