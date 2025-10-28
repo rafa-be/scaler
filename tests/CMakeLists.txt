@@ -45,4 +45,3 @@ endfunction()
 
 # Add the directory for the C++ tests.
 add_subdirectory(cpp)
-

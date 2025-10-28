@@ -72,13 +72,7 @@
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Darwin"
-      },
-      "targets": [
-        "py_object_storage_server",
-        "test_object_manager",
-        "test_object_storage_server",
-        "test_logging"
-      ]
+      }
     },
     {
       "name": "windows-x64",
@@ -117,18 +111,6 @@
       }
     },
     {
-      "name": "windows-x64",
-      "configurePreset": "windows-x64",
-      "output": {
-        "outputOnFailure": true
-      },
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      }
-    },
-    {
       "name": "darwin-arm64",
       "configurePreset": "darwin-arm64",
       "output": {
@@ -138,6 +120,18 @@
         "type": "equals",
         "lhs": "${hostSystemName}",
         "rhs": "Darwin"
+      }
+    },
+    {
+      "name": "windows-x64",
+      "configurePreset": "windows-x64",
+      "output": {
+        "outputOnFailure": true
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
       }
     }
   ]
