@@ -12,6 +12,7 @@
 #endif  // _WIN32
 #ifdef __APPLE__
 #include <sys/event.h>
+
 #include <cerrno>
 #include <cstring>
 #endif  // __APPLE__
@@ -174,7 +175,7 @@ private:
 template <typename T>
 class InterruptiveConcurrentQueue {
 public:
-    InterruptiveConcurrentQueue(int kqfd, uintptr_t ident): _kqfd(kqfd), _ident(ident) {}
+    InterruptiveConcurrentQueue(int kq, uintptr_t ident): _kq(kq), _ident(ident) {}
 
     uintptr_t ident() const { return _ident; }
 
@@ -188,7 +189,7 @@ public:
     InterruptiveConcurrentQueue& operator=(InterruptiveConcurrentQueue&&)      = delete;
 
 private:
-    int _kqfd;  // shared kqueue descriptor
+    int _kq;           // shared kqueue descriptor
     uintptr_t _ident;  // EVFILT_USER ident reserved for this queue
     moodycamel::ConcurrentQueue<T> _queue;
 };

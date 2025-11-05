@@ -1,9 +1,10 @@
 #ifdef _WIN32
 
+#include "scaler/io/ymq/iocp_context.h"
+
 #include <cerrno>
 #include <functional>
 
-#include "scaler/io/ymq/iocp_context.h"
 #include "scaler/io/ymq/error.h"
 #include "scaler/io/ymq/event_manager.h"
 
@@ -48,20 +49,24 @@ void IocpContext::loop()
 
     // NOTE: Timer events are handled above
     for (auto it = events.begin(); it != events.begin() + n; ++it) {
-        auto current_event = *it;
-        if (current_event.lpCompletionKey == _isInterruptiveFd) {
+        auto currentEvent = *it;
+        if (currentEvent.lpCompletionKey == _isInterruptiveFd) {
             auto vec = _interruptiveFunctions.dequeue();
             std::ranges::for_each(vec, [](auto&& x) { x(); });
             continue;
         }
-        if (current_event.lpCompletionKey == _isSocket) {
-            auto event = (EventManager*)(current_event.lpOverlapped);
+        if (currentEvent.lpCompletionKey == _isSocket) {
+            EventManager* event = currentEvent.lpOverlapped;
             // TODO: Figure out whether there is a better way to remove overlapped entry from the IOCP queue
             if (!event) {
                 continue;
             }
-            // TODO: Figure out the best stuff to put in
-            event->onEvents(revent);
+
+            event->onRead();
+            event->onWrite();
+            if (events & IOCP_SOCKET_CLOSED) {
+                event->onClose();
+            }
         }
     }
     execPendingFunctions();

@@ -1,5 +1,7 @@
 #ifdef __APPLE__
 
+#include "scaler/io/ymq/kqueue_context.h"
+
 #include <sys/event.h>
 #include <sys/types.h>
 #include <unistd.h>
@@ -10,45 +12,183 @@
 #include <functional>
 #include <ranges>
 
-#include "scaler/io/ymq/kqueue_context.h"
 #include "scaler/io/ymq/error.h"
 #include "scaler/io/ymq/event_manager.h"
 
 namespace scaler {
 namespace ymq {
 
-namespace {
-
-int createKqueueOrPanic(const char* origin)
+KqueueContext::KqueueContext()
+    : _kqfd(createKqueue())
+    , _timingFunctions(_kq, _isTimingFd)
+    , _delayedFunctions()
+    , _interruptiveFunctions(_kq, _isInterruptiveFd)
 {
-    const int fd = kqueue();
-    if (fd == -1) {
-        const int myErrno = errno;
-        switch (myErrno) {
-            case EMFILE:
-            case ENFILE:
-            case ENOMEM:
-                unrecoverableError({
-                    Error::ErrorCode::ConfigurationError,
-                    "Originated from",
-                    origin,
-                    "Errno is",
-                    strerror(myErrno),
-                });
-                break;
+    registerInterruptiveIdent();
+    registerTimerIdent();
+}
 
+KqueueContext::~KqueueContext()
+{
+    if (_kq >= 0)
+        close(_kq);
+}
+
+void KqueueContext::execPendingFunctions()
+{
+    while (!_delayedFunctions.empty()) {
+        auto top = std::move(_delayedFunctions.front());
+        top();
+        _delayedFunctions.pop();
+    }
+}
+
+void KqueueContext::loop()
+{
+    std::array<struct kevent, MAX_EVENT_BATCH_SIZE> events {};
+
+    int n = kevent(_kq, nullptr, 0, events.data(), events.size(), nullptr);
+    if (n == -1) {
+        switch (errno) {
+            case EINTR:
+                // Signal interrupted the wait, just return and try again
+                return;
             default:
                 unrecoverableError({
                     Error::ErrorCode::CoreBug,
                     "Originated from",
-                    origin,
+                    __PRETTY_FUNCTION__,
                     "Errno is",
-                    strerror(myErrno),
+                    strerror(errno),
                 });
                 break;
         }
     }
-    return fd;
+
+    for (auto it = events.begin(); it != events.begin() + n; ++it) {
+        const struct kevent& event = *it;
+
+        if (event.filter == EVFILT_USER && event.ident == _isInterruptiveFd) {
+            // Handle interruptive functions
+            auto vec = _interruptiveFunctions.dequeue();
+            std::ranges::for_each(vec, [](auto&& x) { x(); });
+        } else if (event.filter == EVFILT_TIMER) {
+            // Handle timing functions
+            auto vec = _timingFunctions.dequeue();
+            std::ranges::for_each(vec, [](auto& x) { x(); });
+        } else {
+            // Handle socket events
+            EventManager* eventManager = event.udata;
+            if (eventManager) {
+                if (event.filter == EVFILT_READ) {
+                    event->onRead();
+                }
+                if (event.filter == EVFILT_WRITE) {
+                    event->onWrite();
+                }
+                if (event.flags & EV_EOF) {
+                    event->onClose();
+                }
+                if (event.flags & EV_ERROR) {
+                    event->onError();
+                }
+            }
+        }
+    }
+
+    execPendingFunctions();
+}
+
+void KqueueContext::addFdToLoop(int fd, uint64_t events, EventManager* manager)
+{
+    if (events & EVFILT_READ) {
+        _setKEvent(fd, EVFILT_READ, EV_ADD | EV_ENABLE);
+    }
+
+    if (events & EVFILT_WRITE) {
+        _setKEvent(fd, EVFILT_WRITE, EV_ADD | EV_ENABLE);
+    }
+}
+
+void KqueueContext::removeFdFromLoop(int fd)
+{
+    std::array<struct kevent, 2> events;
+
+    EV_SET(&events[0], fd, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
+    EV_SET(&events[1], fd, EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
+
+    // It's OK if one of them fails (might not be registered), so we don't check error
+    kevent(_kq, changes.data(), changes.size(), nullptr, 0, nullptr);
+}
+
+static int KqueueContext::_createKqueue()
+{
+    const int kq = kqueue();
+    if (kq == -1) {
+        switch (errno) {
+            case EACCES:
+            case EFAULT:
+            case EBADF:
+            case EINVAL:
+            case ENOENT:
+            case ESRCH:
+                unrecoverableError({
+                    Error::ErrorCode::ConfigurationError,
+                    "Originated from",
+                    __PRETTY_FUNCTION__,
+                    "Errno is",
+                    strerror(errno),
+                });
+                break;
+
+            case ENOMEM:
+            case EMFILE:
+            case ENFILE:
+            case EINTR:
+            default:
+                unrecoverableError({
+                    Error::ErrorCode::CoreBug,
+                    "Originated from",
+                    __PRETTY_FUNCTION__,
+                    "Errno is",
+                    strerror(errno),
+                });
+                break;
+        }
+    }
+    return kq;
+}
+
+void KqueueContext::_registerInterruptiveIdent()
+{
+    _setKEvent(_interruptiveIdent, EVFILT_USER, EV_ADD | EV_ENABLE | EV_CLEAR);
+}
+
+void KqueueContext::_registerTimerIdent()
+{
+    // TODO
+}
+
+void KqueueContext::_setKEvent(
+    uintptr_t ident,
+    short filter,
+    uint16_t flags,
+    uint32_t filterFlags = 0,
+    int64_t filterData   = 0,
+    uint64_t userData    = 0)
+{
+    struct kevent kev;
+    EV_SET(&kev, ident, filter, flags, filterFlags, filterData, userData);
+
+    if (kevent(_kq, &kev, 1, nullptr, 0, nullptr) == -1) {
+        unrecoverableError({
+            Error::ErrorCode::CoreBug,
+            "Originated from",
+            __PRETTY_FUNCTION__,
+            "Errno is",
+            strerror(errno),
+        });
+    }
 }
 
 int64_t clampMicroseconds(int64_t micros)
@@ -56,59 +196,26 @@ int64_t clampMicroseconds(int64_t micros)
     return micros < 0 ? 0 : micros;
 }
 
-}  // namespace
-
-// TimedQueue implementation for macOS
-TimedQueue::TimedQueue(int kqueueFd, uintptr_t ident)
-    : _kqfd(kqueueFd)
-    , _ident(ident)
-    , _currentId {}
+TimedQueue::TimedQueue(int kq, uintptr_t _timerIdent): _kq(kq), _timerIdent(ident), _currentId(0)
 {
-    if (_kqfd < 0) {
-        unrecoverableError({
-            Error::ErrorCode::CoreBug,
-            "Originated from",
-            "TimedQueue::TimedQueue",
-            "Errno is",
-            "invalid kqueue fd",
-        });
-    }
 }
 
 TimedQueue::~TimedQueue() = default;
 
 void TimedQueue::armNextTimer()
 {
-    struct kevent kev;
+    // Remove any existing timer
+    _setKEvent(_timerIdent, EVFILT_TIMER, EV_DELETE);
 
     if (pq.empty()) {
-        EV_SET(&kev, _ident, EVFILT_TIMER, EV_DELETE, 0, 0, nullptr);
-        if (kevent(_kqfd, &kev, 1, nullptr, 0, nullptr) == -1) {
-            if (errno != ENOENT) {
-                unrecoverableError({
-                    Error::ErrorCode::CoreBug,
-                    "Originated from",
-                    "kevent(2) - disarm timer",
-                    "Errno is",
-                    strerror(errno),
-                });
-            }
-        }
+        // No scheduled task.
         return;
     }
 
-    const auto microsecs = clampMicroseconds(convertToKqueueTimer(std::get<0>(pq.top())));
-    EV_SET(&kev, _ident, EVFILT_TIMER, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_USECONDS, microsecs, nullptr);
+    Timestamp nextEvent = std::get<0>(pq.top());
+    int64_t microsecs   = clampMicroseconds(convertToKqueueTimer(nextEvent));
 
-    if (kevent(_kqfd, &kev, 1, nullptr, 0, nullptr) == -1) {
-        unrecoverableError({
-            Error::ErrorCode::CoreBug,
-            "Originated from",
-            "kevent(2) - arm timer",
-            "Errno is",
-            strerror(errno),
-        });
-    }
+    _setKEvent(_timerIdent, EVFILT_TIMER, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_USECONDS, microsecs);
 }
 
 TimedQueue::Identifier TimedQueue::push(Timestamp timestamp, Callback cb)
@@ -182,190 +289,6 @@ std::vector<T> InterruptiveConcurrentQueue<T>::dequeue()
 
 // Explicit template instantiation for Function type
 template class InterruptiveConcurrentQueue<Configuration::ExecutionFunction>;
-
-// KqueueContext implementation
-KqueueContext::KqueueContext()
-    : _kqfd(createKqueueOrPanic("kqueue(2)"))
-    , _timingFunctions(_kqfd, _isTimingFd)
-    , _delayedFunctions()
-    , _interruptiveFunctions(_kqfd, _isInterruptiveFd)
-{
-
-    // Register user event for interruptive functions
-    struct kevent kev;
-    EV_SET(&kev, _isInterruptiveFd, EVFILT_USER, EV_ADD | EV_ENABLE | EV_CLEAR, 0, 0, nullptr);
-
-    if (kevent(_kqfd, &kev, 1, nullptr, 0, nullptr) == -1) {
-        unrecoverableError({
-            Error::ErrorCode::CoreBug,
-            "Originated from",
-            "kevent(2) - register user event",
-            "Errno is",
-            strerror(errno),
-        });
-    }
-}
-
-KqueueContext::~KqueueContext()
-{
-    if (_kqfd >= 0)
-        close(_kqfd);
-}
-
-void KqueueContext::execPendingFunctions()
-{
-    while (!_delayedFunctions.empty()) {
-        auto top = std::move(_delayedFunctions.front());
-        top();
-        _delayedFunctions.pop();
-    }
-}
-
-void KqueueContext::loop()
-{
-    std::array<struct kevent, _reventSize> events {};
-
-    int n = kevent(_kqfd, nullptr, 0, events.data(), _reventSize, nullptr);
-    if (n == -1) {
-        const int myErrno = errno;
-        switch (myErrno) {
-            case EINTR:
-                // Signal interrupted the wait, just return and try again
-                return;
-
-            case EBADF:
-            case EFAULT:
-            case EINVAL:
-            default:
-                unrecoverableError({
-                    Error::ErrorCode::CoreBug,
-                    "Originated from",
-                    "kevent(2)",
-                    "Errno is",
-                    strerror(myErrno),
-                    "_kqfd",
-                    _kqfd,
-                    "_reventSize",
-                    _reventSize,
-                });
-                break;
-        }
-    }
-
-    for (int i = 0; i < n; ++i) {
-        const struct kevent& current_event = events[i];
-
-        if (current_event.filter == EVFILT_USER && current_event.ident == _isInterruptiveFd) {
-            // Handle interruptive functions
-            auto vec = _interruptiveFunctions.dequeue();
-            std::ranges::for_each(vec, [](auto&& x) { x(); });
-        } else if (current_event.filter == EVFILT_TIMER) {
-            // Handle timing functions
-            auto vec = _timingFunctions.dequeue();
-            std::ranges::for_each(vec, [](auto& x) { x(); });
-        } else {
-            // Handle socket events
-            auto* event = (EventManager*)current_event.udata;
-            if (event) {
-                uint64_t ymq_events = 0;
-
-                // Convert kqueue events to our event flags
-                if (current_event.filter == EVFILT_READ) {
-                    ymq_events |= KQUEUE_EVENT_READ;
-                }
-                if (current_event.filter == EVFILT_WRITE) {
-                    ymq_events |= KQUEUE_EVENT_WRITE;
-                }
-                if (current_event.flags & EV_EOF) {
-                    // Socket closed
-                    ymq_events |= KQUEUE_EVENT_CLOSE;
-                }
-                if (current_event.flags & EV_ERROR) {
-                    ymq_events |= KQUEUE_EVENT_ERROR;
-                }
-
-                event->onEvents(ymq_events);
-            }
-        }
-    }
-
-    execPendingFunctions();
-}
-
-void KqueueContext::addFdToLoop(int fd, uint64_t events, EventManager* manager)
-{
-    std::vector<struct kevent> changes;
-
-    // Add read filter if requested
-    if (events & EVFILT_READ) {
-        struct kevent kev;
-        EV_SET(&kev, fd, EVFILT_READ, EV_ADD | EV_ENABLE, 0, 0, manager);
-        changes.push_back(kev);
-    }
-
-    // Add write filter if requested
-    if (events & EVFILT_WRITE) {
-        struct kevent kev;
-        EV_SET(&kev, fd, EVFILT_WRITE, EV_ADD | EV_ENABLE, 0, 0, manager);
-        changes.push_back(kev);
-    }
-
-    if (!changes.empty()) {
-        if (kevent(_kqfd, changes.data(), changes.size(), nullptr, 0, nullptr) == -1) {
-            const int myErrno = errno;
-            switch (myErrno) {
-                case ENOMEM:
-                    unrecoverableError({
-                        Error::ErrorCode::ConfigurationError,
-                        "Originated from",
-                        "kevent(2) - addFdToLoop",
-                        "Errno is",
-                        strerror(myErrno),
-                        "_kqfd",
-                        _kqfd,
-                        "fd",
-                        fd,
-                    });
-                    break;
-
-                case EBADF:
-                case EINVAL:
-                case ENOENT:
-                case ESRCH:
-                default:
-                    unrecoverableError({
-                        Error::ErrorCode::CoreBug,
-                        "Originated from",
-                        "kevent(2) - addFdToLoop",
-                        "Errno is",
-                        strerror(myErrno),
-                        "_kqfd",
-                        _kqfd,
-                        "fd",
-                        fd,
-                    });
-                    break;
-            }
-        }
-    }
-}
-
-void KqueueContext::removeFdFromLoop(int fd)
-{
-    std::vector<struct kevent> changes;
-
-    // Remove both read and write filters
-    struct kevent kev_read;
-    EV_SET(&kev_read, fd, EVFILT_READ, EV_DELETE, 0, 0, nullptr);
-    changes.push_back(kev_read);
-
-    struct kevent kev_write;
-    EV_SET(&kev_write, fd, EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
-    changes.push_back(kev_write);
-
-    // It's OK if one of them fails (might not be registered), so we don't check error
-    kevent(_kqfd, changes.data(), changes.size(), nullptr, 0, nullptr);
-}
 
 }  // namespace ymq
 }  // namespace scaler

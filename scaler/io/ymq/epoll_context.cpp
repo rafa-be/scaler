@@ -1,11 +1,12 @@
 #ifdef __linux__
 
+#include "scaler/io/ymq/epoll_context.h"
+
 #include <sys/epoll.h>
 
 #include <cerrno>
 #include <functional>
 
-#include "scaler/io/ymq/epoll_context.h"
 #include "scaler/io/ymq/error.h"
 #include "scaler/io/ymq/event_manager.h"
 
@@ -61,16 +62,27 @@ void EpollContext::loop()
     }
 
     for (auto it = events.begin(); it != events.begin() + n; ++it) {
-        epoll_event current_event = *it;
-        auto* event               = (EventManager*)current_event.data.ptr;
-        if (event == (void*)_isInterruptiveFd) {
+        epoll_event event          = *it;
+        EventManager* eventManager = currentEvent.data.ptr;
+        if (eventManager == (void*)_isInterruptiveFd) {
             auto vec = _interruptiveFunctions.dequeue();
             std::ranges::for_each(vec, [](auto&& x) { x(); });
-        } else if (event == (void*)_isTimingFd) {
+        } else if (eventManager == (void*)_isTimingFd) {
             auto vec = _timingFunctions.dequeue();
             std::ranges::for_each(vec, [](auto& x) { x(); });
         } else {
-            event->onEvents(current_event.events);
+            if ((event.events & EPOLLHUP) && !(event.events & EPOLLIN)) {
+                onClose();
+            }
+            if (event.events & (EPOLLERR | EPOLLHUP)) {
+                onError();
+            }
+            if (event.events & (EPOLLIN | EPOLLRDHUP)) {
+                onRead();
+            }
+            if (event.events & EPOLLOUT) {
+                onWrite();
+            }
         }
     }
 

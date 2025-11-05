@@ -8,9 +8,8 @@
 #include <queue>
 
 #include "scaler/io/ymq/configuration.h"
-#include "scaler/io/ymq/timed_queue.h"
-
 #include "scaler/io/ymq/interruptive_concurrent_queue.h"
+#include "scaler/io/ymq/timed_queue.h"
 #include "scaler/io/ymq/timestamp.h"
 
 namespace scaler {
@@ -45,16 +44,31 @@ public:
     void cancelExecution(Identifier identifier) { _timingFunctions.cancelExecution(identifier); }
 
 private:
-    void execPendingFunctions();
-    int _kqfd;
+    constexpr static size_t MAX_EVENT_BATCH_SIZE = 1024;
+
+    int _kq;
     TimedQueue _timingFunctions;
     DelayedFunctionQueue _delayedFunctions;
     InterruptiveConcurrentQueue<Function> _interruptiveFunctions;
-    constexpr static const uintptr_t _isInterruptiveFd = 0;
-    constexpr static const uintptr_t _isTimingFd       = 1;
-    constexpr static const size_t _reventSize          = 1024;
-};
+    constexpr static const uintptr_t _interruptiveIdent = 0;
+    constexpr static const uintptr_t _timerIdent        = 1;
+    constexpr static const size_t _reventSize           = 1024;
 
+    void registerInterruptiveIdent();
+
+    void registerTimerIdent();
+
+    void execPendingFunctions();
+
+    void KqueueContext::_setKEvent(
+        uintptr_t ident,
+        short filter,
+        uint16_t flags,
+        uint32_t filterFlags = 0,
+        int64_t filterData   = 0,
+        uint64_t userData    = 0);
+
+    static int _createKQueue();
 }  // namespace ymq
 }  // namespace scaler
 

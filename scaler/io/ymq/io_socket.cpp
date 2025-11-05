@@ -1,3 +1,5 @@
+#include "scaler/io/ymq/io_socket.h"
+
 #include <algorithm>
 #include <expected>
 #include <memory>
@@ -6,7 +8,6 @@
 #include <utility>
 #include <vector>
 
-#include "scaler/io/ymq/io_socket.h"
 #include "scaler/io/ymq/error.h"
 #include "scaler/io/ymq/event_loop_thread.h"
 #include "scaler/io/ymq/event_manager.h"
