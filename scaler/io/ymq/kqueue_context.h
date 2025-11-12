@@ -43,6 +43,8 @@ public:
     }
     void cancelExecution(Identifier identifier) { _timingFunctions.cancelExecution(identifier); }
 
+    void armNextTimer(uintptr_t timerIdent);
+
 private:
     constexpr static size_t MAX_EVENT_BATCH_SIZE = 1024;
 
@@ -54,21 +56,29 @@ private:
     constexpr static const uintptr_t _timerIdent        = 1;
     constexpr static const size_t _reventSize           = 1024;
 
+    using TimedFunc           = std::tuple<Timestamp, Function, Identifier>;
+    constexpr static auto cmp = [](const auto& x, const auto& y) { return std::get<0>(x) < std::get<0>(y); };
+    using PriorityQueue       = std::priority_queue<TimedFunc, std::vector<TimedFunc>, decltype(cmp)>;
+
+    PriorityQueue pq;
+
     void registerInterruptiveIdent();
 
     void registerTimerIdent();
 
     void execPendingFunctions();
 
-    void KqueueContext::_setKEvent(
+    void _setKEvent(
         uintptr_t ident,
         short filter,
         uint16_t flags,
         uint32_t filterFlags = 0,
         int64_t filterData   = 0,
-        uint64_t userData    = 0);
+        void* userData       = nullptr);
 
     static int _createKQueue();
+};
+
 }  // namespace ymq
 }  // namespace scaler
 

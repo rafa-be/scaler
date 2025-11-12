@@ -187,21 +187,19 @@ public:
     constexpr static auto cmp = [](const auto& x, const auto& y) { return std::get<0>(x) < std::get<0>(y); };
     using PriorityQueue       = std::priority_queue<TimedFunc, std::vector<TimedFunc>, decltype(cmp)>;
 
-    TimedQueue(int kqueueFd, uintptr_t ident);
+    TimedQueue(int kq, uintptr_t timerIdent);
     ~TimedQueue();
 
     Identifier push(Timestamp timestamp, Callback cb);
     void cancelExecution(Identifier id) { _cancelledFunctions.insert(id); }
     std::vector<Callback> dequeue();
-    int timingFd() const { return _kqfd; }
+    int timingFd() const { return _kq; }
 
 private:
-    int _kqfd;  // kqueue fd for timing events
-    uintptr_t _ident;
+    int _kq;  // kqueue fd for timing events
+    uintptr_t _timerIdent;
     Identifier _currentId;
-    PriorityQueue pq;
     std::set<Identifier> _cancelledFunctions;
-    void armNextTimer();
 };
 
 #elif _WIN32

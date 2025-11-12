@@ -63,7 +63,7 @@ void EpollContext::loop()
 
     for (auto it = events.begin(); it != events.begin() + n; ++it) {
         epoll_event event          = *it;
-        EventManager* eventManager = currentEvent.data.ptr;
+        EventManager* eventManager = static_cast<EventManager*>(event.data.ptr);
         if (eventManager == (void*)_isInterruptiveFd) {
             auto vec = _interruptiveFunctions.dequeue();
             std::ranges::for_each(vec, [](auto&& x) { x(); });
@@ -72,16 +72,16 @@ void EpollContext::loop()
             std::ranges::for_each(vec, [](auto& x) { x(); });
         } else {
             if ((event.events & EPOLLHUP) && !(event.events & EPOLLIN)) {
-                onClose();
+                eventManager->onClose();
             }
             if (event.events & (EPOLLERR | EPOLLHUP)) {
-                onError();
+                eventManager->onError();
             }
             if (event.events & (EPOLLIN | EPOLLRDHUP)) {
-                onRead();
+                eventManager->onRead();
             }
             if (event.events & EPOLLOUT) {
-                onWrite();
+                eventManager->onWrite();
             }
         }
     }

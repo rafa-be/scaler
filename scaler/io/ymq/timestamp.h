@@ -21,15 +21,20 @@ namespace ymq {
 struct Timestamp {
     std::chrono::time_point<std::chrono::system_clock> timestamp;
 
-    friend std::strong_ordering operator<=>(Timestamp x, Timestamp y) { return x.timestamp <=> y.timestamp; }
-
     Timestamp(): timestamp(std::chrono::system_clock::now()) {}
     Timestamp(std::chrono::time_point<std::chrono::system_clock> t) { timestamp = std::move(t); }
 
     template <class Rep, class Period = std::ratio<1>>
-    Timestamp createTimestampByOffsetDuration(std::chrono::duration<Rep, Period> offset)
+    Timestamp operator+(std::chrono::duration<Rep, Period> offset) const
     {
         return {timestamp + offset};
+    }
+
+    friend std::strong_ordering operator<=>(Timestamp x, Timestamp y) { return x.timestamp <=> y.timestamp; }
+
+    friend std::chrono::milliseconds operator-(Timestamp lhs, Timestamp rhs)
+    {
+        return std::chrono::duration_cast<std::chrono::milliseconds>(lhs.timestamp - rhs.timestamp);
     }
 };
 

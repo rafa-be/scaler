@@ -19,6 +19,9 @@ add_library(ymq_objs OBJECT
 
     event_manager.h
 
+    event_selector.h
+    event_selector.cpp
+
     message_connection.h
     message_connection_tcp.h
     message_connection_tcp.cpp

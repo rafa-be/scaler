@@ -19,10 +19,10 @@ namespace scaler {
 namespace ymq {
 
 KqueueContext::KqueueContext()
-    : _kqfd(createKqueue())
-    , _timingFunctions(_kq, _isTimingFd)
+    : _kq(_createKQueue())
+    , _timingFunctions(_kq, _timerIdent)
     , _delayedFunctions()
-    , _interruptiveFunctions(_kq, _isInterruptiveFd)
+    , _interruptiveFunctions(_kq, _interruptiveIdent)
 {
     registerInterruptiveIdent();
     registerTimerIdent();
@@ -68,7 +68,7 @@ void KqueueContext::loop()
     for (auto it = events.begin(); it != events.begin() + n; ++it) {
         const struct kevent& event = *it;
 
-        if (event.filter == EVFILT_USER && event.ident == _isInterruptiveFd) {
+        if (event.filter == EVFILT_USER && event.ident == _interruptiveIdent) {
             // Handle interruptive functions
             auto vec = _interruptiveFunctions.dequeue();
             std::ranges::for_each(vec, [](auto&& x) { x(); });
@@ -78,19 +78,19 @@ void KqueueContext::loop()
             std::ranges::for_each(vec, [](auto& x) { x(); });
         } else {
             // Handle socket events
-            EventManager* eventManager = event.udata;
+            EventManager* eventManager = static_cast<EventManager*>(event.udata);
             if (eventManager) {
                 if (event.filter == EVFILT_READ) {
-                    event->onRead();
+                    eventManager->onRead();
                 }
                 if (event.filter == EVFILT_WRITE) {
-                    event->onWrite();
+                    eventManager->onWrite();
                 }
                 if (event.flags & EV_EOF) {
-                    event->onClose();
+                    eventManager->onClose();
                 }
                 if (event.flags & EV_ERROR) {
-                    event->onError();
+                    eventManager->onError();
                 }
             }
         }
@@ -118,10 +118,10 @@ void KqueueContext::removeFdFromLoop(int fd)
     EV_SET(&events[1], fd, EVFILT_WRITE, EV_DELETE, 0, 0, nullptr);
 
     // It's OK if one of them fails (might not be registered), so we don't check error
-    kevent(_kq, changes.data(), changes.size(), nullptr, 0, nullptr);
+    kevent(_kq, events.data(), events.size(), nullptr, 0, nullptr);
 }
 
-static int KqueueContext::_createKqueue()
+int KqueueContext::_createKQueue()
 {
     const int kq = kqueue();
     if (kq == -1) {
@@ -159,23 +159,18 @@ static int KqueueContext::_createKqueue()
     return kq;
 }
 
-void KqueueContext::_registerInterruptiveIdent()
+void KqueueContext::registerInterruptiveIdent()
 {
     _setKEvent(_interruptiveIdent, EVFILT_USER, EV_ADD | EV_ENABLE | EV_CLEAR);
 }
 
-void KqueueContext::_registerTimerIdent()
+void KqueueContext::registerTimerIdent()
 {
     // TODO
 }
 
 void KqueueContext::_setKEvent(
-    uintptr_t ident,
-    short filter,
-    uint16_t flags,
-    uint32_t filterFlags = 0,
-    int64_t filterData   = 0,
-    uint64_t userData    = 0)
+    uintptr_t ident, short filter, uint16_t flags, uint32_t filterFlags, int64_t filterData, void* userData)
 {
     struct kevent kev;
     EV_SET(&kev, ident, filter, flags, filterFlags, filterData, userData);
@@ -184,7 +179,7 @@ void KqueueContext::_setKEvent(
         unrecoverableError({
             Error::ErrorCode::CoreBug,
             "Originated from",
-            __PRETTY_FUNCTION__,
+            "kevent(2)",
             "Errno is",
             strerror(errno),
         });
@@ -196,16 +191,16 @@ int64_t clampMicroseconds(int64_t micros)
     return micros < 0 ? 0 : micros;
 }
 
-TimedQueue::TimedQueue(int kq, uintptr_t _timerIdent): _kq(kq), _timerIdent(ident), _currentId(0)
+TimedQueue::TimedQueue(int kq, uintptr_t timerIdent): _kq(kq), _timerIdent(timerIdent), _currentId(0)
 {
 }
 
 TimedQueue::~TimedQueue() = default;
 
-void TimedQueue::armNextTimer()
+void KqueueContext::armNextTimer(uintptr_t timerIdent)
 {
     // Remove any existing timer
-    _setKEvent(_timerIdent, EVFILT_TIMER, EV_DELETE);
+    _setKEvent(timerIdent, EVFILT_TIMER, EV_DELETE);
 
     if (pq.empty()) {
         // No scheduled task.
@@ -215,14 +210,14 @@ void TimedQueue::armNextTimer()
     Timestamp nextEvent = std::get<0>(pq.top());
     int64_t microsecs   = clampMicroseconds(convertToKqueueTimer(nextEvent));
 
-    _setKEvent(_timerIdent, EVFILT_TIMER, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_USECONDS, microsecs);
+    _setKEvent(timerIdent, EVFILT_TIMER, EV_ADD | EV_ENABLE | EV_ONESHOT, NOTE_USECONDS, microsecs);
 }
 
 TimedQueue::Identifier TimedQueue::push(Timestamp timestamp, Callback cb)
 {
     const auto id = _currentId++;
-    pq.push({timestamp, std::move(cb), id});
-    armNextTimer();
+    // pq.push({timestamp, std::move(cb), id});
+    //  armNextTimer();
     return id;
 }
 
@@ -231,22 +226,22 @@ std::vector<TimedQueue::Callback> TimedQueue::dequeue()
     std::vector<Callback> callbacks;
     Timestamp now;
 
-    while (!pq.empty()) {
-        if (std::get<0>(pq.top()) < now) {
-            auto [ts, cb, id] = std::move(const_cast<PriorityQueue::reference>(pq.top()));
-            pq.pop();
-            auto cancelled = _cancelledFunctions.find(id);
-            if (cancelled != _cancelledFunctions.end()) {
-                _cancelledFunctions.erase(cancelled);
-            } else {
-                callbacks.emplace_back(std::move(cb));
-            }
-        } else {
-            break;
-        }
-    }
+    // while (!pq.empty()) {
+    //     if (std::get<0>(pq.top()) < now) {
+    //         auto [ts, cb, id] = std::move(const_cast<PriorityQueue::reference>(pq.top()));
+    //         pq.pop();
+    //         auto cancelled = _cancelledFunctions.find(id);
+    //         if (cancelled != _cancelledFunctions.end()) {
+    //             _cancelledFunctions.erase(cancelled);
+    //         } else {
+    //             callbacks.emplace_back(std::move(cb));
+    //         }
+    //     } else {
+    //         break;
+    //     }
+    // }
 
-    armNextTimer();
+    // armNextTimer();
 
     return callbacks;
 }
@@ -261,7 +256,7 @@ void InterruptiveConcurrentQueue<T>::enqueue(T item)
     struct kevent kev;
     EV_SET(&kev, _ident, EVFILT_USER, 0, NOTE_TRIGGER, 0, nullptr);
 
-    if (kevent(_kqfd, &kev, 1, nullptr, 0, nullptr) == -1) {
+    if (kevent(_kq, &kev, 1, nullptr, 0, nullptr) == -1) {
         unrecoverableError({
             Error::ErrorCode::CoreBug,
             "Originated from",

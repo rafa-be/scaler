@@ -384,7 +384,7 @@ void TcpClient::retry()
     CloseAndZeroSocket(_connFd);
 
     Timestamp now;
-    auto at = now.createTimestampByOffsetDuration(std::chrono::seconds(2 << _retryTimes++));
+    auto at = now + std::chrono::seconds(2 << _retryTimes++);
 
     _retryIdentifier = _eventLoopThread->_eventLoop.executeAt(at, [this] { this->onCreated(); });
 }
