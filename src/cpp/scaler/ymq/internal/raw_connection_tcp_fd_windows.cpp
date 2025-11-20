@@ -2,7 +2,7 @@
 #include <algorithm>
 #include <cassert>  // assert
 
-#include "scaler/error/error.h"
+#include "scaler/utility/error.h"
 #include "scaler/ymq/internal/defs.h"
 #include "scaler/ymq/internal/network_utils.h"
 #include "scaler/ymq/internal/raw_connection_tcp_fd.h"
@@ -63,7 +63,7 @@ std::expected<uint64_t, RawConnectionTCPFD::IOStatus> RawConnectionTCPFD::readBy
         } else {
             // NOTE: On Windows we don't have signals and weird IO Errors
             unrecoverableError({
-                Error::ErrorCode::CoreBug,
+                utility::Error::ErrorCode::CoreBug,
                 "Originated from",
                 "recv(2)",
                 "Errno is",
@@ -166,7 +166,7 @@ bool RawConnectionTCPFD::prepareReadBytes(void* notifyHandle)
         return false;
     }
     unrecoverableError({
-        Error::ErrorCode::CoreBug,
+        utility::Error::ErrorCode::CoreBug,
         "Originated from",
         "ReadFile",
         "Errno is",
@@ -192,7 +192,7 @@ std::pair<size_t, bool> RawConnectionTCPFD::prepareWriteBytes(void* dest, size_t
         return {1, false};
     }
     unrecoverableError({
-        Error::ErrorCode::CoreBug,
+        utility::Error::ErrorCode::CoreBug,
         "Originated from",
         "prepareWriteBytes",
         "Errno is",

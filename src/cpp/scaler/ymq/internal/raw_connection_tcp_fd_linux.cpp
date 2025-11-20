@@ -1,7 +1,7 @@
 #ifdef __linux__
 #include <cassert>  // assert
 
-#include "scaler/error/error.h"
+#include "scaler/utility/error.h"
 #include "scaler/ymq/internal/defs.h"
 #include "scaler/ymq/internal/network_utils.h"
 #include "scaler/ymq/internal/raw_connection_tcp_fd.h"
@@ -67,7 +67,7 @@ std::expected<uint64_t, RawConnectionTCPFD::IOStatus> RawConnectionTCPFD::readBy
                 case EISDIR:
                 case EINVAL:
                     unrecoverableError({
-                        Error::ErrorCode::CoreBug,
+                        utility::Error::ErrorCode::CoreBug,
                         "Originated from",
                         "recv(2)",
                         "Errno is",
@@ -82,7 +82,7 @@ std::expected<uint64_t, RawConnectionTCPFD::IOStatus> RawConnectionTCPFD::readBy
 
                 case EINTR:
                     unrecoverableError({
-                        Error::ErrorCode::SignalNotSupported,
+                        utility::Error::ErrorCode::SignalNotSupported,
                         "Originated from",
                         "recv(2)",
                         "Errno is",
@@ -93,7 +93,7 @@ std::expected<uint64_t, RawConnectionTCPFD::IOStatus> RawConnectionTCPFD::readBy
                 case EIO:
                 default:
                     unrecoverableError({
-                        Error::ErrorCode::ConfigurationError,
+                        utility::Error::ErrorCode::ConfigurationError,
                         "Originated from",
                         "recv(2)",
                         "Errno is",
@@ -159,7 +159,7 @@ std::expected<uint64_t, RawConnectionTCPFD::IOStatus> RawConnectionTCPFD::writeB
                 case EHOSTUNREACH:
                 case EISCONN:
                     unrecoverableError({
-                        Error::ErrorCode::CoreBug,
+                        utility::Error::ErrorCode::CoreBug,
                         "Originated from",
                         "sendmsg(2)",
                         "Errno is",
@@ -180,7 +180,7 @@ std::expected<uint64_t, RawConnectionTCPFD::IOStatus> RawConnectionTCPFD::writeB
 
                 case EINTR:
                     unrecoverableError({
-                        Error::ErrorCode::SignalNotSupported,
+                        utility::Error::ErrorCode::SignalNotSupported,
                         "Originated from",
                         "sendmsg(2)",
                         "Errno is",
@@ -196,7 +196,7 @@ std::expected<uint64_t, RawConnectionTCPFD::IOStatus> RawConnectionTCPFD::writeB
                 case ENOMEM:
                 default:
                     unrecoverableError({
-                        Error::ErrorCode::ConfigurationError,
+                        utility::Error::ErrorCode::ConfigurationError,
                         "Originated from",
                         "sendmsg(2)",
                         "Errno is",
