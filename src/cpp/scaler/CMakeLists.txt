@@ -6,8 +6,4 @@ endif()
 
 add_subdirectory(utility)
 
-if(LINUX OR WIN32)
-  add_subdirectory(ymq)
-else()
-  message(WARNING "Not building YMQ, as it's not supported on this system currently!")
-endif()
+add_subdirectory(ymq)

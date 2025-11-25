@@ -69,6 +69,8 @@ elseif(WIN32)
     )
 endif()
 
+add_subdirectory(event)
+
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/src/scaler/ymq)
 
 if(LINUX)

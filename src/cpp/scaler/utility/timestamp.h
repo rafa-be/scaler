@@ -99,7 +99,7 @@ struct std::formatter<scaler::utility::Timestamp, char> {
     }
 
     template <typename FmtContext>
-    constexpr FmtContext::iterator format(scaler::utility::Timestamp ts, FmtContext& ctx) const
+    FmtContext::iterator format(scaler::utility::Timestamp ts, FmtContext& ctx) const
     {
         return std::format_to(ctx.out(), "{}", scaler::utility::stringifyTimestamp(ts));
     }

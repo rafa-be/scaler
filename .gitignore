@@ -2,6 +2,8 @@ __pychace__/
 *.py[cod]
 *$py.class
 *.so
+*.dylib
+*.dll
 
 dist/
 sdist/

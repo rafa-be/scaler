@@ -109,7 +109,7 @@ struct std::formatter<scaler::utility::Error, char> {
     }
 
     template <class FmtContext>
-    constexpr FmtContext::iterator format(scaler::utility::Error e, FmtContext& ctx) const noexcept
+    FmtContext::iterator format(scaler::utility::Error e, FmtContext& ctx) const noexcept
     {
         return std::ranges::copy(e._logMsg, ctx.out()).out;
     }
