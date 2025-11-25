@@ -17,6 +17,10 @@ PipeReader::PipeReader(int64_t fd): _fd(fd)
 
 PipeReader::~PipeReader()
 {
+    if (this->_fd == -1) {
+        return;
+    }
+
     close(this->_fd);
 }
 

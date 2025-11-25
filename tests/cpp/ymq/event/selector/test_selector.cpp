@@ -1,18 +1,17 @@
-#include <fcntl.h>
 #include <gtest/gtest.h>
-#include <stdio.h>
-#include <unistd.h>
 
 #include <chrono>
 #include <future>
 #include <string>
 #include <thread>
 
+#include "scaler/utility/pipe/pipe.h"
 #include "scaler/ymq/event/event_type.h"
 #include "scaler/ymq/event/selector/selector.h"
 
 using namespace scaler::ymq::event;
 using namespace scaler::ymq::event::selector;
+using namespace scaler::utility::pipe;
 
 #ifdef __linux__
 #include "scaler/ymq/event/selector/epoll_selector.h"
@@ -35,13 +34,8 @@ protected:
 
 TEST_F(SelectorTest, Select)
 {
-    int pipeFds[2];
-    ASSERT_EQ(pipe(pipeFds), 0);
-    fcntl(pipeFds[0], F_SETFL, O_NONBLOCK);
-    fcntl(pipeFds[1], F_SETFL, O_NONBLOCK);
-
-    int pipeRd = pipeFds[0];
-    int pipeWr = pipeFds[1];
+    Pipe pipe;
+    int pipeRd = pipe.reader.fd();
 
     selector->add(pipeRd, static_cast<EventType>(EventType::Read | EventType::Close));
 
@@ -49,7 +43,7 @@ TEST_F(SelectorTest, Select)
 
     // Triggers a read event
     {
-        write(pipeWr, str, sizeof(str) - 1);
+        pipe.writer.write_all(str, sizeof(str) - 1);
 
         auto events = selector->select();
 
@@ -66,8 +60,10 @@ TEST_F(SelectorTest, Select)
 
     // Trigger read + close events
     {
-        write(pipeWr, str, sizeof(str) - 1);
-        close(pipeWr);
+        {
+            PipeWriter writer = std::move(pipe.writer);  // forces the early destruction of write end
+            writer.write_all(str, sizeof(str) - 1);
+        }
 
         auto events = selector->select();
 
@@ -79,7 +75,6 @@ TEST_F(SelectorTest, Select)
     // Remove the FD
     {
         selector->remove(pipeRd);
-        close(pipeRd);
 
         auto events = selector->select(std::chrono::milliseconds(10));
 

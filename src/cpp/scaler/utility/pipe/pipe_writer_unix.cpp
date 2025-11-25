@@ -17,6 +17,10 @@ PipeWriter::PipeWriter(int64_t fd): _fd(fd)
 
 PipeWriter::~PipeWriter()
 {
+    if (this->_fd == -1) {
+        return;
+    }
+
     close(this->_fd);
 }
 
