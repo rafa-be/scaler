@@ -2,6 +2,7 @@ add_test_executable(test_ymq SOURCES test_ymq.cpp)
 
 target_sources(test_ymq PRIVATE
 	event/selector/test_selector.cpp
+	event/test_event_selector_loop.cpp
 
 	common/testing.h
 	common/utils.h

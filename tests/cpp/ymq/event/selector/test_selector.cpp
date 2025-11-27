@@ -1,5 +1,6 @@
 #include <gtest/gtest.h>
 
+#include <array>
 #include <chrono>
 #include <future>
 #include <string>
@@ -39,11 +40,11 @@ TEST_F(SelectorTest, Select)
 
     selector->add(pipeRd, static_cast<EventType>(EventType::Read | EventType::Close));
 
-    constexpr char str[] = "Hello!";
+    constexpr std::array<uint8_t, 5> message = {'H', 'e', 'l', 'l', 'o'};
 
     // Triggers a read event
     {
-        pipe.writer.write_all(str, sizeof(str) - 1);
+        pipe.writer.writeAll(message);
 
         auto events = selector->select();
 
@@ -62,7 +63,7 @@ TEST_F(SelectorTest, Select)
     {
         {
             PipeWriter writer = std::move(pipe.writer);  // forces the early destruction of write end
-            writer.write_all(str, sizeof(str) - 1);
+            writer.writeAll(message);
         }
 
         auto events = selector->select();
