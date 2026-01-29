@@ -12,6 +12,7 @@
 #include "scaler/uv_ymq/address.h"
 #include "scaler/uv_ymq/event_loop_thread.h"
 #include "scaler/uv_ymq/io_context.h"
+#include "scaler/uv_ymq/lock_free_event_loop_thread.h"
 
 class UVYMQTest: public ::testing::Test {};
 
@@ -60,6 +61,26 @@ TEST_F(UVYMQTest, EventLoopThread)
 
     {
         scaler::uv_ymq::EventLoopThread thread {};
+
+        for (size_t i = 0; i < nTasks; ++i) {
+            thread.executeThreadSafe([&]() { ++nTimesCalled; });
+        }
+
+        // Wait for the loop to process the callbacks
+        std::this_thread::sleep_for(std::chrono::milliseconds(100));
+    }
+
+    ASSERT_EQ(nTimesCalled, nTasks);
+}
+
+TEST_F(UVYMQTest, LockFreeEventLoopThread)
+{
+    const size_t nTasks = 3;
+
+    std::atomic<int> nTimesCalled {0};
+
+    {
+        scaler::uv_ymq::LockFreeEventLoopThread thread {};
 
         for (size_t i = 0; i < nTasks; ++i) {
             thread.executeThreadSafe([&]() { ++nTimesCalled; });

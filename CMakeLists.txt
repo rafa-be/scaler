@@ -52,11 +52,11 @@ endif()
 if(WIN32)
     # Windows
     message(STATUS "Windows")
-    
+
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS on)
     add_compile_definitions(WIN32_LEAN_AND_MEAN)
     add_compile_options("/EHsc")
-   
+
 elseif(APPLE)
     if(CMAKE_OSX_ARCHITECTURES MATCHES "arm64" OR CMAKE_SYSTEM_PROCESSOR MATCHES "arm64|aarch64")
         # Mac Arm
@@ -76,7 +76,7 @@ elseif(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     if(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
         # Linux GCC
         message(STATUS "Linux GCC ${CMAKE_CXX_COMPILER_VERSION}")
-    
+
         add_compile_options(-Wall -Wsubobject-linkage)
         add_link_options(-Wl,-rpath,$ORIGIN)
 
@@ -122,8 +122,8 @@ include_directories(${PROJECT_SOURCE_DIR}/src)
 include_directories(${PROJECT_SOURCE_DIR}/src/cpp)
 
 add_subdirectory(src/cpp/scaler)
+add_subdirectory(examples)
 
 if(CMAKE_BUILD_TYPE STREQUAL "Debug")
   add_subdirectory(tests)
-  add_subdirectory(examples)
 endif()
