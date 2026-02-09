@@ -4,17 +4,14 @@
 #include <expected>
 #include <optional>
 #include <queue>
-#include <set>
 #include <span>
 
-#include "scaler/error/error.h"
 #include "scaler/logging/logging.h"
 #include "scaler/utility/move_only_function.h"
 #include "scaler/uv_ymq/typedefs.h"
 #include "scaler/wrapper/uv/callback.h"
 #include "scaler/wrapper/uv/error.h"
 #include "scaler/wrapper/uv/loop.h"
-#include "scaler/wrapper/uv/request.h"
 #include "scaler/ymq/bytes.h"
 #include "scaler/ymq/message.h"
 
@@ -153,8 +150,7 @@ private:
 
     void processSendQueue() noexcept;
 
-    std::expected<scaler::wrapper::uv::WriteRequest, scaler::wrapper::uv::Error> write(
-        std::span<const std::span<const uint8_t>> buffers, scaler::wrapper::uv::WriteCallback callback) noexcept;
+    void write(std::span<const std::span<const uint8_t>> buffers, scaler::wrapper::uv::WriteCallback callback) noexcept;
 
     void readStart() noexcept;
 

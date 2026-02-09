@@ -1,13 +1,10 @@
 #include "scaler/uv_ymq/message_connection.h"
 
-#include <algorithm>
 #include <array>
 #include <cassert>
-#include <cstdint>
 #include <cstring>
 #include <functional>
 #include <memory>
-#include <span>
 #include <utility>
 #include <variant>
 
@@ -136,7 +133,10 @@ void MessageConnection::onWriteDone(
     if (!result.has_value()) {
         switch (result.error().code()) {
             case UV_ECONNRESET:
+            case UV_ECONNABORTED:
+            case UV_ETIMEDOUT:
             case UV_EPIPE:
+            case UV_ENETDOWN:
                 // Connection closed/failed WHILE libuv issued the write to the OS.
                 // No need to handle this disconnect event, as this will be handled by onRead().
                 return;
@@ -306,19 +306,19 @@ void MessageConnection::processSendQueue() noexcept
             MessageConnection::onWriteDone(std::move(operation->_onMessageSent), std::move(result));
         };
 
-        UV_EXIT_ON_ERROR(write(buffers, std::move(callback)));
+        write(buffers, std::move(callback));
     }
 }
 
-std::expected<scaler::wrapper::uv::WriteRequest, scaler::wrapper::uv::Error> MessageConnection::write(
+void MessageConnection::write(
     std::span<const std::span<const uint8_t>> buffers, scaler::wrapper::uv::WriteCallback callback) noexcept
 {
     assert(connected());
 
     if (auto* tcpSocket = std::get_if<scaler::wrapper::uv::TCPSocket>(&_client.value())) {
-        return tcpSocket->write(buffers, std::move(callback));
+        UV_EXIT_ON_ERROR(tcpSocket->write(buffers, std::move(callback)));
     } else if (auto* pipe = std::get_if<scaler::wrapper::uv::Pipe>(&_client.value())) {
-        return pipe->write(buffers, std::move(callback));
+        UV_EXIT_ON_ERROR(pipe->write(buffers, std::move(callback)));
     } else {
         std::unreachable();
     }
