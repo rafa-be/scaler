@@ -325,6 +325,52 @@ static int UVYMQ_exec(PyObject* pyModule)
     return 0;
 }
 
+OwnedPyObject<> UVYMQ_GetRaisedException()
+{
+#if (PY_MAJOR_VERSION <= 3) && (PY_MINOR_VERSION <= 12)
+    PyObject *excType, *excValue, *excTraceback;
+    PyErr_Fetch(&excType, &excValue, &excTraceback);
+    Py_XDECREF(excType);
+    Py_XDECREF(excTraceback);
+#else
+    PyObject* excValue = PyErr_GetRaisedException();
+#endif
+    if (!excValue)
+        return OwnedPyObject<>::none();
+
+    return OwnedPyObject {excValue};
+}
+
+OwnedPyObject<> completeCallback(const OwnedPyObject<>& callback, const OwnedPyObject<>& result)
+{
+    OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, *result, nullptr);
+    if (!callbackResult) {
+        PyErr_WriteUnraisable(*callback);
+    }
+    return callbackResult;
+}
+
+OwnedPyObject<> completeCallbackWithRaisedException(const OwnedPyObject<>& callback)
+{
+    OwnedPyObject exception      = UVYMQ_GetRaisedException();
+    OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, *exception, nullptr);
+    if (!callbackResult) {
+        PyErr_WriteUnraisable(*callback);
+    }
+    return callbackResult;
+}
+
+OwnedPyObject<> completeCallbackWithCoreError(
+    UVYMQState* state, const OwnedPyObject<>& callback, const scaler::ymq::Error& error)
+{
+    OwnedPyObject exception      = UVYMQException_createFromCoreError(state, error);
+    OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, *exception, nullptr);
+    if (!callbackResult) {
+        PyErr_WriteUnraisable(*callback);
+    }
+    return callbackResult;
+}
+
 }  // namespace pymod
 }  // namespace uv_ymq
 }  // namespace scaler

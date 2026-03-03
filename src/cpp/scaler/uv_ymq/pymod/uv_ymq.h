@@ -5,7 +5,7 @@
 #include <string>
 #include <utility>
 
-// Python
+#include "scaler/error/error.h"
 #include "scaler/utility/pymod/compatibility.h"
 
 namespace scaler {
@@ -74,6 +74,16 @@ static PyModuleDef UVYMQ_module = {
     .m_slots = UVYMQ_slots,
     .m_free  = (freefunc)UVYMQ_free,
 };
+
+// this is a polyfill for PyErr_GetRaisedException() added in Python 3.12+
+OwnedPyObject<> UVYMQ_GetRaisedException();
+
+OwnedPyObject<> completeCallback(const OwnedPyObject<>& callback, const OwnedPyObject<>& result);
+
+OwnedPyObject<> completeCallbackWithRaisedException(const OwnedPyObject<>& callback);
+
+OwnedPyObject<> completeCallbackWithCoreError(
+    UVYMQState* state, const OwnedPyObject<>& callback, const scaler::ymq::Error& error);
 
 }  // namespace pymod
 }  // namespace uv_ymq

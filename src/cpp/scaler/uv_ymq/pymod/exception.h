@@ -86,9 +86,9 @@ static PyType_Spec UVYMQException_spec = {
     Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
     UVYMQException_slots};
 
-inline OwnedPyObject<> UVYMQException_argtupleFromCoreError(UVYMQState* state, const scaler::ymq::Error* error)
+inline OwnedPyObject<> UVYMQException_argtupleFromCoreError(UVYMQState* state, const scaler::ymq::Error& error)
 {
-    OwnedPyObject code = PyLong_FromLong(static_cast<long>(error->_errorCode));
+    OwnedPyObject code = PyLong_FromLong(static_cast<long>(error._errorCode));
 
     if (!code)
         return nullptr;
@@ -98,7 +98,7 @@ inline OwnedPyObject<> UVYMQException_argtupleFromCoreError(UVYMQState* state, c
     if (!pyCode)
         return nullptr;
 
-    OwnedPyObject message = PyUnicode_FromString(error->what());
+    OwnedPyObject message = PyUnicode_FromString(error.what());
 
     if (!message)
         return nullptr;
@@ -106,16 +106,16 @@ inline OwnedPyObject<> UVYMQException_argtupleFromCoreError(UVYMQState* state, c
     return PyTuple_Pack(2, *pyCode, *message);
 }
 
-inline PyObject* UVYMQException_getTypeForError(UVYMQState* state, const scaler::ymq::Error* error)
+inline PyObject* UVYMQException_getTypeForError(UVYMQState* state, const scaler::ymq::Error& error)
 {
-    auto it = state->PyExceptionSubtypes.find(static_cast<int>(error->_errorCode));
+    auto it = state->PyExceptionSubtypes.find(static_cast<int>(error._errorCode));
     if (it != state->PyExceptionSubtypes.end()) {
         return *it->second;
     }
     return *state->PyExceptionType;
 }
 
-inline void UVYMQException_setFromCoreError(UVYMQState* state, const scaler::ymq::Error* error)
+inline void UVYMQException_setFromCoreError(UVYMQState* state, const scaler::ymq::Error& error)
 {
     auto tuple = UVYMQException_argtupleFromCoreError(state, error);
     if (!tuple)
@@ -124,7 +124,7 @@ inline void UVYMQException_setFromCoreError(UVYMQState* state, const scaler::ymq
     PyErr_SetObject(UVYMQException_getTypeForError(state, error), *tuple);
 }
 
-inline OwnedPyObject<> UVYMQException_createFromCoreError(UVYMQState* state, const scaler::ymq::Error* error)
+inline OwnedPyObject<> UVYMQException_createFromCoreError(UVYMQState* state, const scaler::ymq::Error& error)
 {
     auto tuple = UVYMQException_argtupleFromCoreError(state, error);
     if (!tuple)

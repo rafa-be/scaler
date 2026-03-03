@@ -40,7 +40,7 @@ static int PyConnectorSocket_init(PyConnectorSocket* self, PyObject* args, PyObj
         return -1;
 
     PyObject* onConnectCallback  = nullptr;
-    PyObject* pyContext          = nullptr;
+    PyIOContext* pyIOContext     = nullptr;
     const char* identity         = nullptr;
     Py_ssize_t identityLen       = 0;
     const char* address          = nullptr;
@@ -53,10 +53,11 @@ static int PyConnectorSocket_init(PyConnectorSocket* self, PyObject* args, PyObj
     if (!PyArg_ParseTupleAndKeywords(
             args,
             kwds,
-            "OOs#s#|kk",
+            "OO!s#s#|kk",
             (char**)kwlist,
             &onConnectCallback,
-            &pyContext,
+            (PyTypeObject*)*state->PyIOContextType,
+            &pyIOContext,
             &identity,
             &identityLen,
             &address,
@@ -64,13 +65,6 @@ static int PyConnectorSocket_init(PyConnectorSocket* self, PyObject* args, PyObj
             &maxRetryTimes,
             &initRetryDelay))
         return -1;
-
-    if (!PyObject_TypeCheck(pyContext, (PyTypeObject*)*state->PyIOContextType)) {
-        PyErr_SetString(PyExc_TypeError, "context must be an IOContext");
-        return -1;
-    }
-
-    auto* pyIOContext = reinterpret_cast<PyIOContext*>(pyContext);
 
     try {
         self->ioContext = pyIOContext->ioContext;
@@ -86,18 +80,11 @@ static int PyConnectorSocket_init(PyConnectorSocket* self, PyObject* args, PyObj
                 OwnedPyObject callback = std::move(callback_);
 
                 if (!result) {
-                    OwnedPyObject exc            = UVYMQException_createFromCoreError(state, &result.error());
-                    OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, *exc, nullptr);
-                    if (!callbackResult) {
-                        PyErr_WriteUnraisable(*callback);
-                    }
+                    completeCallbackWithCoreError(state, callback, result.error());
                     return;
                 }
 
-                OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, Py_None, nullptr);
-                if (!callbackResult) {
-                    PyErr_WriteUnraisable(*callback);
-                }
+                completeCallback(callback, OwnedPyObject<>::none());
             },
             maxRetryTimes,
             std::chrono::milliseconds(initRetryDelay));
@@ -142,13 +129,9 @@ static PyObject* PyConnectorSocket_send_message(PyConnectorSocket* self, PyObjec
     PyBytes* messagePayload = nullptr;
     const char* kwlist[]    = {"on_message_send", "message_payload", nullptr};
 
-    if (!PyArg_ParseTupleAndKeywords(args, kwargs, "OO", (char**)kwlist, &callback, &messagePayload))
+    if (!PyArg_ParseTupleAndKeywords(
+            args, kwargs, "OO!", (char**)kwlist, &callback, (PyTypeObject*)*state->PyBytesType, &messagePayload))
         return nullptr;
-
-    if (!PyObject_TypeCheck((PyObject*)messagePayload, (PyTypeObject*)*state->PyBytesType)) {
-        PyErr_SetString(PyExc_TypeError, "message_payload must be a Bytes");
-        return nullptr;
-    }
 
     try {
         self->socket->sendMessage(
@@ -160,18 +143,12 @@ static PyObject* PyConnectorSocket_send_message(PyConnectorSocket* self, PyObjec
                 // Redefine the callback to ensure it is destroyed before the GIL is released.
                 OwnedPyObject callback = std::move(callback_);
 
-                if (result) {
-                    OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, Py_None, nullptr);
-                    if (!callbackResult) {
-                        PyErr_WriteUnraisable(*callback);
-                    }
-                } else {
-                    OwnedPyObject exc            = UVYMQException_createFromCoreError(state, &result.error());
-                    OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, *exc, nullptr);
-                    if (!callbackResult) {
-                        PyErr_WriteUnraisable(*callback);
-                    }
+                if (!result) {
+                    completeCallbackWithCoreError(state, callback, result.error());
+                    return;
                 }
+
+                completeCallback(callback, OwnedPyObject<>::none());
             });
     } catch (...) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to send message");
@@ -202,12 +179,7 @@ static PyObject* PyConnectorSocket_recv_message(PyConnectorSocket* self, PyObjec
             OwnedPyObject callback = std::move(callback_);
 
             if (!result.has_value()) {
-                OwnedPyObject exc = UVYMQException_createFromCoreError(state, &result.error());
-
-                OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, *exc, nullptr);
-                if (!callbackResult) {
-                    PyErr_WriteUnraisable(*callback);
-                }
+                completeCallbackWithCoreError(state, callback, result.error());
                 return;
             }
 
@@ -215,11 +187,7 @@ static PyObject* PyConnectorSocket_recv_message(PyConnectorSocket* self, PyObjec
 
             OwnedPyObject<PyBytes> address = (PyBytes*)PyObject_CallNoArgs(*state->PyBytesType);
             if (!address) {
-                OwnedPyObject exception      = OwnedPyObject<>::none();
-                OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, *exception, nullptr);
-                if (!callbackResult) {
-                    PyErr_WriteUnraisable(*callback);
-                }
+                completeCallbackWithRaisedException(callback);
                 return;
             }
 
@@ -227,31 +195,19 @@ static PyObject* PyConnectorSocket_recv_message(PyConnectorSocket* self, PyObjec
 
             OwnedPyObject<PyBytes> payload = (PyBytes*)PyObject_CallNoArgs(*state->PyBytesType);
             if (!payload) {
-                OwnedPyObject exception      = OwnedPyObject<>::none();
-                OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, *exception, nullptr);
-                if (!callbackResult) {
-                    PyErr_WriteUnraisable(*callback);
-                }
+                completeCallbackWithRaisedException(callback);
                 return;
             }
 
             payload->bytes = std::move(message.payload);
 
-            OwnedPyObject<PyMessage> pyMessage =
-                (PyMessage*)PyObject_CallFunction(*state->PyMessageType, "OO", *address, *payload);
+            OwnedPyObject pyMessage = PyObject_CallFunction(*state->PyMessageType, "OO", *address, *payload);
             if (!pyMessage) {
-                OwnedPyObject exception      = OwnedPyObject<>::none();
-                OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, *exception, nullptr);
-                if (!callbackResult) {
-                    PyErr_WriteUnraisable(*callback);
-                }
+                completeCallbackWithRaisedException(callback);
                 return;
             }
 
-            OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, *pyMessage, nullptr);
-            if (!callbackResult) {
-                PyErr_WriteUnraisable(*callback);
-            }
+            completeCallback(callback, pyMessage);
         });
     } catch (...) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to receive message");

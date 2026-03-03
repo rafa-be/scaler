@@ -8,6 +8,7 @@
 
 // First-party
 #include "scaler/uv_ymq/address.h"
+#include "scaler/uv_ymq/pymod/exception.h"
 #include "scaler/uv_ymq/pymod/uv_ymq.h"
 
 namespace scaler {
@@ -47,6 +48,10 @@ static int PyAddress_assign(PyAddress* self, const scaler::uv_ymq::Address& addr
 
 static int PyAddress_init(PyAddress* self, PyObject* args, PyObject* kwds)
 {
+    auto state = UVYMQStateFromSelf((PyObject*)self);
+    if (!state)
+        return -1;
+
     const char* addressStr = nullptr;
     Py_ssize_t addressLen  = 0;
     const char* kwlist[]   = {"address", nullptr};
@@ -55,7 +60,7 @@ static int PyAddress_init(PyAddress* self, PyObject* args, PyObject* kwds)
 
     auto result = scaler::uv_ymq::Address::fromString(std::string_view {addressStr, static_cast<size_t>(addressLen)});
     if (!result.has_value()) {
-        PyErr_SetString(PyExc_ValueError, result.error().what());
+        UVYMQException_setFromCoreError(state, result.error());
         return -1;
     }
 
@@ -95,13 +100,17 @@ static PyObject* PyAddress_fromAddress(UVYMQState* state, const scaler::uv_ymq::
 
 static PyObject* PyAddress_repr(PyAddress* self)
 {
+    auto state = UVYMQStateFromSelf((PyObject*)self);
+    if (!state)
+        return nullptr;
+
     auto result = self->address.toString();
     if (!result.has_value()) {
-        PyErr_SetString(PyExc_RuntimeError, result.error().what());
+        UVYMQException_setFromCoreError(state, result.error());
         return nullptr;
     }
 
-    return PyUnicode_FromStringAndSize(result.value().c_str(), result.value().size());
+    return PyUnicode_FromStringAndSize(result.value().data(), result.value().size());
 }
 
 static PyObject* PyAddress_type_getter(PyAddress* self, void* Py_UNUSED(closure))

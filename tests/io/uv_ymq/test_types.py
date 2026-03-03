@@ -81,7 +81,7 @@ class TestTypes(unittest.TestCase):
         self.assertEqual(addr.type, AddressType.IPC)
         self.assertEqual(str(addr), "ipc://my_socket")
 
-        with self.assertRaises(ValueError):
+        with self.assertRaises(UVYMQException):
             Address("invalid://address")
 
     def test_io_context(self):
