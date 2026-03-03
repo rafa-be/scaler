@@ -76,8 +76,8 @@ static int PyConnectorSocket_init(PyConnectorSocket* self, PyObject* args, PyObj
         self->ioContext = pyIOContext->ioContext;
         self->socket    = std::make_unique<ConnectorSocket>(
             *self->ioContext,
-            Identity(identity, identityLen),
-            std::string(address, addressLen),
+            Identity {identity, static_cast<size_t>(identityLen)},
+            std::string {address, static_cast<size_t>(addressLen)},
             [callback_ = OwnedPyObject<>::fromBorrowed(onConnectCallback),
              state](std::expected<void, scaler::ymq::Error> result) {
                 AcquireGIL _;

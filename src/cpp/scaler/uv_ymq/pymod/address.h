@@ -1,5 +1,8 @@
 #pragma once
 
+// C++
+#include <string_view>
+
 // Python
 #include "scaler/utility/pymod/compatibility.h"
 
@@ -50,7 +53,7 @@ static int PyAddress_init(PyAddress* self, PyObject* args, PyObject* kwds)
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "s#", (char**)kwlist, &addressStr, &addressLen))
         return -1;
 
-    auto result = scaler::uv_ymq::Address::fromString(std::string(addressStr, addressLen));
+    auto result = scaler::uv_ymq::Address::fromString(std::string_view {addressStr, static_cast<size_t>(addressLen)});
     if (!result.has_value()) {
         PyErr_SetString(PyExc_ValueError, result.error().what());
         return -1;

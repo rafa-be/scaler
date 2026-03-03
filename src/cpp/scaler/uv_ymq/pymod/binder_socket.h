@@ -6,6 +6,7 @@
 // C++
 #include <future>
 #include <memory>
+#include <string>
 
 // First-party
 #include "scaler/error/error.h"
@@ -56,7 +57,8 @@ static int PyBinderSocket_init(PyBinderSocket* self, PyObject* args, PyObject* k
 
     try {
         self->ioContext = pyIOContext->ioContext;
-        self->socket    = std::make_unique<BinderSocket>(*self->ioContext, std::string(identity, identityLen));
+        self->socket =
+            std::make_unique<BinderSocket>(*self->ioContext, Identity {identity, static_cast<size_t>(identityLen)});
     } catch (...) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to create BinderSocket");
         return -1;
@@ -104,7 +106,7 @@ static PyObject* PyBinderSocket_bind_to(PyBinderSocket* self, PyObject* args, Py
 
     try {
         self->socket->bindTo(
-            std::string(address, addressLen),
+            std::string {address, static_cast<size_t>(addressLen)},
             [callback_ = OwnedPyObject<>::fromBorrowed(callback),
              state](std::expected<Address, scaler::ymq::Error> result) {
                 AcquireGIL _;
@@ -167,7 +169,7 @@ static PyObject* PyBinderSocket_send_message(PyBinderSocket* self, PyObject* arg
 
     try {
         self->socket->sendMessage(
-            std::string(remoteIdentity, remoteIdentityLen),
+            Identity {remoteIdentity, static_cast<size_t>(remoteIdentityLen)},
             std::move(messagePayload->bytes),
             [callback_ = OwnedPyObject<>::fromBorrowed(callback),
              state](std::expected<void, scaler::ymq::Error> result) {
@@ -287,7 +289,7 @@ static PyObject* PyBinderSocket_close_connection(PyBinderSocket* self, PyObject*
         return nullptr;
 
     try {
-        self->socket->closeConnection(std::string(remoteIdentity, remoteIdentityLen));
+        self->socket->closeConnection(Identity {remoteIdentity, static_cast<size_t>(remoteIdentityLen)});
     } catch (...) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to close connection");
         return nullptr;

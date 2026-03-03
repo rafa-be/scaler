@@ -97,7 +97,7 @@ static PyObject* UVYMQErrorCode_explanation(PyObject* self, PyObject* Py_UNUSED(
 
     std::string_view explanation =
         scaler::ymq::Error::convertErrorToExplanation(static_cast<scaler::ymq::Error::ErrorCode>(value));
-    return PyUnicode_FromString(std::string(explanation).c_str());
+    return PyUnicode_FromString(std::string {explanation}.c_str());
 }
 
 int UVYMQ_createErrorCodeEnum(PyObject* pyModule, UVYMQState* state)
