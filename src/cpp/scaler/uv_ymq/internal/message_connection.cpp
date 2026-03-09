@@ -126,12 +126,14 @@ void MessageConnection::shutdownClient() noexcept
 
     readStop();
 
-    // Remove ownership of the client from the MessageConnection instance. Will be owned by the shutdown callback.
+    // Call shutdown() on the client socket *before* closing it. This forces a FIN segment.
+    // We transfer ownership of the Client instance to the shutdown callback. As the Client destructor implicitly calls
+    // close(), the instance must remain alive until shutdown() completes, or else it might trigger a RST segment.
+    // By moving its ownership to the shutdown()'s callback, close() is guaranteed to be called only after the callback
+    // completes.
 
     auto client       = std::make_unique<Client>(std::move(_client.value()));
     Client* clientPtr = client.get();
-
-    // Call shutdown() on the socket before closing it. This forces a FIN packet.
 
     auto shutdownCallback = [client =
                                  std::move(client)](std::expected<void, scaler::wrapper::uv::Error> result) noexcept {
