@@ -36,7 +36,7 @@ target_include_directories(py_object_storage_server PRIVATE
 
 target_link_libraries(py_object_storage_server PRIVATE
     capnp_objs
-    ymq_objs
+    uv_ymq_objs
     object_storage_server_objs
     CapnProto::capnp
     CapnProto::kj
