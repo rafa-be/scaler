@@ -44,7 +44,6 @@ public:
 
 private:
     struct Client {
-        std::shared_ptr<uv_ymq::future::BinderSocket> _socket;
         Identity _identity;
     };
 
@@ -57,7 +56,7 @@ private:
     using ObjectResponseType = scaler::protocol::ObjectResponseHeader::ObjectResponseType;
 
     uv_ymq::IOContext _ioContext;
-    std::shared_ptr<uv_ymq::future::BinderSocket> _socket;
+    std::unique_ptr<uv_ymq::future::BinderSocket> _socket;
 
     int onServerReadyReader;
     int onServerReadyWriter;
@@ -95,7 +94,7 @@ private:
         // Send OSS header
         auto messageBuffer    = message.toBuffer();
         Bytes headerPayload   = Bytes((char*)messageBuffer.asBytes().begin(), messageBuffer.asBytes().size());
-        auto sendHeaderFuture = client->_socket->sendMessage(client->_identity, std::move(headerPayload));
+        auto sendHeaderFuture = _socket->sendMessage(client->_identity, std::move(headerPayload));
 
         if (!payload.data()) {
             _pendingSendMessageFuts.emplace_back(std::move(sendHeaderFuture));
@@ -103,7 +102,7 @@ private:
         }
 
         Bytes payloadBytes     = Bytes((char*)payload.data(), payload.size());
-        auto sendPayloadFuture = client->_socket->sendMessage(client->_identity, std::move(payloadBytes));
+        auto sendPayloadFuture = _socket->sendMessage(client->_identity, std::move(payloadBytes));
 
         _pendingSendMessageFuts.emplace_back(std::move(sendHeaderFuture));
         _pendingSendMessageFuts.emplace_back(std::move(sendPayloadFuture));

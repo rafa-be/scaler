@@ -58,7 +58,7 @@ void ObjectStorageServer::run(
     _logger = scaler::ymq::Logger(log_format, std::move(log_paths), scaler::ymq::Logger::stringToLogLevel(log_level));
 
     try {
-        _socket = std::make_shared<uv_ymq::future::BinderSocket>(_ioContext, std::move(identity));
+        _socket = std::make_unique<uv_ymq::future::BinderSocket>(_ioContext, std::move(identity));
         const std::string networkAddress {"tcp://" + name + ':' + port};
 
         std::expected<uv_ymq::Address, scaler::ymq::Error> bindResult = _socket->bindTo(networkAddress).get();
@@ -223,7 +223,7 @@ void ObjectStorageServer::processRequests(std::function<bool()> running)
 
             auto request = std::move(identityToFullRequest[identity]);
             identityToFullRequest.erase(identity);
-            auto client = std::make_shared<Client>(_socket, identity);
+            auto client = std::make_shared<Client>(identity);
 
             switch (request.first.requestType) {
                 case ObjectRequestType::SET_OBJECT: {
