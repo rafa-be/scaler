@@ -144,10 +144,11 @@ class VanillaTaskController(TaskController, Looper, Reporter):
             return
 
         if (
-            current_state == TaskState.BalanceCanceling
+            current_state in {TaskState.Canceling, TaskState.BalanceCanceling}
             and task_cancel_confirm.cancel_confirm_type == TaskCancelConfirmType.CancelFailed
         ):
-            # balance cancel failed
+            # cancel failed (task is ongoing on worker), pass worker_id so __state_running can identify the
+            # previous state and wait for the real result
             worker_id = self._worker_controller.get_worker_by_task_id(task_cancel_confirm.task_id)
             await self.__routing(task_cancel_confirm.task_id, transition, worker_id=worker_id)
             return

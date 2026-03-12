@@ -45,7 +45,7 @@ class VanillaWorkerController(WorkerController, Looper, Reporter):
         return self._policy_controller.assign_task(task)
 
     async def on_task_cancel(self, task_cancel: TaskCancel) -> WorkerID:
-        worker = self._scaler_policy.remove_task(task_cancel.task_id)
+        worker = self._policy_controller.remove_task(task_cancel.task_id)
         if not worker.is_valid():
             logging.error(f"cannot find task_id={task_cancel.task_id.hex()} in task workers")
 
