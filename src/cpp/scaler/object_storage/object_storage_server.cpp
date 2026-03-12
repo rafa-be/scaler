@@ -8,7 +8,6 @@
 
 #include "scaler/error/error.h"
 #include "scaler/object_storage/message.h"
-#include "scaler/uv_ymq/sync/binder_socket.h"
 
 namespace scaler {
 namespace object_storage {
