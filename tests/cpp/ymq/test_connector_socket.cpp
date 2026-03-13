@@ -5,15 +5,15 @@
 #include <future>
 #include <string>
 
-#include "scaler/uv_ymq/address.h"
-#include "scaler/uv_ymq/connector_socket.h"
-#include "scaler/uv_ymq/internal/message_connection.h"
-#include "scaler/uv_ymq/io_context.h"
-#include "scaler/uv_ymq/sync/connector_socket.h"
 #include "scaler/wrapper/uv/error.h"
 #include "scaler/wrapper/uv/loop.h"
 #include "scaler/wrapper/uv/tcp.h"
+#include "scaler/ymq/address.h"
 #include "scaler/ymq/bytes.h"
+#include "scaler/ymq/connector_socket.h"
+#include "scaler/ymq/internal/message_connection.h"
+#include "scaler/ymq/io_context.h"
+#include "scaler/ymq/sync/connector_socket.h"
 
 namespace {
 
@@ -24,14 +24,14 @@ const std::string messagePayload = "Hello from ConnectorSocket!";
 // Helper class to set up a server MessageConnection and ConnectorSocket pair
 class ConnectorServerPair {
 public:
-    static const scaler::uv_ymq::Identity serverIdentity;
-    static const scaler::uv_ymq::Identity connectorIdentity;
+    static const scaler::ymq::Identity serverIdentity;
+    static const scaler::ymq::Identity connectorIdentity;
 
     ConnectorServerPair(
-        scaler::uv_ymq::internal::MessageConnection::RemoteIdentityCallback serverOnIdentity,
-        scaler::uv_ymq::internal::MessageConnection::RemoteDisconnectCallback serverOnDisconnect,
-        scaler::uv_ymq::internal::MessageConnection::RecvMessageCallback serverOnMessage,
-        scaler::uv_ymq::ConnectorSocket::ConnectCallback connectorOnConnect)
+        scaler::ymq::internal::MessageConnection::RemoteIdentityCallback serverOnIdentity,
+        scaler::ymq::internal::MessageConnection::RemoteDisconnectCallback serverOnDisconnect,
+        scaler::ymq::internal::MessageConnection::RecvMessageCallback serverOnMessage,
+        scaler::ymq::ConnectorSocket::ConnectCallback connectorOnConnect)
         : _context()
         , _loop(UV_EXIT_ON_ERROR(scaler::wrapper::uv::Loop::init()))
         , _server(UV_EXIT_ON_ERROR(scaler::wrapper::uv::TCPServer::init(_loop)))
@@ -43,7 +43,7 @@ public:
               std::move(serverOnDisconnect),
               std::move(serverOnMessage))
     {
-        const auto listenAddress = scaler::uv_ymq::Address::fromString("tcp://127.0.0.1:0").value();
+        const auto listenAddress = scaler::ymq::Address::fromString("tcp://127.0.0.1:0").value();
         UV_EXIT_ON_ERROR(_server.bind(listenAddress.asTCP(), uv_tcp_flags(0)));
 
         UV_EXIT_ON_ERROR(_server.listen(16, [&](std::expected<void, scaler::wrapper::uv::Error>) {
@@ -56,38 +56,38 @@ public:
         scaler::wrapper::uv::SocketAddress serverAddr = UV_EXIT_ON_ERROR(_server.getSockName());
         std::string address                           = "tcp://127.0.0.1:" + std::to_string(serverAddr.port());
 
-        _connector = std::make_unique<scaler::uv_ymq::ConnectorSocket>(scaler::uv_ymq::ConnectorSocket::connect(
-            _context, connectorIdentity, address, std::move(connectorOnConnect)));
+        _connector = std::make_unique<scaler::ymq::ConnectorSocket>(
+            scaler::ymq::ConnectorSocket::connect(_context, connectorIdentity, address, std::move(connectorOnConnect)));
     }
 
-    scaler::uv_ymq::internal::MessageConnection& server() { return _serverConnection; }
-    scaler::uv_ymq::ConnectorSocket& connector() { return *_connector; }
+    scaler::ymq::internal::MessageConnection& server() { return _serverConnection; }
+    scaler::ymq::ConnectorSocket& connector() { return *_connector; }
     scaler::wrapper::uv::Loop& loop() { return _loop; }
 
 private:
-    scaler::uv_ymq::IOContext _context;
+    scaler::ymq::IOContext _context;
     scaler::wrapper::uv::Loop _loop;
     scaler::wrapper::uv::TCPServer _server;
-    scaler::uv_ymq::internal::MessageConnection _serverConnection;
-    std::unique_ptr<scaler::uv_ymq::ConnectorSocket> _connector;
+    scaler::ymq::internal::MessageConnection _serverConnection;
+    std::unique_ptr<scaler::ymq::ConnectorSocket> _connector;
 };
 
-const scaler::uv_ymq::Identity ConnectorServerPair::serverIdentity    = "server-identity";
-const scaler::uv_ymq::Identity ConnectorServerPair::connectorIdentity = "connector-identity";
+const scaler::ymq::Identity ConnectorServerPair::serverIdentity    = "server-identity";
+const scaler::ymq::Identity ConnectorServerPair::connectorIdentity = "connector-identity";
 
-class UVYMQConnectorSocketTest: public ::testing::Test {};
+class YMQConnectorSocketTest: public ::testing::Test {};
 
-TEST_F(UVYMQConnectorSocketTest, ConnectionFailure)
+TEST_F(YMQConnectorSocketTest, ConnectionFailure)
 {
     // Test that ConnectorSocket properly handles connection failure
 
     constexpr int maxRetryTimes = 3;
     constexpr std::chrono::milliseconds initRetryDelay {10};
 
-    scaler::uv_ymq::IOContext context {};
+    scaler::ymq::IOContext context {};
 
     // Port 49151 is IANA reserved, hopefully never assigned
-    auto result = scaler::uv_ymq::sync::ConnectorSocket::connect(
+    auto result = scaler::ymq::sync::ConnectorSocket::connect(
         context, ConnectorServerPair::connectorIdentity, "tcp://127.0.0.1:49151", maxRetryTimes, initRetryDelay);
 
     // Connection should fail after retries
@@ -95,21 +95,21 @@ TEST_F(UVYMQConnectorSocketTest, ConnectionFailure)
     ASSERT_EQ(result.error()._errorCode, scaler::ymq::Error::ErrorCode::ConnectorSocketClosedByRemoteEnd);
 }
 
-TEST_F(UVYMQConnectorSocketTest, InvalidAddress)
+TEST_F(YMQConnectorSocketTest, InvalidAddress)
 {
     // Test that ConnectorSocket properly handles invalid address format
 
-    scaler::uv_ymq::IOContext context {};
+    scaler::ymq::IOContext context {};
 
-    auto result = scaler::uv_ymq::sync::ConnectorSocket::connect(
-        context, ConnectorServerPair::connectorIdentity, "invalid-address");
+    auto result =
+        scaler::ymq::sync::ConnectorSocket::connect(context, ConnectorServerPair::connectorIdentity, "invalid-address");
 
     // Connection should fail immediately
     ASSERT_FALSE(result.has_value());
     ASSERT_EQ(result.error()._errorCode, scaler::ymq::Error::ErrorCode::InvalidAddressFormat);
 }
 
-TEST_F(UVYMQConnectorSocketTest, SendMessage)
+TEST_F(YMQConnectorSocketTest, SendMessage)
 {
     // Test sending messages before connection, during connection, and after disconnect
 
@@ -131,9 +131,9 @@ TEST_F(UVYMQConnectorSocketTest, SendMessage)
             connectCalled.set_value();
         });
 
-    scaler::uv_ymq::internal::MessageConnection& server = connections.server();
-    scaler::uv_ymq::ConnectorSocket& connector          = connections.connector();
-    scaler::wrapper::uv::Loop& loop                     = connections.loop();
+    scaler::ymq::internal::MessageConnection& server = connections.server();
+    scaler::ymq::ConnectorSocket& connector          = connections.connector();
+    scaler::wrapper::uv::Loop& loop                  = connections.loop();
 
     std::promise<void> sendCallbackCalled {};
 
@@ -186,7 +186,7 @@ TEST_F(UVYMQConnectorSocketTest, SendMessage)
     ASSERT_EQ(error._errorCode, scaler::ymq::Error::ErrorCode::ConnectorSocketClosedByRemoteEnd);
 }
 
-TEST_F(UVYMQConnectorSocketTest, RecvMessage)
+TEST_F(YMQConnectorSocketTest, RecvMessage)
 {
     // Test receiving messages before and after connection
 
@@ -204,9 +204,9 @@ TEST_F(UVYMQConnectorSocketTest, RecvMessage)
             connectCalled.set_value();
         });
 
-    scaler::uv_ymq::internal::MessageConnection& server = connections.server();
-    scaler::uv_ymq::ConnectorSocket& connector          = connections.connector();
-    scaler::wrapper::uv::Loop& loop                     = connections.loop();
+    scaler::ymq::internal::MessageConnection& server = connections.server();
+    scaler::ymq::ConnectorSocket& connector          = connections.connector();
+    scaler::wrapper::uv::Loop& loop                  = connections.loop();
 
     std::promise<scaler::ymq::Message> recvCalled {};
 
@@ -262,7 +262,7 @@ TEST_F(UVYMQConnectorSocketTest, RecvMessage)
     message = recvCalled.get_future().get();
 }
 
-TEST_F(UVYMQConnectorSocketTest, RemoteDisconnect)
+TEST_F(YMQConnectorSocketTest, RemoteDisconnect)
 {
     // Test that ConnectorSocket properly handles a graceful remote disconnection
 
@@ -280,9 +280,9 @@ TEST_F(UVYMQConnectorSocketTest, RemoteDisconnect)
             connectCalled.set_value();
         });
 
-    scaler::uv_ymq::internal::MessageConnection& server = connections.server();
-    scaler::uv_ymq::ConnectorSocket& connector          = connections.connector();
-    scaler::wrapper::uv::Loop& loop                     = connections.loop();
+    scaler::ymq::internal::MessageConnection& server = connections.server();
+    scaler::ymq::ConnectorSocket& connector          = connections.connector();
+    scaler::wrapper::uv::Loop& loop                  = connections.loop();
 
     // Wait for connection to complete
     connectCalled.get_future().get();
@@ -311,7 +311,7 @@ TEST_F(UVYMQConnectorSocketTest, RemoteDisconnect)
     ASSERT_EQ(error._errorCode, scaler::ymq::Error::ErrorCode::ConnectorSocketClosedByRemoteEnd);
 }
 
-TEST_F(UVYMQConnectorSocketTest, Reconnect)
+TEST_F(YMQConnectorSocketTest, Reconnect)
 {
     // Test that ConnectorSocket automatically reconnects after an unexpected disconnection (abort)
 
@@ -324,9 +324,9 @@ TEST_F(UVYMQConnectorSocketTest, Reconnect)
         // Connector callback
         [](auto result) {});
 
-    scaler::uv_ymq::internal::MessageConnection& server = connections.server();
-    scaler::uv_ymq::ConnectorSocket& connector          = connections.connector();
-    scaler::wrapper::uv::Loop& loop                     = connections.loop();
+    scaler::ymq::internal::MessageConnection& server = connections.server();
+    scaler::ymq::ConnectorSocket& connector          = connections.connector();
+    scaler::wrapper::uv::Loop& loop                  = connections.loop();
 
     // Send a message from the server to the client.
     // Required as Linux might not send a RST segment if both connections are not fully initialized.
@@ -359,23 +359,23 @@ TEST_F(UVYMQConnectorSocketTest, Reconnect)
     ASSERT_TRUE(server.established());
 }
 
-TEST_F(UVYMQConnectorSocketTest, Bind)
+TEST_F(YMQConnectorSocketTest, Bind)
 {
     // Test that a connecting ConnectorSocket can connect and exchange with a binding ConnectorSocket
 
-    scaler::uv_ymq::IOContext context {};
+    scaler::ymq::IOContext context {};
 
-    const scaler::uv_ymq::Identity binderIdentity    = "binder-identity";
-    const scaler::uv_ymq::Identity connectorIdentity = "connector-identity";
+    const scaler::ymq::Identity binderIdentity    = "binder-identity";
+    const scaler::ymq::Identity connectorIdentity = "connector-identity";
 
     // Create a binding connector socket
-    auto binderResult = scaler::uv_ymq::sync::ConnectorSocket::bind(context, binderIdentity, "tcp://127.0.0.1:0");
+    auto binderResult = scaler::ymq::sync::ConnectorSocket::bind(context, binderIdentity, "tcp://127.0.0.1:0");
     ASSERT_TRUE(binderResult.has_value());
     auto [binderSocket, boundAddress] = std::move(binderResult.value());
 
     // Create a connecting connector socket
     auto connectorResult =
-        scaler::uv_ymq::sync::ConnectorSocket::connect(context, connectorIdentity, boundAddress.toString().value());
+        scaler::ymq::sync::ConnectorSocket::connect(context, connectorIdentity, boundAddress.toString().value());
     ASSERT_TRUE(connectorResult.has_value());
     auto connectorSocket = std::move(connectorResult.value());
 

@@ -21,10 +21,10 @@
 #include <format>
 #include <string>
 
-#include "scaler/uv_ymq/future/connector_socket.h"
-#include "scaler/uv_ymq/io_context.h"
-#include "scaler/uv_ymq/sync/binder_socket.h"
 #include "scaler/ymq/bytes.h"
+#include "scaler/ymq/future/connector_socket.h"
+#include "scaler/ymq/io_context.h"
+#include "scaler/ymq/sync/binder_socket.h"
 #include "tests/cpp/ymq/common/testing.h"
 #include "tests/cpp/ymq/common/utils.h"
 
@@ -32,7 +32,7 @@
 TestResult basicClientYmq(std::string address);
 TestResult basicServerYmq(std::string address);
 
-class UVYMQMitmTest: public ::testing::Test {};
+class YMQMitmTest: public ::testing::Test {};
 
 // Ensures the MITM scripts are initialized (only once) before any MITM tests run.
 class MITMEnvironment: public ::testing::Environment {
@@ -65,9 +65,9 @@ static ::testing::Environment* const mitmEnvironment = ::testing::AddGlobalTestE
 
 TestResult reconnectServerMain(std::string address)
 {
-    scaler::uv_ymq::IOContext context {};
+    scaler::ymq::IOContext context {};
 
-    scaler::uv_ymq::sync::BinderSocket socket {context, "server"};
+    scaler::ymq::sync::BinderSocket socket {context, "server"};
     auto bindResult = socket.bindTo(address);
     RETURN_FAILURE_IF_FALSE(bindResult.has_value());
 
@@ -87,9 +87,9 @@ TestResult reconnectClientMain(std::string address)
     constexpr int retryTimes = 10;
     constexpr std::chrono::seconds retryDelay {1};
 
-    scaler::uv_ymq::IOContext context {};
+    scaler::ymq::IOContext context {};
 
-    auto socketResult = scaler::uv_ymq::future::ConnectorSocket::connect(context, "client", address);
+    auto socketResult = scaler::ymq::future::ConnectorSocket::connect(context, "client", address);
     RETURN_FAILURE_IF_FALSE(socketResult.has_value());
 
     auto socket = std::move(socketResult.value());
@@ -134,7 +134,7 @@ TestResult reconnectClientMain(std::string address)
 // and a list of arguments, which are: mitm ip, mitm port, remote ip, remote port
 // this defines the address of the mitm, and the addresses that can connect to it
 // for more, see the python mitm files
-TEST_F(UVYMQMitmTest, Passthrough)
+TEST_F(YMQMitmTest, Passthrough)
 {
     auto [mitm_ip, remote_ip] = getMitmIPs();
     auto mitm_port            = 23579;
@@ -154,7 +154,7 @@ TEST_F(UVYMQMitmTest, Passthrough)
 }
 
 // this is the same as the above, but both the client and server use raw sockets
-TEST_F(UVYMQMitmTest, PassthroughRaw)
+TEST_F(YMQMitmTest, PassthroughRaw)
 {
     auto [mitm_ip, remote_ip] = getMitmIPs();
     auto mitm_port            = 23580;
@@ -173,7 +173,7 @@ TEST_F(UVYMQMitmTest, PassthroughRaw)
 }
 
 // this test uses the mitm to test the reconnect logic of uv_ymq by sending RST packets
-TEST_F(UVYMQMitmTest, Reconnect)
+TEST_F(YMQMitmTest, Reconnect)
 {
     auto [mitm_ip, remote_ip] = getMitmIPs();
     auto mitm_port            = 23581;
@@ -190,7 +190,7 @@ TEST_F(UVYMQMitmTest, Reconnect)
 }
 
 // in this test, the mitm drops a random % of packets arriving from the client and server
-TEST_F(UVYMQMitmTest, RandomlyDropPackets)
+TEST_F(YMQMitmTest, RandomlyDropPackets)
 {
     auto [mitm_ip, remote_ip] = getMitmIPs();
     auto mitm_port            = 23582;

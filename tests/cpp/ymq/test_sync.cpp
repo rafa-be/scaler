@@ -4,10 +4,10 @@
 #include <string>
 #include <thread>
 
-#include "scaler/uv_ymq/io_context.h"
-#include "scaler/uv_ymq/sync/binder_socket.h"
-#include "scaler/uv_ymq/sync/connector_socket.h"
 #include "scaler/ymq/bytes.h"
+#include "scaler/ymq/io_context.h"
+#include "scaler/ymq/sync/binder_socket.h"
+#include "scaler/ymq/sync/connector_socket.h"
 
 namespace {
 
@@ -15,33 +15,33 @@ const std::string messagePayload = "Hello Sync YMQ!";
 
 }  // namespace
 
-class UVYMQSyncTest: public ::testing::Test {};
+class YMQSyncTest: public ::testing::Test {};
 
-TEST_F(UVYMQSyncTest, BasicMessageExchange)
+TEST_F(YMQSyncTest, BasicMessageExchange)
 {
     // Test basic message exchange between a sync::BinderSocket and sync::ConnectorSocket
 
-    const scaler::uv_ymq::Identity binderIdentity    = "sync-binder";
-    const scaler::uv_ymq::Identity connectorIdentity = "sync-connector";
+    const scaler::ymq::Identity binderIdentity    = "sync-binder";
+    const scaler::ymq::Identity connectorIdentity = "sync-connector";
 
-    scaler::uv_ymq::IOContext context {};
+    scaler::ymq::IOContext context {};
 
     // Create and bind the binder socket
-    scaler::uv_ymq::sync::BinderSocket binder {context, binderIdentity};
+    scaler::ymq::sync::BinderSocket binder {context, binderIdentity};
 
     auto bindResult = binder.bindTo("tcp://127.0.0.1:0");
     ASSERT_TRUE(bindResult.has_value());
 
-    scaler::uv_ymq::Address boundAddress = bindResult.value();
+    scaler::ymq::Address boundAddress = bindResult.value();
 
     // Create connector socket in a separate thread to avoid blocking
     std::jthread connectorThread([&]() {
         auto connectorResult =
-            scaler::uv_ymq::sync::ConnectorSocket::connect(context, connectorIdentity, boundAddress.toString().value());
+            scaler::ymq::sync::ConnectorSocket::connect(context, connectorIdentity, boundAddress.toString().value());
 
         ASSERT_TRUE(connectorResult.has_value());
 
-        scaler::uv_ymq::sync::ConnectorSocket connector = std::move(connectorResult.value());
+        scaler::ymq::sync::ConnectorSocket connector = std::move(connectorResult.value());
 
         // Send message from connector to binder
         auto sendResult = connector.sendMessage(scaler::ymq::Bytes(messagePayload));

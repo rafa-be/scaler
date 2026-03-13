@@ -13,26 +13,26 @@
 #include <thread>
 
 #include "scaler/error/error.h"
-#include "scaler/uv_ymq/address.h"
-#include "scaler/uv_ymq/future/binder_socket.h"
-#include "scaler/uv_ymq/future/connector_socket.h"
-#include "scaler/uv_ymq/io_context.h"
-#include "scaler/uv_ymq/sync/binder_socket.h"
-#include "scaler/uv_ymq/sync/connector_socket.h"
+#include "scaler/ymq/address.h"
 #include "scaler/ymq/bytes.h"
+#include "scaler/ymq/future/binder_socket.h"
+#include "scaler/ymq/future/connector_socket.h"
+#include "scaler/ymq/io_context.h"
+#include "scaler/ymq/sync/binder_socket.h"
+#include "scaler/ymq/sync/connector_socket.h"
 #include "tests/cpp/ymq/common/testing.h"
 #include "tests/cpp/ymq/common/utils.h"
 #include "tests/cpp/ymq/net/socket_utils.h"
 
-using scaler::uv_ymq::Address;
-using scaler::uv_ymq::Identity;
-using scaler::uv_ymq::IOContext;
+using scaler::ymq::Address;
 using scaler::ymq::Bytes;
 using scaler::ymq::Error;
+using scaler::ymq::Identity;
+using scaler::ymq::IOContext;
 using scaler::ymq::Message;
 
 // a test suite for different socket types that's parameterized by transport protocol (e.g. "tcp", "ipc")
-class UVYMQSocketTest: public ::testing::TestWithParam<std::string> {
+class YMQSocketTest: public ::testing::TestWithParam<std::string> {
 protected:
     std::string GetAddress(int port)
     {
@@ -62,7 +62,7 @@ TestResult basicServerYmq(std::string address)
 {
     IOContext context {};
 
-    scaler::uv_ymq::sync::BinderSocket socket {context, "server"};
+    scaler::ymq::sync::BinderSocket socket {context, "server"};
     auto bindResult = socket.bindTo(address);
     RETURN_FAILURE_IF_FALSE(bindResult.has_value());
 
@@ -78,7 +78,7 @@ TestResult basicClientYmq(std::string address)
 {
     IOContext context {};
 
-    auto socketResult = scaler::uv_ymq::sync::ConnectorSocket::connect(context, "client", address);
+    auto socketResult = scaler::ymq::sync::ConnectorSocket::connect(context, "client", address);
     RETURN_FAILURE_IF_FALSE(socketResult.has_value());
 
     auto socket     = std::move(socketResult.value());
@@ -124,7 +124,7 @@ TestResult serverReceivesBigMessage(std::string address)
 {
     IOContext context {};
 
-    scaler::uv_ymq::sync::BinderSocket socket {context, "server"};
+    scaler::ymq::sync::BinderSocket socket {context, "server"};
     auto bindResult = socket.bindTo(address);
     RETURN_FAILURE_IF_FALSE(bindResult.has_value());
 
@@ -204,7 +204,7 @@ TestResult serverReceivesHugeHeader(std::string address)
 {
     IOContext context {};
 
-    scaler::uv_ymq::sync::BinderSocket socket {context, "server"};
+    scaler::ymq::sync::BinderSocket socket {context, "server"};
     auto bindResult = socket.bindTo(address);
     RETURN_FAILURE_IF_FALSE(bindResult.has_value());
 
@@ -264,7 +264,7 @@ TestResult serverReceivesEmptyMessages(std::string address)
 {
     IOContext context {};
 
-    scaler::uv_ymq::sync::BinderSocket socket {context, "server"};
+    scaler::ymq::sync::BinderSocket socket {context, "server"};
     auto bindResult = socket.bindTo(address);
     RETURN_FAILURE_IF_FALSE(bindResult.has_value());
 
@@ -282,7 +282,7 @@ TestResult clientSendsEmptyMessages(std::string address)
 {
     IOContext context {};
 
-    auto socketResult = scaler::uv_ymq::sync::ConnectorSocket::connect(context, "client", address);
+    auto socketResult = scaler::ymq::sync::ConnectorSocket::connect(context, "client", address);
     RETURN_FAILURE_IF_FALSE(socketResult.has_value());
 
     auto socket = std::move(socketResult.value());
@@ -351,7 +351,7 @@ TestResult clientCloseEstablishedConnectionClient(std::string address)
 {
     IOContext context {};
 
-    auto socketResult = scaler::uv_ymq::sync::ConnectorSocket::connect(context, "client", address);
+    auto socketResult = scaler::ymq::sync::ConnectorSocket::connect(context, "client", address);
     RETURN_FAILURE_IF_FALSE(socketResult.has_value());
 
     auto socket = std::move(socketResult.value());
@@ -374,7 +374,7 @@ TestResult clientCloseEstablishedConnectionServer(std::string address)
 {
     IOContext context {};
 
-    scaler::uv_ymq::sync::BinderSocket socket {context, "server"};
+    scaler::ymq::sync::BinderSocket socket {context, "server"};
     auto bindResult = socket.bindTo(address);
     RETURN_FAILURE_IF_FALSE(bindResult.has_value());
 
@@ -394,7 +394,7 @@ TestResult closeNonexistentConnection()
 {
     IOContext context {};
 
-    scaler::uv_ymq::sync::BinderSocket socket {context, "server"};
+    scaler::ymq::sync::BinderSocket socket {context, "server"};
 
     // note: we're not connected to anything; this connection does not exist
     // this should be a no-op
@@ -410,7 +410,7 @@ TestResult testRequestStop()
     std::future<std::expected<scaler::ymq::Message, Error>> future;
 
     {
-        auto binder = scaler::uv_ymq::future::BinderSocket {context, "server"};
+        auto binder = scaler::ymq::future::BinderSocket {context, "server"};
 
         future = binder.recvMessage();
 
@@ -432,7 +432,7 @@ TestResult clientSocketStopBeforeCloseConnection(std::string address)
 {
     IOContext context {};
 
-    auto socketResult = scaler::uv_ymq::sync::ConnectorSocket::connect(context, "client", address);
+    auto socketResult = scaler::ymq::sync::ConnectorSocket::connect(context, "client", address);
     RETURN_FAILURE_IF_FALSE(socketResult.has_value());
 
     auto socket = std::move(socketResult.value());
@@ -456,7 +456,7 @@ TestResult serverSocketStopBeforeCloseConnection(std::string address)
     IOContext context {};
 
     {
-        scaler::uv_ymq::sync::BinderSocket socket {context, "server"};
+        scaler::ymq::sync::BinderSocket socket {context, "server"};
         auto bindResult = socket.bindTo(address);
         RETURN_FAILURE_IF_FALSE(bindResult.has_value());
 
@@ -481,7 +481,7 @@ TestResult serverSocketStopBeforeCloseConnection(std::string address)
 
 // this is a 'basic' test which sends a single message from a client to a server
 // in this variant, both the client and server are implemented using uv_ymq
-TEST_P(UVYMQSocketTest, TestBasicYMQClientYMQServer)
+TEST_P(YMQSocketTest, TestBasicYMQClientYMQServer)
 {
     const auto address = GetAddress(2889);
 
@@ -494,7 +494,7 @@ TEST_P(UVYMQSocketTest, TestBasicYMQClientYMQServer)
 }
 
 // same as above, except uv_ymq's protocol is directly implemented on top of a TCP socket
-TEST_P(UVYMQSocketTest, TestBasicRawClientYMQServer)
+TEST_P(YMQSocketTest, TestBasicRawClientYMQServer)
 {
     const auto address = GetAddress(2891);
 
@@ -506,7 +506,7 @@ TEST_P(UVYMQSocketTest, TestBasicRawClientYMQServer)
     EXPECT_EQ(result, TestResult::Success);
 }
 
-TEST_P(UVYMQSocketTest, TestBasicRawClientRawServer)
+TEST_P(YMQSocketTest, TestBasicRawClientRawServer)
 {
     const auto address = GetAddress(2892);
 
@@ -519,7 +519,7 @@ TEST_P(UVYMQSocketTest, TestBasicRawClientRawServer)
 }
 
 // this is the same as above, except that it has no delay before calling close() on the socket
-TEST_P(UVYMQSocketTest, TestBasicRawClientRawServerNoDelay)
+TEST_P(YMQSocketTest, TestBasicRawClientRawServerNoDelay)
 {
     const auto address = GetAddress(2893);
 
@@ -528,7 +528,7 @@ TEST_P(UVYMQSocketTest, TestBasicRawClientRawServerNoDelay)
     EXPECT_EQ(result, TestResult::Success);
 }
 
-TEST_P(UVYMQSocketTest, TestBasicDelayYMQClientRawServer)
+TEST_P(YMQSocketTest, TestBasicDelayYMQClientRawServer)
 {
     const auto address = GetAddress(2894);
 
@@ -542,7 +542,7 @@ TEST_P(UVYMQSocketTest, TestBasicDelayYMQClientRawServer)
 
 // in this test case, the client sends a large message to the server
 // uv_ymq should be able to handle this without issue
-TEST_P(UVYMQSocketTest, TestClientSendBigMessageToServer)
+TEST_P(YMQSocketTest, TestClientSendBigMessageToServer)
 {
     const auto address = GetAddress(2895);
 
@@ -554,7 +554,7 @@ TEST_P(UVYMQSocketTest, TestClientSendBigMessageToServer)
 
 // in this test the client is sending a message to the server
 // but we simulate a slow network connection by sending the message in segmented chunks
-TEST_P(UVYMQSocketTest, TestSlowNetwork)
+TEST_P(YMQSocketTest, TestSlowNetwork)
 {
     const auto address = GetAddress(2905);
 
@@ -567,7 +567,7 @@ TEST_P(UVYMQSocketTest, TestSlowNetwork)
 // in this test, a client connects to the YMQ server but only partially sends its identity and then disconnects
 // then a new client connection is established, and this one sends a complete identity and message
 // YMQ should be able to recover from a poorly-behaved client like this
-TEST_P(UVYMQSocketTest, TestClientSendIncompleteIdentity)
+TEST_P(YMQSocketTest, TestClientSendIncompleteIdentity)
 {
     const auto address = GetAddress(2896);
 
@@ -580,7 +580,7 @@ TEST_P(UVYMQSocketTest, TestClientSendIncompleteIdentity)
 // in this test, the client sends an unrealistically-large header
 // it is important that YMQ checks the header size before allocating memory
 // both for resilience against attacks and to guard against errors
-TEST_P(UVYMQSocketTest, TestClientSendHugeHeader)
+TEST_P(YMQSocketTest, TestClientSendHugeHeader)
 {
     const auto address = GetAddress(2897);
 
@@ -595,7 +595,7 @@ TEST_P(UVYMQSocketTest, TestClientSendHugeHeader)
 // in the former case, the bytes contains a nullptr
 // in the latter case, the bytes contains a zero-length allocation
 // it's important that the behaviour of YMQ is known for both of these cases
-TEST_P(UVYMQSocketTest, TestClientSendEmptyMessage)
+TEST_P(YMQSocketTest, TestClientSendEmptyMessage)
 {
     const auto address = GetAddress(2898);
 
@@ -657,7 +657,7 @@ TEST_P(UVYMQSocketTest, TestPubSubEmptyTopic)
 */
 
 // in this test case, the client establishes a connection with the server and then explicitly closes it
-TEST_P(UVYMQSocketTest, TestClientCloseEstablishedConnection)
+TEST_P(YMQSocketTest, TestClientCloseEstablishedConnection)
 {
     const auto address = GetAddress(2902);
 
@@ -670,7 +670,7 @@ TEST_P(UVYMQSocketTest, TestClientCloseEstablishedConnection)
 }
 
 // this test case is similar to the one above, except that it requests the socket stop before closing the connection
-TEST_P(UVYMQSocketTest, TestClientSocketStopBeforeCloseConnection)
+TEST_P(YMQSocketTest, TestClientSocketStopBeforeCloseConnection)
 {
     const auto address = GetAddress(2904);
 
@@ -683,14 +683,14 @@ TEST_P(UVYMQSocketTest, TestClientSocketStopBeforeCloseConnection)
 }
 
 // in this test case, the we try to close a connection that does not exist
-TEST(UVYMQSocketTest, TestClientCloseNonexistentConnection)
+TEST(YMQSocketTest, TestClientCloseNonexistentConnection)
 {
     auto result = closeNonexistentConnection();
     EXPECT_EQ(result, TestResult::Success);
 }
 
 // this test case verifies that requesting a socket stop causes pending and subsequent operations to be cancelled
-TEST(UVYMQSocketTest, TestRequestSocketStop)
+TEST(YMQSocketTest, TestRequestSocketStop)
 {
     auto result = testRequestStop();
     EXPECT_EQ(result, TestResult::Success);
@@ -708,10 +708,10 @@ std::vector<std::string> GetTransports()
 
 // parametrize the test with tcp and ipc addresses
 INSTANTIATE_TEST_SUITE_P(
-    UVYMQTransport,
-    UVYMQSocketTest,
+    YMQTransport,
+    YMQSocketTest,
     ::testing::ValuesIn(GetTransports()),
-    [](const testing::TestParamInfo<UVYMQSocketTest::ParamType>& info) {
+    [](const testing::TestParamInfo<YMQSocketTest::ParamType>& info) {
         // use tcp/ipc as suffix for test names
         return info.param;
     });

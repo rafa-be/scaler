@@ -4,24 +4,24 @@
 #include <expected>
 
 #include "scaler/error/error.h"
-#include "scaler/uv_ymq/address.h"
-#include "scaler/uv_ymq/internal/connect_client.h"
 #include "scaler/wrapper/uv/error.h"
 #include "scaler/wrapper/uv/loop.h"
 #include "scaler/wrapper/uv/tcp.h"
+#include "scaler/ymq/address.h"
+#include "scaler/ymq/internal/connect_client.h"
 
-class UVYMQConnectClientTest: public ::testing::Test {};
+class YMQConnectClientTest: public ::testing::Test {};
 
-TEST_F(UVYMQConnectClientTest, ConnectClient)
+TEST_F(YMQConnectClientTest, ConnectClient)
 {
     // Successfully connect to a temporary TCP server
 
-    constexpr int maxRetryTimes = scaler::uv_ymq::defaultClientMaxRetryTimes;
+    constexpr int maxRetryTimes = scaler::ymq::defaultClientMaxRetryTimes;
     constexpr std::chrono::milliseconds initRetryDelay {10};
 
     scaler::wrapper::uv::Loop loop = UV_EXIT_ON_ERROR(scaler::wrapper::uv::Loop::init());
 
-    const auto listenAddress = scaler::uv_ymq::Address::fromString("tcp://127.0.0.1:0").value();
+    const auto listenAddress = scaler::ymq::Address::fromString("tcp://127.0.0.1:0").value();
 
     // Create a temporary TCP server
     scaler::wrapper::uv::TCPServer server = UV_EXIT_ON_ERROR(scaler::wrapper::uv::TCPServer::init(loop));
@@ -33,15 +33,15 @@ TEST_F(UVYMQConnectClientTest, ConnectClient)
 
     bool callbackCalled = false;
 
-    auto onConnectCallback = [&](std::expected<scaler::uv_ymq::Client, scaler::ymq::Error> result) {
+    auto onConnectCallback = [&](std::expected<scaler::ymq::Client, scaler::ymq::Error> result) {
         ASSERT_TRUE(result.has_value());
         callbackCalled = true;
     };
 
     // Get the actual bound address (since we used port 0)
-    scaler::uv_ymq::Address connectAddress {UV_EXIT_ON_ERROR(server.getSockName())};
+    scaler::ymq::Address connectAddress {UV_EXIT_ON_ERROR(server.getSockName())};
 
-    scaler::uv_ymq::internal::ConnectClient connectClient(
+    scaler::ymq::internal::ConnectClient connectClient(
         loop, connectAddress, onConnectCallback, maxRetryTimes, initRetryDelay);
 
     while (!callbackCalled) {
@@ -49,56 +49,54 @@ TEST_F(UVYMQConnectClientTest, ConnectClient)
     }
 }
 
-TEST_F(UVYMQConnectClientTest, ConnectClientFailure)
+TEST_F(YMQConnectClientTest, ConnectClientFailure)
 {
     // Simulate a connection failure
 
-    constexpr int maxRetryTimes = scaler::uv_ymq::defaultClientMaxRetryTimes;
+    constexpr int maxRetryTimes = scaler::ymq::defaultClientMaxRetryTimes;
     constexpr std::chrono::milliseconds initRetryDelay {10};
 
     scaler::wrapper::uv::Loop loop = UV_EXIT_ON_ERROR(scaler::wrapper::uv::Loop::init());
 
     // Port 49151 is IANA reserved, hopefully never assigned
-    const auto address = scaler::uv_ymq::Address::fromString("tcp://127.0.0.1:49151").value();
+    const auto address = scaler::ymq::Address::fromString("tcp://127.0.0.1:49151").value();
 
     bool callbackCalled = false;
 
-    auto onConnectCallback = [&](std::expected<scaler::uv_ymq::Client, scaler::ymq::Error> result) {
+    auto onConnectCallback = [&](std::expected<scaler::ymq::Client, scaler::ymq::Error> result) {
         ASSERT_FALSE(result.has_value());
         ASSERT_EQ(result.error()._errorCode, scaler::ymq::Error::ErrorCode::ConnectorSocketClosedByRemoteEnd);
         callbackCalled = true;
     };
 
-    scaler::uv_ymq::internal::ConnectClient connectClient(
-        loop, address, onConnectCallback, maxRetryTimes, initRetryDelay);
+    scaler::ymq::internal::ConnectClient connectClient(loop, address, onConnectCallback, maxRetryTimes, initRetryDelay);
 
     loop.run();
 
     ASSERT_TRUE(callbackCalled);
 }
 
-TEST_F(UVYMQConnectClientTest, ConnectClientDisconnect)
+TEST_F(YMQConnectClientTest, ConnectClientDisconnect)
 {
     // Cancel an ongoing connection
 
-    constexpr int maxRetryTimes = scaler::uv_ymq::defaultClientMaxRetryTimes;
+    constexpr int maxRetryTimes = scaler::ymq::defaultClientMaxRetryTimes;
     constexpr std::chrono::milliseconds initRetryDelay {10};
 
     scaler::wrapper::uv::Loop loop = UV_EXIT_ON_ERROR(scaler::wrapper::uv::Loop::init());
 
     // 192.0.2.0/24 is non-routable. connect() usually timeouts after a few seconds.
-    const auto address = scaler::uv_ymq::Address::fromString("tcp://192.0.2.1:9999").value();
+    const auto address = scaler::ymq::Address::fromString("tcp://192.0.2.1:9999").value();
 
     bool callbackCalled = false;
 
-    auto onConnectCallback = [&](std::expected<scaler::uv_ymq::Client, scaler::ymq::Error> result) {
+    auto onConnectCallback = [&](std::expected<scaler::ymq::Client, scaler::ymq::Error> result) {
         ASSERT_FALSE(result.has_value());
         ASSERT_EQ(result.error()._errorCode, scaler::ymq::Error::ErrorCode::IOSocketStopRequested);
         callbackCalled = true;
     };
 
-    scaler::uv_ymq::internal::ConnectClient connectClient(
-        loop, address, onConnectCallback, maxRetryTimes, initRetryDelay);
+    scaler::ymq::internal::ConnectClient connectClient(loop, address, onConnectCallback, maxRetryTimes, initRetryDelay);
 
     // Set up a timer to disconnect after a short delay
     scaler::wrapper::uv::Timer disconnectTimer = UV_EXIT_ON_ERROR(scaler::wrapper::uv::Timer::init(loop));

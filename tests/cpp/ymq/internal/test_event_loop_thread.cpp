@@ -4,18 +4,18 @@
 #include <chrono>
 #include <thread>
 
-#include "scaler/uv_ymq/internal/event_loop_thread.h"
+#include "scaler/ymq/internal/event_loop_thread.h"
 
-class UVYMQEventLoopThreadTest: public ::testing::Test {};
+class YMQEventLoopThreadTest: public ::testing::Test {};
 
-TEST_F(UVYMQEventLoopThreadTest, EventLoopThread)
+TEST_F(YMQEventLoopThreadTest, EventLoopThread)
 {
     const size_t nTasks = 3;
 
     std::atomic<int> nTimesCalled {0};
 
     {
-        scaler::uv_ymq::internal::EventLoopThread thread {};
+        scaler::ymq::internal::EventLoopThread thread {};
 
         for (size_t i = 0; i < nTasks; ++i) {
             thread.executeThreadSafe([&]() { ++nTimesCalled; });
