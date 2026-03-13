@@ -5,7 +5,7 @@
 
 // First-party
 #include "scaler/ymq/pymod/bytes.h"
-#include "scaler/ymq/pymod/uv_ymq.h"
+#include "scaler/ymq/pymod/ymq.h"
 
 namespace scaler {
 namespace ymq {
@@ -21,7 +21,7 @@ struct PyMessage {
 
 static int PyMessage_init(PyMessage* self, PyObject* args, PyObject* kwds)
 {
-    auto state = UVYMQStateFromSelf((PyObject*)self);
+    auto state = YMQStateFromSelf((PyObject*)self);
     if (!state)
         return -1;
 
@@ -94,7 +94,7 @@ static PyType_Slot PyMessage_slots[] = {
 };
 
 static PyType_Spec PyMessage_spec = {
-    .name      = "_uv_ymq.Message",
+    .name      = "_ymq.Message",
     .basicsize = sizeof(PyMessage),
     .itemsize  = 0,
     .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,

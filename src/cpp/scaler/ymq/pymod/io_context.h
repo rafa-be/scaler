@@ -76,7 +76,7 @@ static PyType_Slot PyIOContext_slots[] = {
 };
 
 static PyType_Spec PyIOContext_spec = {
-    .name      = "_uv_ymq.IOContext",
+    .name      = "_ymq.IOContext",
     .basicsize = sizeof(PyIOContext),
     .itemsize  = 0,
     .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,

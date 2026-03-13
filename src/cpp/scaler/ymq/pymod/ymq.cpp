@@ -1,4 +1,4 @@
-#include "scaler/ymq/pymod/uv_ymq.h"
+#include "scaler/ymq/pymod/ymq.h"
 
 #include <initializer_list>
 #include <new>
@@ -19,7 +19,7 @@ namespace scaler {
 namespace ymq {
 namespace pymod {
 
-UVYMQState* UVYMQStateFromType(PyObject* type)
+YMQState* YMQStateFromType(PyObject* type)
 {
     PyObject* pyModule = PyType_GetModule((PyTypeObject*)type);
     if (!pyModule)
@@ -29,23 +29,23 @@ UVYMQState* UVYMQStateFromType(PyObject* type)
     Py_DECREF(pyModule);  // As we get a real ref in 3.8 backport
 #endif
 
-    return (UVYMQState*)PyModule_GetState(pyModule);
+    return (YMQState*)PyModule_GetState(pyModule);
 }
 
-UVYMQState* UVYMQStateFromSelf(PyObject* self)
+YMQState* YMQStateFromSelf(PyObject* self)
 {
-    return UVYMQStateFromType((PyObject*)Py_TYPE(self));
+    return YMQStateFromType((PyObject*)Py_TYPE(self));
 }
 
-void UVYMQ_free(void* stateVoid)
+void YMQ_free(void* stateVoid)
 {
-    UVYMQState* state = (UVYMQState*)stateVoid;
+    YMQState* state = (YMQState*)stateVoid;
     if (state) {
-        state->~UVYMQState();
+        state->~YMQState();
     }
 }
 
-int UVYMQ_createIntEnum(
+int YMQ_createIntEnum(
     PyObject* pyModule,
     OwnedPyObject<>* storage,
     std::string enumName,
@@ -67,7 +67,7 @@ int UVYMQ_createIntEnum(
             return -1;
     }
 
-    auto state = (UVYMQState*)PyModule_GetState(pyModule);
+    auto state = (YMQState*)PyModule_GetState(pyModule);
 
     if (!state)
         return -1;
@@ -84,7 +84,7 @@ int UVYMQ_createIntEnum(
     return PyModule_AddObjectRef(pyModule, enumName.c_str(), *enumClass);
 }
 
-static PyObject* UVYMQErrorCode_explanation(PyObject* self, PyObject* Py_UNUSED(args))
+static PyObject* YMQErrorCode_explanation(PyObject* self, PyObject* Py_UNUSED(args))
 {
     OwnedPyObject pyValue = PyObject_GetAttrString(self, "value");
     if (!pyValue)
@@ -105,7 +105,7 @@ static PyObject* UVYMQErrorCode_explanation(PyObject* self, PyObject* Py_UNUSED(
     return PyUnicode_FromString(std::string {explanation}.c_str());
 }
 
-int UVYMQ_createErrorCodeEnum(PyObject* pyModule, UVYMQState* state)
+int YMQ_createErrorCodeEnum(PyObject* pyModule, YMQState* state)
 {
     using ErrorCode = scaler::ymq::Error::ErrorCode;
 
@@ -132,14 +132,14 @@ int UVYMQ_createErrorCodeEnum(PyObject* pyModule, UVYMQState* state)
         {"IPCOnWinNotSupported", (int)ErrorCode::IPCOnWinNotSupported},
     };
 
-    if (UVYMQ_createIntEnum(pyModule, &state->PyErrorCodeType, "ErrorCode", errorCodeValues) < 0)
+    if (YMQ_createIntEnum(pyModule, &state->PyErrorCodeType, "ErrorCode", errorCodeValues) < 0)
         return -1;
 
-    static PyMethodDef UVYMQErrorCode_explanation_def = {
+    static PyMethodDef YMQErrorCode_explanation_def = {
         "explanation",
-        (PyCFunction)UVYMQErrorCode_explanation,
+        (PyCFunction)YMQErrorCode_explanation,
         METH_NOARGS,
-        PyDoc_STR("Returns an explanation of a UVYMQ error code")};
+        PyDoc_STR("Returns an explanation of a YMQ error code")};
 
     OwnedPyObject iter = PyObject_GetIter(*state->PyErrorCodeType);
     if (!iter)
@@ -147,7 +147,7 @@ int UVYMQ_createErrorCodeEnum(PyObject* pyModule, UVYMQState* state)
 
     OwnedPyObject item {};
     while ((item = PyIter_Next(*iter))) {
-        OwnedPyObject fn = PyCFunction_NewEx(&UVYMQErrorCode_explanation_def, *item, pyModule);
+        OwnedPyObject fn = PyCFunction_NewEx(&YMQErrorCode_explanation_def, *item, pyModule);
         if (!fn)
             return -1;
 
@@ -162,7 +162,7 @@ int UVYMQ_createErrorCodeEnum(PyObject* pyModule, UVYMQState* state)
     return 0;
 }
 
-int UVYMQ_createExceptions(PyObject* pyModule, UVYMQState* state)
+int YMQ_createExceptions(PyObject* pyModule, YMQState* state)
 {
     using ErrorCode = scaler::ymq::Error::ErrorCode;
 
@@ -192,7 +192,7 @@ int UVYMQ_createExceptions(PyObject* pyModule, UVYMQState* state)
     static PyType_Slot slots[] = {{0, nullptr}};
 
     for (const auto& entry: exceptions) {
-        std::string fullName = "_uv_ymq." + entry.second;
+        std::string fullName = "_ymq." + entry.second;
 
         PyType_Spec spec = {
             fullName.c_str(),
@@ -220,7 +220,7 @@ int UVYMQ_createExceptions(PyObject* pyModule, UVYMQState* state)
     return 0;
 }
 
-static int UVYMQ_createType(
+static int YMQ_createType(
     PyObject* pyModule,
     OwnedPyObject<>* storage,
     PyType_Spec* spec,
@@ -256,24 +256,24 @@ static int UVYMQ_createType(
     return 0;
 }
 
-static int UVYMQ_exec(PyObject* pyModule)
+static int YMQ_exec(PyObject* pyModule)
 {
-    auto state = (UVYMQState*)PyModule_GetState(pyModule);
+    auto state = (YMQState*)PyModule_GetState(pyModule);
     if (!state)
         return -1;
 
     // Use placement new to initialize C++ objects in the pre-allocated (zero-initialized) memory
-    new (state) UVYMQState();
+    new (state) YMQState();
 
     state->enumModule = PyImport_ImportModule("enum");
     if (!state->enumModule)
         return -1;
 
-    if (UVYMQ_createErrorCodeEnum(pyModule, state) < 0)
+    if (YMQ_createErrorCodeEnum(pyModule, state) < 0)
         return -1;
 
 #if PY_MAJOR_VERSION == 3 && PY_MINOR_VERSION == 8
-    if (UVYMQ_createType(
+    if (YMQ_createType(
             pyModule,
             &state->PyBytesType,
             &PyBytes_spec,
@@ -284,26 +284,26 @@ static int UVYMQ_exec(PyObject* pyModule)
             (releasebufferproc)PyBytes_releasebuffer) < 0)
         return -1;
 #else
-    if (UVYMQ_createType(pyModule, &state->PyBytesType, &PyBytes_spec, "Bytes") < 0)
+    if (YMQ_createType(pyModule, &state->PyBytesType, &PyBytes_spec, "Bytes") < 0)
         return -1;
 #endif
 
-    if (UVYMQ_createType(pyModule, &state->PyMessageType, &PyMessage_spec, "Message") < 0)
+    if (YMQ_createType(pyModule, &state->PyMessageType, &PyMessage_spec, "Message") < 0)
         return -1;
 
-    if (UVYMQ_createType(pyModule, &state->PyIOContextType, &PyIOContext_spec, "IOContext") < 0)
+    if (YMQ_createType(pyModule, &state->PyIOContextType, &PyIOContext_spec, "IOContext") < 0)
         return -1;
 
     if (PyAddressType_createEnum(pyModule, state) < 0)
         return -1;
 
-    if (UVYMQ_createType(pyModule, &state->PyAddressType, &PyAddress_spec, "Address") < 0)
+    if (YMQ_createType(pyModule, &state->PyAddressType, &PyAddress_spec, "Address") < 0)
         return -1;
 
-    if (UVYMQ_createType(pyModule, &state->PyBinderSocketType, &PyBinderSocket_spec, "BinderSocket") < 0)
+    if (YMQ_createType(pyModule, &state->PyBinderSocketType, &PyBinderSocket_spec, "BinderSocket") < 0)
         return -1;
 
-    if (UVYMQ_createType(pyModule, &state->PyConnectorSocketType, &PyConnectorSocket_spec, "ConnectorSocket") < 0)
+    if (YMQ_createType(pyModule, &state->PyConnectorSocketType, &PyConnectorSocket_spec, "ConnectorSocket") < 0)
         return -1;
 
     // Add configuration constants
@@ -317,20 +317,20 @@ static int UVYMQ_exec(PyObject* pyModule)
     if (!exceptionBases)
         return -1;
 
-    if (UVYMQ_createType(
-            pyModule, &state->PyExceptionType, &UVYMQException_spec, "UVYMQException", true, exceptionBases) < 0) {
+    if (YMQ_createType(pyModule, &state->PyExceptionType, &YMQException_spec, "YMQException", true, exceptionBases) <
+        0) {
         Py_DECREF(exceptionBases);
         return -1;
     }
     Py_DECREF(exceptionBases);
 
-    if (UVYMQ_createExceptions(pyModule, state) < 0)
+    if (YMQ_createExceptions(pyModule, state) < 0)
         return -1;
 
     return 0;
 }
 
-OwnedPyObject<> UVYMQ_GetRaisedException()
+OwnedPyObject<> YMQ_GetRaisedException()
 {
 #if (PY_MAJOR_VERSION <= 3) && (PY_MINOR_VERSION <= 12)
     PyObject *excType, *excValue, *excTraceback;
@@ -357,7 +357,7 @@ OwnedPyObject<> completeCallback(const OwnedPyObject<>& callback, const OwnedPyO
 
 OwnedPyObject<> completeCallbackWithRaisedException(const OwnedPyObject<>& callback)
 {
-    OwnedPyObject exception      = UVYMQ_GetRaisedException();
+    OwnedPyObject exception      = YMQ_GetRaisedException();
     OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, *exception, nullptr);
     if (!callbackResult) {
         PyErr_WriteUnraisable(*callback);
@@ -366,9 +366,9 @@ OwnedPyObject<> completeCallbackWithRaisedException(const OwnedPyObject<>& callb
 }
 
 OwnedPyObject<> completeCallbackWithCoreError(
-    UVYMQState* state, const OwnedPyObject<>& callback, const scaler::ymq::Error& error)
+    YMQState* state, const OwnedPyObject<>& callback, const scaler::ymq::Error& error)
 {
-    OwnedPyObject exception      = UVYMQException_createFromCoreError(state, error);
+    OwnedPyObject exception      = YMQException_createFromCoreError(state, error);
     OwnedPyObject callbackResult = PyObject_CallFunctionObjArgs(*callback, *exception, nullptr);
     if (!callbackResult) {
         PyErr_WriteUnraisable(*callback);
@@ -380,7 +380,7 @@ OwnedPyObject<> completeCallbackWithCoreError(
 }  // namespace ymq
 }  // namespace scaler
 
-PyMODINIT_FUNC PyInit__uv_ymq(void)
+PyMODINIT_FUNC PyInit__ymq(void)
 {
-    return PyModuleDef_Init(&scaler::ymq::pymod::UVYMQ_module);
+    return PyModuleDef_Init(&scaler::ymq::pymod::YMQ_module);
 }

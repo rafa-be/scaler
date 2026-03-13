@@ -14,7 +14,7 @@ namespace pymod {
 
 using scaler::utility::pymod::OwnedPyObject;
 
-struct UVYMQState {
+struct YMQState {
     OwnedPyObject<> enumModule;  // Reference to the enum module
 
     OwnedPyObject<> PyIOContextType;  // Reference to the IOContext type
@@ -27,20 +27,20 @@ struct UVYMQState {
     OwnedPyObject<> PyErrorCodeType;        // Reference to the ErrorCode enum
     OwnedPyObject<> PyBytesType;            // Reference to Bytes type
     OwnedPyObject<> PyMessageType;          // Reference to Message type
-    OwnedPyObject<> PyExceptionType;        // Reference to UVYMQException type
+    OwnedPyObject<> PyExceptionType;        // Reference to YMQException type
 
     std::unordered_map<int, OwnedPyObject<>> PyExceptionSubtypes;  // Map of error code to exception subclass
 };
 
-UVYMQState* UVYMQStateFromSelf(PyObject* self);
+YMQState* YMQStateFromSelf(PyObject* self);
 
-// Like UVYMQStateFromSelf but for class methods where the first arg is the type (cls), not an instance.
-UVYMQState* UVYMQStateFromType(PyObject* type);
+// Like YMQStateFromSelf but for class methods where the first arg is the type (cls), not an instance.
+YMQState* YMQStateFromType(PyObject* type);
 
-void UVYMQ_free(void* stateVoid);
+void YMQ_free(void* stateVoid);
 
 // internal convenience function to create a type and add it to the module
-static int UVYMQ_createType(
+static int YMQ_createType(
     // the module object
     PyObject* pyModule,
     // storage for the generated type object
@@ -56,40 +56,40 @@ static int UVYMQ_createType(
     getbufferproc getbuffer         = nullptr,
     releasebufferproc releasebuffer = nullptr);
 
-int UVYMQ_createIntEnum(
+int YMQ_createIntEnum(
     PyObject* pyModule,
     OwnedPyObject<>* storage,
     std::string enumName,
     std::initializer_list<std::pair<const char*, int>> entries);
 
-static int UVYMQ_exec(PyObject* pyModule);
+static int YMQ_exec(PyObject* pyModule);
 
-static PyModuleDef_Slot UVYMQ_slots[] = {
-    {Py_mod_exec, (void*)UVYMQ_exec},
+static PyModuleDef_Slot YMQ_slots[] = {
+    {Py_mod_exec, (void*)YMQ_exec},
     {0, nullptr},
 };
 
-static PyModuleDef UVYMQ_module = {
+static PyModuleDef YMQ_module = {
     .m_base  = PyModuleDef_HEAD_INIT,
-    .m_name  = "_uv_ymq",
-    .m_doc   = PyDoc_STR("UV YMQ Python bindings"),
-    .m_size  = sizeof(UVYMQState),
-    .m_slots = UVYMQ_slots,
-    .m_free  = (freefunc)UVYMQ_free,
+    .m_name  = "_ymq",
+    .m_doc   = PyDoc_STR("YMQ Python bindings"),
+    .m_size  = sizeof(YMQState),
+    .m_slots = YMQ_slots,
+    .m_free  = (freefunc)YMQ_free,
 };
 
 // this is a polyfill for PyErr_GetRaisedException() added in Python 3.12+
-OwnedPyObject<> UVYMQ_GetRaisedException();
+OwnedPyObject<> YMQ_GetRaisedException();
 
 OwnedPyObject<> completeCallback(const OwnedPyObject<>& callback, const OwnedPyObject<>& result);
 
 OwnedPyObject<> completeCallbackWithRaisedException(const OwnedPyObject<>& callback);
 
 OwnedPyObject<> completeCallbackWithCoreError(
-    UVYMQState* state, const OwnedPyObject<>& callback, const scaler::ymq::Error& error);
+    YMQState* state, const OwnedPyObject<>& callback, const scaler::ymq::Error& error);
 
 }  // namespace pymod
 }  // namespace ymq
 }  // namespace scaler
 
-PyMODINIT_FUNC PyInit__uv_ymq(void);
+PyMODINIT_FUNC PyInit__ymq(void);

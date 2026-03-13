@@ -9,7 +9,7 @@
 // First-party
 #include "scaler/ymq/address.h"
 #include "scaler/ymq/pymod/exception.h"
-#include "scaler/ymq/pymod/uv_ymq.h"
+#include "scaler/ymq/pymod/ymq.h"
 
 namespace scaler {
 namespace ymq {
@@ -22,22 +22,22 @@ struct PyAddress {
     scaler::ymq::Address address;
 };
 
-int PyAddressType_createEnum(PyObject* pyModule, UVYMQState* state)
+int PyAddressType_createEnum(PyObject* pyModule, YMQState* state)
 {
-    return UVYMQ_createIntEnum(
+    return YMQ_createIntEnum(
         pyModule,
         &state->PyAddressTypeEnumType,
         "AddressType",
         {
-            {"IPC", (int)scaler::uv::Address::Type::IPC},
-            {"TCP", (int)scaler::uv::Address::Type::TCP},
+            {"IPC", (int)scaler::ymq::Address::Type::IPC},
+            {"TCP", (int)scaler::ymq::Address::Type::TCP},
         });
 }
 
-static int PyAddress_assign(PyAddress* self, const scaler::uv::Address& address)
+static int PyAddress_assign(PyAddress* self, const scaler::ymq::Address& address)
 {
     try {
-        new (&self->address) scaler::uv::Address(address);
+        new (&self->address) scaler::ymq::Address(address);
     } catch (...) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to create Address");
         return -1;
@@ -48,7 +48,7 @@ static int PyAddress_assign(PyAddress* self, const scaler::uv::Address& address)
 
 static int PyAddress_init(PyAddress* self, PyObject* args, PyObject* kwds)
 {
-    auto state = UVYMQStateFromSelf((PyObject*)self);
+    auto state = YMQStateFromSelf((PyObject*)self);
     if (!state)
         return -1;
 
@@ -58,9 +58,9 @@ static int PyAddress_init(PyAddress* self, PyObject* args, PyObject* kwds)
     if (!PyArg_ParseTupleAndKeywords(args, kwds, "s#", (char**)kwlist, &addressStr, &addressLen))
         return -1;
 
-    auto result = scaler::uv::Address::fromString(std::string_view {addressStr, static_cast<size_t>(addressLen)});
+    auto result = scaler::ymq::Address::fromString(std::string_view {addressStr, static_cast<size_t>(addressLen)});
     if (!result.has_value()) {
-        UVYMQException_setFromCoreError(state, result.error());
+        YMQException_setFromCoreError(state, result.error());
         return -1;
     }
 
@@ -81,7 +81,7 @@ static void PyAddress_dealloc(PyAddress* self)
     Py_DECREF(tp);
 }
 
-static PyObject* PyAddress_fromAddress(UVYMQState* state, const scaler::uv::Address& address)
+static PyObject* PyAddress_fromAddress(YMQState* state, const scaler::ymq::Address& address)
 {
     if (!state)
         return nullptr;
@@ -100,13 +100,13 @@ static PyObject* PyAddress_fromAddress(UVYMQState* state, const scaler::uv::Addr
 
 static PyObject* PyAddress_repr(PyAddress* self)
 {
-    auto state = UVYMQStateFromSelf((PyObject*)self);
+    auto state = YMQStateFromSelf((PyObject*)self);
     if (!state)
         return nullptr;
 
     auto result = self->address.toString();
     if (!result.has_value()) {
-        UVYMQException_setFromCoreError(state, result.error());
+        YMQException_setFromCoreError(state, result.error());
         return nullptr;
     }
 
@@ -115,12 +115,12 @@ static PyObject* PyAddress_repr(PyAddress* self)
 
 static PyObject* PyAddress_type_getter(PyAddress* self, void* Py_UNUSED(closure))
 {
-    auto state = UVYMQStateFromSelf((PyObject*)self);
+    auto state = YMQStateFromSelf((PyObject*)self);
     if (!state)
         return nullptr;
 
-    const scaler::uv::Address::Type addressType = self->address.type();
-    OwnedPyObject addressTypeIntObj             = PyLong_FromLong((long)addressType);
+    const scaler::ymq::Address::Type addressType = self->address.type();
+    OwnedPyObject addressTypeIntObj              = PyLong_FromLong((long)addressType);
 
     if (!addressTypeIntObj)
         return nullptr;
@@ -142,7 +142,7 @@ static PyType_Slot PyAddress_slots[] = {
 };
 
 static PyType_Spec PyAddress_spec = {
-    .name      = "_uv_ymq.Address",
+    .name      = "_ymq.Address",
     .basicsize = sizeof(PyAddress),
     .itemsize  = 0,
     .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,

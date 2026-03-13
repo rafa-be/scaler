@@ -106,7 +106,7 @@ static PyType_Slot PyBytes_slots[] = {
 };
 
 static PyType_Spec PyBytes_spec = {
-    .name      = "_uv_ymq.Bytes",
+    .name      = "_ymq.Bytes",
     .basicsize = sizeof(PyBytes),
     .itemsize  = 0,
     .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,

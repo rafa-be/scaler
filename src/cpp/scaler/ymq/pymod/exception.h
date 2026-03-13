@@ -5,7 +5,7 @@
 
 // First-party
 #include "scaler/error/error.h"
-#include "scaler/ymq/pymod/uv_ymq.h"
+#include "scaler/ymq/pymod/ymq.h"
 
 namespace scaler {
 namespace ymq {
@@ -14,16 +14,16 @@ namespace pymod {
 using scaler::utility::pymod::OwnedPyObject;
 
 // the order of the members in the exception args tuple
-const Py_ssize_t UVYMQException_errorCodeIndex = 0;
-const Py_ssize_t UVYMQException_messageIndex   = 1;
+const Py_ssize_t YMQException_errorCodeIndex = 0;
+const Py_ssize_t YMQException_messageIndex   = 1;
 
-struct UVYMQException {
+struct YMQException {
     PyException_HEAD;
 };
 
-static int UVYMQException_init(UVYMQException* self, PyObject* args, PyObject* kwds)
+static int YMQException_init(YMQException* self, PyObject* args, PyObject* kwds)
 {
-    auto state = UVYMQStateFromSelf((PyObject*)self);
+    auto state = YMQStateFromSelf((PyObject*)self);
     if (!state)
         return -1;
 
@@ -48,7 +48,7 @@ static int UVYMQException_init(UVYMQException* self, PyObject* args, PyObject* k
     return ((PyTypeObject*)PyExc_Exception)->tp_init((PyObject*)self, args, kwds);
 }
 
-static void UVYMQException_dealloc(UVYMQException* self)
+static void YMQException_dealloc(YMQException* self)
 {
     // we still need to release the reference to the heap type
     auto* tp = Py_TYPE(self);
@@ -56,37 +56,33 @@ static void UVYMQException_dealloc(UVYMQException* self)
     Py_DECREF(tp);
 }
 
-static PyObject* UVYMQException_code_getter(UVYMQException* self, void* Py_UNUSED(closure))
+static PyObject* YMQException_code_getter(YMQException* self, void* Py_UNUSED(closure))
 {
-    return PySequence_GetItem(self->args, UVYMQException_errorCodeIndex);
+    return PySequence_GetItem(self->args, YMQException_errorCodeIndex);
 }
 
-static PyObject* UVYMQException_message_getter(UVYMQException* self, void* Py_UNUSED(closure))
+static PyObject* YMQException_message_getter(YMQException* self, void* Py_UNUSED(closure))
 {
-    return PySequence_GetItem(self->args, UVYMQException_messageIndex);
+    return PySequence_GetItem(self->args, YMQException_messageIndex);
 }
 
-static PyGetSetDef UVYMQException_getset[] = {
-    {"code", (getter)UVYMQException_code_getter, nullptr, nullptr, nullptr},
-    {"message", (getter)UVYMQException_message_getter, nullptr, nullptr, nullptr},
+static PyGetSetDef YMQException_getset[] = {
+    {"code", (getter)YMQException_code_getter, nullptr, nullptr, nullptr},
+    {"message", (getter)YMQException_message_getter, nullptr, nullptr, nullptr},
     {nullptr}  // Sentinel
 };
 
-static PyType_Slot UVYMQException_slots[] = {
-    {Py_tp_init, (void*)UVYMQException_init},
-    {Py_tp_dealloc, (void*)UVYMQException_dealloc},
-    {Py_tp_getset, (void*)UVYMQException_getset},
+static PyType_Slot YMQException_slots[] = {
+    {Py_tp_init, (void*)YMQException_init},
+    {Py_tp_dealloc, (void*)YMQException_dealloc},
+    {Py_tp_getset, (void*)YMQException_getset},
     {0, 0},
 };
 
-static PyType_Spec UVYMQException_spec = {
-    "_uv_ymq.UVYMQException",
-    sizeof(UVYMQException),
-    0,
-    Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE,
-    UVYMQException_slots};
+static PyType_Spec YMQException_spec = {
+    "_ymq.YMQException", sizeof(YMQException), 0, Py_TPFLAGS_DEFAULT | Py_TPFLAGS_BASETYPE, YMQException_slots};
 
-inline OwnedPyObject<> UVYMQException_argtupleFromCoreError(UVYMQState* state, const scaler::ymq::Error& error)
+inline OwnedPyObject<> YMQException_argtupleFromCoreError(YMQState* state, const scaler::ymq::Error& error)
 {
     OwnedPyObject code = PyLong_FromLong(static_cast<long>(error._errorCode));
 
@@ -106,7 +102,7 @@ inline OwnedPyObject<> UVYMQException_argtupleFromCoreError(UVYMQState* state, c
     return PyTuple_Pack(2, *pyCode, *message);
 }
 
-inline PyObject* UVYMQException_getTypeForError(UVYMQState* state, const scaler::ymq::Error& error)
+inline PyObject* YMQException_getTypeForError(YMQState* state, const scaler::ymq::Error& error)
 {
     auto it = state->PyExceptionSubtypes.find(static_cast<int>(error._errorCode));
     if (it != state->PyExceptionSubtypes.end()) {
@@ -115,22 +111,22 @@ inline PyObject* UVYMQException_getTypeForError(UVYMQState* state, const scaler:
     return *state->PyExceptionType;
 }
 
-inline void UVYMQException_setFromCoreError(UVYMQState* state, const scaler::ymq::Error& error)
+inline void YMQException_setFromCoreError(YMQState* state, const scaler::ymq::Error& error)
 {
-    auto tuple = UVYMQException_argtupleFromCoreError(state, error);
+    auto tuple = YMQException_argtupleFromCoreError(state, error);
     if (!tuple)
         return;
 
-    PyErr_SetObject(UVYMQException_getTypeForError(state, error), *tuple);
+    PyErr_SetObject(YMQException_getTypeForError(state, error), *tuple);
 }
 
-inline OwnedPyObject<> UVYMQException_createFromCoreError(UVYMQState* state, const scaler::ymq::Error& error)
+inline OwnedPyObject<> YMQException_createFromCoreError(YMQState* state, const scaler::ymq::Error& error)
 {
-    auto tuple = UVYMQException_argtupleFromCoreError(state, error);
+    auto tuple = YMQException_argtupleFromCoreError(state, error);
     if (!tuple)
         return nullptr;
 
-    return PyObject_CallObject(UVYMQException_getTypeForError(state, error), *tuple);
+    return PyObject_CallObject(YMQException_getTypeForError(state, error), *tuple);
 }
 
 }  // namespace pymod

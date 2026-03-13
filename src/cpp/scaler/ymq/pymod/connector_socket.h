@@ -18,7 +18,7 @@
 #include "scaler/ymq/pymod/exception.h"
 #include "scaler/ymq/pymod/io_context.h"
 #include "scaler/ymq/pymod/message.h"
-#include "scaler/ymq/pymod/uv_ymq.h"
+#include "scaler/ymq/pymod/ymq.h"
 
 namespace scaler {
 namespace ymq {
@@ -33,7 +33,7 @@ struct PyConnectorSocket {
     std::shared_ptr<IOContext> ioContext;
 };
 
-static OwnedPyObject<PyConnectorSocket> PyConnectorSocket_new(UVYMQState* state)
+static OwnedPyObject<PyConnectorSocket> PyConnectorSocket_new(YMQState* state)
 {
     if (!state)
         return {};
@@ -59,7 +59,7 @@ static int PyConnectorSocket_init(PyConnectorSocket* self, PyObject* args, PyObj
 
 static PyObject* PyConnectorSocket_connect(PyObject* cls, PyObject* args, PyObject* kwds)
 {
-    auto state = UVYMQStateFromType((PyObject*)cls);
+    auto state = YMQStateFromType((PyObject*)cls);
     if (!state)
         return nullptr;
 
@@ -128,7 +128,7 @@ static PyObject* PyConnectorSocket_connect(PyObject* cls, PyObject* args, PyObje
 
 static PyObject* PyConnectorSocket_bind(PyObject* cls, PyObject* args, PyObject* kwds)
 {
-    auto state = UVYMQStateFromType((PyObject*)cls);
+    auto state = YMQStateFromType((PyObject*)cls);
     if (!state)
         return nullptr;
 
@@ -222,7 +222,7 @@ static void PyConnectorSocket_dealloc(PyConnectorSocket* self)
 
 static PyObject* PyConnectorSocket_send_message(PyConnectorSocket* self, PyObject* args, PyObject* kwargs)
 {
-    auto state = UVYMQStateFromSelf((PyObject*)self);
+    auto state = YMQStateFromSelf((PyObject*)self);
     if (!state)
         return nullptr;
 
@@ -261,7 +261,7 @@ static PyObject* PyConnectorSocket_send_message(PyConnectorSocket* self, PyObjec
 
 static PyObject* PyConnectorSocket_recv_message(PyConnectorSocket* self, PyObject* args, PyObject* kwargs)
 {
-    auto state = UVYMQStateFromSelf((PyObject*)self);
+    auto state = YMQStateFromSelf((PyObject*)self);
     if (!state)
         return nullptr;
 
@@ -352,7 +352,7 @@ static PyType_Slot PyConnectorSocket_slots[] = {
 };
 
 static PyType_Spec PyConnectorSocket_spec = {
-    .name      = "_uv_ymq.ConnectorSocket",
+    .name      = "_ymq.ConnectorSocket",
     .basicsize = sizeof(PyConnectorSocket),
     .itemsize  = 0,
     .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,

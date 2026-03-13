@@ -19,7 +19,7 @@
 #include "scaler/ymq/pymod/exception.h"
 #include "scaler/ymq/pymod/io_context.h"
 #include "scaler/ymq/pymod/message.h"
-#include "scaler/ymq/pymod/uv_ymq.h"
+#include "scaler/ymq/pymod/ymq.h"
 
 namespace scaler {
 namespace ymq {
@@ -36,7 +36,7 @@ struct PyBinderSocket {
 
 static int PyBinderSocket_init(PyBinderSocket* self, PyObject* args, PyObject* kwds)
 {
-    auto state = UVYMQStateFromSelf((PyObject*)self);
+    auto state = YMQStateFromSelf((PyObject*)self);
     if (!state)
         return -1;
 
@@ -93,7 +93,7 @@ static void PyBinderSocket_dealloc(PyBinderSocket* self)
 
 static PyObject* PyBinderSocket_bind_to(PyBinderSocket* self, PyObject* args, PyObject* kwargs)
 {
-    auto state = UVYMQStateFromSelf((PyObject*)self);
+    auto state = YMQStateFromSelf((PyObject*)self);
     if (!state)
         return nullptr;
 
@@ -138,7 +138,7 @@ static PyObject* PyBinderSocket_bind_to(PyBinderSocket* self, PyObject* args, Py
 
 static PyObject* PyBinderSocket_send_message(PyBinderSocket* self, PyObject* args, PyObject* kwargs)
 {
-    auto state = UVYMQStateFromSelf((PyObject*)self);
+    auto state = YMQStateFromSelf((PyObject*)self);
     if (!state)
         return nullptr;
 
@@ -188,7 +188,7 @@ static PyObject* PyBinderSocket_send_message(PyBinderSocket* self, PyObject* arg
 
 static PyObject* PyBinderSocket_recv_message(PyBinderSocket* self, PyObject* args, PyObject* kwargs)
 {
-    auto state = UVYMQStateFromSelf((PyObject*)self);
+    auto state = YMQStateFromSelf((PyObject*)self);
     if (!state)
         return nullptr;
 
@@ -298,7 +298,7 @@ static PyType_Slot PyBinderSocket_slots[] = {
 };
 
 static PyType_Spec PyBinderSocket_spec = {
-    .name      = "_uv_ymq.BinderSocket",
+    .name      = "_ymq.BinderSocket",
     .basicsize = sizeof(PyBinderSocket),
     .itemsize  = 0,
     .flags     = Py_TPFLAGS_DEFAULT | Py_TPFLAGS_IMMUTABLETYPE,
