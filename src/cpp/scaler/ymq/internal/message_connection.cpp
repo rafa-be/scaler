@@ -41,7 +41,7 @@ MessageConnection::~MessageConnection() noexcept
     // Fail all pending send operations
     while (!_sendPending.empty()) {
         auto& callback = _sendPending.front()._onMessageSent;
-        callback(std::unexpected(scaler::ymq::Error(scaler::ymq::Error::ErrorCode::IOSocketStopRequested)));
+        callback(std::unexpected(scaler::ymq::Error(scaler::ymq::Error::ErrorCode::SocketStopRequested)));
         _sendPending.pop();
     }
 }

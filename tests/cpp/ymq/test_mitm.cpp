@@ -99,7 +99,7 @@ TestResult reconnectClientMain(std::string address)
 
     // send "sync" and wait for "acknowledge" in a loop
     // the mitm will send a RST after the first "sync"
-    // the "sync" message will be lost, but uv_ymq should automatically reconnect
+    // the "sync" message will be lost, but ymq should automatically reconnect
     // therefore the next "sync" message should succeed
     for (size_t i = 0; i < retryTimes; i++) {
         auto sendFuture = socket.sendMessage(scaler::ymq::Bytes {"sync"});
@@ -125,7 +125,7 @@ TestResult reconnectClientMain(std::string address)
 }
 
 // this is the no-op/passthrough man in the middle test
-// for this test case we use uv_ymq on both the client side and the server side
+// for this test case we use ymq on both the client side and the server side
 // the client connects to the mitm, and the mitm connects to the server
 // when the mitm receives packets from the client, it forwards it to the server without changing it
 // and similarly when it receives packets from the server, it forwards them to the client
@@ -172,7 +172,7 @@ TEST_F(YMQMitmTest, PassthroughRaw)
     EXPECT_EQ(result, TestResult::Success);
 }
 
-// this test uses the mitm to test the reconnect logic of uv_ymq by sending RST packets
+// this test uses the mitm to test the reconnect logic of ymq by sending RST packets
 TEST_F(YMQMitmTest, Reconnect)
 {
     auto [mitm_ip, remote_ip] = getMitmIPs();

@@ -90,7 +90,7 @@ void ConnectClient::onConnect(
     if (!result.has_value()) {
         if (result.error() == scaler::wrapper::uv::Error {UV_ECANCELED}) {
             state->_onConnectCallback(
-                std::unexpected(scaler::ymq::Error(scaler::ymq::Error::ErrorCode::IOSocketStopRequested)));
+                std::unexpected(scaler::ymq::Error(scaler::ymq::Error::ErrorCode::SocketStopRequested)));
             state->_onConnectCallback = {};  // immediately release the callback resources
         } else {
             retry(std::move(state));

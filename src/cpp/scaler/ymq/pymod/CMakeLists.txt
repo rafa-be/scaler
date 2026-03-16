@@ -20,8 +20,8 @@ target_include_directories(py_ymq PRIVATE
 )
 
 target_link_libraries(py_ymq PRIVATE
-    Python3::Module
     scaler_wrapper_uv
+    Python3::Module
 )
 
 set_target_properties(py_ymq PROPERTIES

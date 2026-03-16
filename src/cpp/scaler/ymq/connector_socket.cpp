@@ -85,7 +85,7 @@ void ConnectorSocket::shutdown(ShutdownCallback onShutdownCallback) noexcept
         state->_connection.reset();
 
         // Fail all pending receive callbacks
-        fillPendingRecvCallbacksWithErr(state, Error::ErrorCode::IOSocketStopRequested);
+        fillPendingRecvCallbacksWithErr(state, Error::ErrorCode::SocketStopRequested);
 
         state->_pendingRecvMessages = {};
 

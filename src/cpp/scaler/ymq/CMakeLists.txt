@@ -20,6 +20,8 @@ add_library(ymq_objs OBJECT
     timestamp.h
 )
 
+target_link_libraries(ymq_objs PUBLIC scaler_wrapper_uv)
+
 add_subdirectory(internal)
 add_subdirectory(future)
 add_subdirectory(sync)

@@ -36,7 +36,6 @@ target_include_directories(py_object_storage_server PRIVATE
 
 target_link_libraries(py_object_storage_server PRIVATE
     capnp_objs
-    scaler_wrapper_uv
     ymq_objs
     object_storage_server_objs
     CapnProto::capnp

@@ -37,7 +37,7 @@ void BinderSocket::shutdown(ShutdownCallback onShutdownCallback) noexcept
         while (!state->_pendingRecvCallbacks.empty()) {
             auto callback = std::move(state->_pendingRecvCallbacks.front());
             state->_pendingRecvCallbacks.pop();
-            callback(std::unexpected {Error {Error::ErrorCode::IOSocketStopRequested}});
+            callback(std::unexpected {Error {Error::ErrorCode::SocketStopRequested}});
         }
 
         // Clear all pending messages

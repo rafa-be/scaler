@@ -297,14 +297,14 @@ TestResult clientSendsEmptyMessages(std::string address)
     return TestResult::Success;
 }
 
-// TODO: Multicast/Unicast sockets are not yet implemented in uv_ymq
+// TODO: Multicast/Unicast sockets are not yet implemented in ymq
 
 /*
 TestResult pubsubSubscriber(std::string address, std::string topic, int differentiator, void* sem)
 {
     IOContext context{};
 
-    // auto socket = scaler::uv_ymq::sync::UnicastSocket{
+    // auto socket = scaler::ymq::sync::UnicastSocket{
     //     context, std::format("{}_subscriber_{}", topic, differentiator)};
 
     std::this_thread::sleep_for(std::chrono::milliseconds{500});
@@ -326,7 +326,7 @@ TestResult pubsubPublisher(std::string address, std::string topic, void* sem, in
     IOContext context{};
 
     // Implement Multicast socket type
-    // auto socket = scaler::uv_ymq::sync::MulticastSocket{context, "publisher"};
+    // auto socket = scaler::ymq::sync::MulticastSocket{context, "publisher"};
     // auto bindResult = socket.bindTo(address);
     // RETURN_FAILURE_IF_FALSE(bindResult.has_value());
 
@@ -423,7 +423,7 @@ TestResult testRequestStop()
     // The future created before stopping the socket should have been cancelled with an error
     auto result = future.get();
     RETURN_FAILURE_IF_FALSE(!result.has_value());
-    RETURN_FAILURE_IF_FALSE(result.error()._errorCode == Error::ErrorCode::IOSocketStopRequested);
+    RETURN_FAILURE_IF_FALSE(result.error()._errorCode == Error::ErrorCode::SocketStopRequested);
 
     return TestResult::Success;
 }
@@ -480,7 +480,7 @@ TestResult serverSocketStopBeforeCloseConnection(std::string address)
 // -------------
 
 // this is a 'basic' test which sends a single message from a client to a server
-// in this variant, both the client and server are implemented using uv_ymq
+// in this variant, both the client and server are implemented using ymq
 TEST_P(YMQSocketTest, TestBasicYMQClientYMQServer)
 {
     const auto address = GetAddress(2889);
@@ -493,7 +493,7 @@ TEST_P(YMQSocketTest, TestBasicYMQClientYMQServer)
     EXPECT_EQ(result, TestResult::Success);
 }
 
-// same as above, except uv_ymq's protocol is directly implemented on top of a TCP socket
+// same as above, except ymq's protocol is directly implemented on top of a TCP socket
 TEST_P(YMQSocketTest, TestBasicRawClientYMQServer)
 {
     const auto address = GetAddress(2891);
@@ -541,7 +541,7 @@ TEST_P(YMQSocketTest, TestBasicDelayYMQClientRawServer)
 }
 
 // in this test case, the client sends a large message to the server
-// uv_ymq should be able to handle this without issue
+// ymq should be able to handle this without issue
 TEST_P(YMQSocketTest, TestClientSendBigMessageToServer)
 {
     const auto address = GetAddress(2895);
@@ -605,7 +605,7 @@ TEST_P(YMQSocketTest, TestClientSendEmptyMessage)
     EXPECT_EQ(result, TestResult::Success);
 }
 
-// this case tests the publish-subscribe pattern of uv_ymq
+// this case tests the publish-subscribe pattern of ymq
 // we create one publisher and two subscribers with a common topic
 // the publisher will send two messages to the wrong topic
 // none of the subscribers should receive these
@@ -614,7 +614,7 @@ TEST_P(YMQSocketTest, TestClientSendEmptyMessage)
 //
 // NOTE: Multicast/Unicast sockets are not yet implemented
 /*
-TEST_P(UVYMQSocketTest, TestPubSub)
+TEST_P(YMQSocketTest, TestPubSub)
 {
     const auto address = GetAddress(2900);
     auto topic         = "mytopic";
@@ -638,7 +638,7 @@ TEST_P(UVYMQSocketTest, TestPubSub)
 //
 // NOTE: Multicast/Unicast sockets are not yet implemented
 /*
-TEST_P(UVYMQSocketTest, TestPubSubEmptyTopic)
+TEST_P(YMQSocketTest, TestPubSubEmptyTopic)
 {
     const auto address = GetAddress(2906);
 

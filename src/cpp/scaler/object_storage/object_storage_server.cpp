@@ -175,7 +175,7 @@ void ObjectStorageServer::processRequests(std::function<bool()> running)
 
             if (!maybeMessage) {
                 auto error = maybeMessage.error();
-                if (error._errorCode == ymq::Error::ErrorCode::IOSocketStopRequested) {
+                if (error._errorCode == ymq::Error::ErrorCode::SocketStopRequested) {
                     auto n = std::ranges::count_if(_pendingSendMessageFuts, [](auto& x) {
                         return x.valid() && x.wait_for(std::chrono::seconds(0)) == std::future_status::timeout;
                     });

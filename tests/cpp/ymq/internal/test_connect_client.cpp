@@ -92,7 +92,7 @@ TEST_F(YMQConnectClientTest, ConnectClientDisconnect)
 
     auto onConnectCallback = [&](std::expected<scaler::ymq::Client, scaler::ymq::Error> result) {
         ASSERT_FALSE(result.has_value());
-        ASSERT_EQ(result.error()._errorCode, scaler::ymq::Error::ErrorCode::IOSocketStopRequested);
+        ASSERT_EQ(result.error()._errorCode, scaler::ymq::Error::ErrorCode::SocketStopRequested);
         callbackCalled = true;
     };
 
