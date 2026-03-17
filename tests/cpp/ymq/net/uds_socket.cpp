@@ -13,6 +13,19 @@
 #include "scaler/ymq/address.h"
 #include "tests/cpp/ymq/common/utils.h"
 
+static sockaddr_un createUnixAddress(const scaler::ymq::Address& address)
+{
+    if (address.type() != scaler::ymq::Address::Type::IPC) {
+        throw std::runtime_error("Unsupported protocol for UDSSocket: expected IPC");
+    }
+
+    const std::string& path = address.asIPC();
+    sockaddr_un addr {};
+    addr.sun_family = AF_UNIX;
+    std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
+    return addr;
+}
+
 UDSSocket::UDSSocket(): _fd(-1)
 {
     this->_fd = ::socket(AF_UNIX, SOCK_STREAM, 0);
@@ -44,14 +57,7 @@ UDSSocket& UDSSocket::operator=(UDSSocket&& other) noexcept
 
 void UDSSocket::tryConnect(const scaler::ymq::Address& address, int tries) const
 {
-    if (address.type() != scaler::ymq::Address::Type::IPC) {
-        throw std::runtime_error("Unsupported protocol for UDSSocket: expected IPC");
-    }
-
-    const std::string& path = address.asIPC();
-    sockaddr_un addr {};
-    addr.sun_family = AF_UNIX;
-    std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
+    sockaddr_un addr = createUnixAddress(address);
 
     for (int i = 0; i < tries; i++) {
         auto code = ::connect(this->_fd, (sockaddr*)&addr, sizeof(addr));
@@ -71,14 +77,7 @@ void UDSSocket::tryConnect(const scaler::ymq::Address& address, int tries) const
 
 void UDSSocket::bind(const scaler::ymq::Address& address) const
 {
-    if (address.type() != scaler::ymq::Address::Type::IPC) {
-        throw std::runtime_error("Unsupported protocol for UDSSocket: expected IPC");
-    }
-
-    const std::string& path = address.asIPC();
-    sockaddr_un addr {};
-    addr.sun_family = AF_UNIX;
-    std::strncpy(addr.sun_path, path.c_str(), sizeof(addr.sun_path) - 1);
+    sockaddr_un addr = createUnixAddress(address);
 
     ::unlink(addr.sun_path);
     if (::bind(this->_fd, (sockaddr*)&addr, sizeof(addr)) < 0)
