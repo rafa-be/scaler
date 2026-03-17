@@ -174,7 +174,7 @@ class SymphonyWorkerManager:
             await asyncio.gather(*loops)
         except asyncio.CancelledError:
             pass
-        except ymq.YMQException:
+        except ymq.YMQException as e:
             if e.code == ymq.ErrorCode.ConnectorSocketClosedByRemoteEnd:
                 pass
             else:

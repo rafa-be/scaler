@@ -5,6 +5,13 @@
 #include <ostream>
 #include <sstream>  // stringify
 
+#ifdef _WIN32
+// clang-format off
+#define NOMINMAX
+#include <windows.h>
+// clang-format on
+#endif  // _WIN32
+
 namespace scaler {
 namespace ymq {
 
