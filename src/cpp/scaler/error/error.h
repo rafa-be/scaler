@@ -48,10 +48,10 @@ struct Error: public std::exception {
                 return "Invalid address format, example input \"tcp://127.0.0.1:2345\" or "
                        "\"ipc:///tmp/domain_socket_name.sock\"";
             case ErrorCode::RemoteEndDisconnectedOnSocketWithoutGuaranteedDelivery:
-                return "You are using IOSocket::Unicast or IOSocket::Multicast, which do not support guaranteed "
-                       "message delivery, and the connection(s) disconnects";
+                return "You are using Unicast or Multicast sockets, which do not support guaranteed message delivery, "
+                       "and the connection(s) disconnects";
             case ErrorCode::ConnectorSocketClosedByRemoteEnd:
-                return "You have an IOSocket with Connector type but the only connection is closed by remote end";
+                return "Your connector socket connection is closed by remote end";
             case ErrorCode::SocketStopRequested: return "Current socket is requested to stop by another thread";
             case ErrorCode::SysCallError: return "A system call error occurred";
         }
