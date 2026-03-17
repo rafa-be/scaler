@@ -13,7 +13,7 @@ from scaler.utility.identifiers import ObjectID
 
 
 class YMQAsyncObjectStorageConnector(AsyncObjectStorageConnector):
-    """An asyncio connector that uses UV YMQ to connect to a Scaler's object storage instance."""
+    """An asyncio connector that uses YMQ to connect to a Scaler's object storage instance."""
 
     def __init__(self):
         self._host: Optional[str] = None

@@ -15,7 +15,7 @@ MAX_CHUNK_SIZE = 128 * 1024 * 1024
 
 
 class YMQSyncObjectStorageConnector(SyncObjectStorageConnector):
-    """A synchronous connector that uses UV YMQ to connect to a Scaler's object storage instance."""
+    """A synchronous connector that uses YMQ to connect to a Scaler's object storage instance."""
 
     def __init__(self, host: str, port: int):
         self._host = host
@@ -160,8 +160,7 @@ class YMQSyncObjectStorageConnector(SyncObjectStorageConnector):
     def __read_response_header(self) -> ObjectResponseHeader:
         assert self._socket is not None
 
-        header_msg = self._socket.recv_message_sync()
-        header_bytes = header_msg.payload.data
+        header_bytes = self._socket.recv_message_sync().payload.data
         if header_bytes is None:
             self.__raise_connection_failure()
 
