@@ -111,6 +111,18 @@
       }
     },
     {
+      "name": "darwin-arm64",
+      "configurePreset": "darwin-arm64",
+      "output": {
+        "outputOnFailure": true
+      },
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Darwin"
+      }
+    },
+    {
       "name": "windows-x64",
       "configurePreset": "windows-x64",
       "output": {
