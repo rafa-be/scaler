@@ -21,9 +21,7 @@ ConnectClient::ConnectClient(
     : _state(
           std::make_shared<State>(
               loop, std::move(address), std::move(onConnectCallback), maxRetryTimes, initRetryDelay))
-{
-    tryConnect(_state);
-}
+{ tryConnect(_state); }
 
 ConnectClient::State::State(
     scaler::wrapper::uv::Loop& loop,
@@ -51,7 +49,7 @@ ConnectClient::~ConnectClient() noexcept
 void ConnectClient::disconnect() noexcept
 {
     if (_state->_retryTimer.has_value()) {
-        _state->_retryTimer->stop();
+        UV_EXIT_ON_ERROR(_state->_retryTimer->stop());
         _state->_retryTimer.reset();
     }
 
@@ -127,7 +125,8 @@ void ConnectClient::retry(std::shared_ptr<State> state) noexcept
     std::chrono::milliseconds delay {state->_initRetryDelay.count() << state->_retryTimes};
 
     state->_retryTimer = UV_EXIT_ON_ERROR(scaler::wrapper::uv::Timer::init(state->_loop));
-    state->_retryTimer->start(delay, std::nullopt, std::bind_front(&ConnectClient::tryConnect, std::move(state)));
+    UV_EXIT_ON_ERROR(
+        state->_retryTimer->start(delay, std::nullopt, std::bind_front(&ConnectClient::tryConnect, std::move(state))));
 }
 
 }  // namespace internal

@@ -54,7 +54,7 @@ if(WIN32)
     message(STATUS "Windows")
 
     set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS on)
-    add_compile_definitions(WIN32_LEAN_AND_MEAN)
+    add_compile_definitions(WIN32_LEAN_AND_MEAN NOMINMAX)
     add_compile_options("/EHsc")
 
 elseif(APPLE)
