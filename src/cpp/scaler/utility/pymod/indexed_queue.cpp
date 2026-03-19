@@ -78,10 +78,14 @@ static PyObject* PyIndexedQueueRemove(PyIndexedQueue* self, PyObject* args)
 }
 
 static int PyIndexedQueueContains(PyObject* self, PyObject* item)
-{ return ((PyIndexedQueue*)self)->queue.contains(OwnedPyObject<>::fromBorrowed(item)); }
+{
+    return ((PyIndexedQueue*)self)->queue.contains(OwnedPyObject<>::fromBorrowed(item));
+}
 
 static Py_ssize_t PyIndexedQueueSize(PyObject* self)
-{ return ((PyIndexedQueue*)self)->queue.size(); }
+{
+    return ((PyIndexedQueue*)self)->queue.size();
+}
 
 static PyObject* PyIndexedQueueToList(PyIndexedQueue* self, PyObject* args)
 {
@@ -104,7 +108,7 @@ static PyObject* PyIndexedQueueToList(PyIndexedQueue* self, PyObject* args)
 
 // Define the methods for the IndexedQueue Python class
 static PyMethodDef PyIndexedQueueMethods[] = {
-    {"__len__", (PyCFunction)PyIndexedQueueSize, METH_NOARGS, "__len__ method"},
+    {"__len__", (PyCFunction)(void*)PyIndexedQueueSize, METH_NOARGS, "__len__ method"},
     {"put", (PyCFunction)PyIndexedQueuePut, METH_VARARGS, "Put an item to IndexedQueue"},
     {"get", (PyCFunction)PyIndexedQueueGet, METH_VARARGS, "Pop and Return an item from IndexedQueue"},
     {"remove", (PyCFunction)PyIndexedQueueRemove, METH_VARARGS, "Remove an item from IndexedQueue"},

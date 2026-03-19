@@ -26,7 +26,9 @@ MessageConnection::MessageConnection(
     , _onRemoteIdentityCallback(std::move(onRemoteIdentityCallback))
     , _onRemoteDisconnectCallback(std::move(onRemoteDisconnectCallback))
     , _onRecvMessageCallback(std::move(onRecvMessageCallback))
-{ sendLocalIdentity(); }
+{
+    sendLocalIdentity();
+}
 
 MessageConnection::~MessageConnection() noexcept
 {
@@ -43,13 +45,19 @@ MessageConnection::~MessageConnection() noexcept
 }
 
 MessageConnection::State MessageConnection::state() const noexcept
-{ return _state; }
+{
+    return _state;
+}
 
 bool MessageConnection::connected() const noexcept
-{ return _state == State::Connected || _state == State::Established; }
+{
+    return _state == State::Connected || _state == State::Established;
+}
 
 bool MessageConnection::established() const noexcept
-{ return _state == State::Established; }
+{
+    return _state == State::Established;
+}
 
 void MessageConnection::connect(Client client) noexcept
 {
@@ -87,10 +95,14 @@ void MessageConnection::abort() noexcept
 }
 
 const Identity& MessageConnection::localIdentity() const noexcept
-{ return _localIdentity; }
+{
+    return _localIdentity;
+}
 
 const std::optional<Identity>& MessageConnection::remoteIdentity() const noexcept
-{ return _remoteIdentity; }
+{
+    return _remoteIdentity;
+}
 
 void MessageConnection::sendMessage(scaler::ymq::Bytes messagePayload, SendMessageCallback onMessageSent) noexcept
 {

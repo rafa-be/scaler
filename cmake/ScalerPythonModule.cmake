@@ -46,14 +46,14 @@ function(scaler_add_python_module)
     )
 
     if(WIN32)
-        # Windows: use .pyd extension and set runtime output directories
+        # Windows: use .pyd extension and set library output directories.
         set_target_properties(${PYMOD_TARGET} PROPERTIES
             SUFFIX ".pyd"
-            RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/src/${PYMOD_INSTALL_DEST}
-            RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/src/${PYMOD_INSTALL_DEST}
-            RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/src/${PYMOD_INSTALL_DEST}
-            RUNTIME_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/src/${PYMOD_INSTALL_DEST}
-            RUNTIME_OUTPUT_DIRECTORY_MINSIZEREL ${CMAKE_BINARY_DIR}/src/${PYMOD_INSTALL_DEST}
+            LIBRARY_OUTPUT_DIRECTORY                ${CMAKE_BINARY_DIR}/src/${PYMOD_INSTALL_DEST}
+            LIBRARY_OUTPUT_DIRECTORY_RELEASE        ${CMAKE_BINARY_DIR}/src/${PYMOD_INSTALL_DEST}
+            LIBRARY_OUTPUT_DIRECTORY_DEBUG          ${CMAKE_BINARY_DIR}/src/${PYMOD_INSTALL_DEST}
+            LIBRARY_OUTPUT_DIRECTORY_RELWITHDEBINFO ${CMAKE_BINARY_DIR}/src/${PYMOD_INSTALL_DEST}
+            LIBRARY_OUTPUT_DIRECTORY_MINSIZEREL     ${CMAKE_BINARY_DIR}/src/${PYMOD_INSTALL_DEST}
         )
     endif()
 

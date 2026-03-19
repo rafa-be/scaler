@@ -21,7 +21,9 @@ ConnectClient::ConnectClient(
     : _state(
           std::make_shared<State>(
               loop, std::move(address), std::move(onConnectCallback), maxRetryTimes, initRetryDelay))
-{ tryConnect(_state); }
+{
+    tryConnect(_state);
+}
 
 ConnectClient::State::State(
     scaler::wrapper::uv::Loop& loop,
