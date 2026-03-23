@@ -141,9 +141,12 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
 
     def __run_forever(self):
         try:
+            logging.info(f"Processor[{self.pid}]: started")
             self._connector_agent.send(ProcessorInitialized.new_msg())
             while True:
+                logging.info(f"Processor[{self.pid}]: _connector_agent.receive() ...")
                 message = self._connector_agent.receive()
+                logging.info(f"Processor[{self.pid}]: _connector_agent.receive() ... done")
                 if message is None:
                     continue
 
@@ -191,7 +194,9 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
     def __on_received_task(self, task: Task):
         self._current_task = task
 
+        logging.info(f"Processor[{self.pid}]: fetching required objects for task ({task.task_id}) ...")
         self.__cache_required_object_ids(task)
+        logging.info(f"Processor[{self.pid}]: fetching required objects for task ({task.task_id}) ... done")
 
         self.__process_task(task)
 
@@ -202,7 +207,9 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
             if self._object_cache.has_object(object_id):
                 continue
 
+            logging.info(f"Processor[{self.pid}]: _connector_storage.get_object({object_id}) ...")
             object_content = self._connector_storage.get_object(object_id)
+            logging.info(f"Processor[{self.pid}]: _connector_storage.get_object({object_id}) ... done")
             self._object_cache.add_object(task.source, object_id, object_content)
 
     @staticmethod
@@ -223,6 +230,8 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
 
             args = [self._object_cache.get_object(cast(ObjectID, arg)) for arg in task.function_args]
 
+            logging.info(f"Processor[{self.pid}]: running task ({task.task_id}) ...")
+
             if task_flags.stream_output:
                 with StreamingBuffer(
                     task.task_id, TaskLog.LogType.Stdout, self._connector_agent
@@ -238,6 +247,8 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
                 with self.__processor_context():
                     result = function(*args)
 
+            logging.info(f"Processor[{self.pid}]: running task ({task.task_id}) ... done")
+
             result_bytes = self._object_cache.serialize(task.source, result)
             task_result_type = TaskResultType.Success
 
@@ -247,13 +258,17 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
             result_bytes = serialize_failure(e)
 
         self.__send_result(task.source, task.task_id, task_result_type, result_bytes)
+        logging.info(f"Processor[{self.pid}]: send result for task ({task.task_id}) ... done")
 
     def __send_result(self, source: ClientID, task_id: TaskID, task_result_type: TaskResultType, result_bytes: bytes):
         self._current_task = None
 
         result_object_id = ObjectID.generate_object_id(source)
 
+        logging.info(f"Processor[{self.pid}]: send result object ({result_object_id}) for task ({task_id}) ...")
         self._connector_storage.set_object(result_object_id, result_bytes)
+        logging.info(f"Processor[{self.pid}]: send result object ({result_object_id}) for task ({task_id}) ... done")
+
         self._connector_agent.send(
             ObjectInstruction.new_msg(
                 ObjectInstruction.ObjectInstructionType.Create,
@@ -265,9 +280,11 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
                 ),
             )
         )
+        logging.info(f"Processor[{self.pid}]: send result for task ({task_id}) ...")
         self._connector_agent.send(
             TaskResult.new_msg(task_id, task_result_type, metadata=b"", results=[bytes(result_object_id)])
         )
+        logging.info(f"Processor[{self.pid}]: send result for task ({task_id}) ... done")
 
     @staticmethod
     def __set_current_processor(context: Optional["Processor"]) -> Token:
