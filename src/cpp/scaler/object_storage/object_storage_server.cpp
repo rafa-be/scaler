@@ -291,6 +291,11 @@ void ObjectStorageServer::processSetRequest(
         throw std::runtime_error("payload length is larger than SIZE_MAX=" + std::to_string(SIZE_MAX));
     }
 
+    _logger.log(
+        scaler::ymq::Logger::LoggingLevel::info,
+        "ObjectStorageServer: Receiving SET request for objectID: ",
+        requestHeader.objectID.toString());
+
     auto objectPtr = objectManager.setObject(requestHeader.objectID, std::move(requestPayload));
 
     optionallySendPendingRequests(requestHeader.objectID, objectPtr);
@@ -309,11 +314,20 @@ void ObjectStorageServer::processGetRequest(std::shared_ptr<Client> client, cons
 {
     auto objectPtr = objectManager.getObject(requestHeader.objectID);
 
+    _logger.log(
+        scaler::ymq::Logger::LoggingLevel::info,
+        "ObjectStorageServer: Receiving GET request for objectID: ",
+        requestHeader.objectID.toString());
+
     if (objectPtr != nullptr) {
         sendGetResponse(client, requestHeader, objectPtr);
         return;
     } else {
         // We don't have the object yet. Send the response later after once we receive the SET request.
+        _logger.log(
+            scaler::ymq::Logger::LoggingLevel::info,
+            "ObjectStorageServer: Delaying GET request for objectID: ",
+            requestHeader.objectID.toString());
         pendingRequests[requestHeader.objectID].emplace_back(client, requestHeader);
     }
 }
@@ -321,6 +335,11 @@ void ObjectStorageServer::processGetRequest(std::shared_ptr<Client> client, cons
 void ObjectStorageServer::processDeleteRequest(std::shared_ptr<Client> client, ObjectRequestHeader& requestHeader)
 {
     bool success = objectManager.deleteObject(requestHeader.objectID);
+
+    _logger.log(
+        scaler::ymq::Logger::LoggingLevel::info,
+        "ObjectStorageServer: Receiving DELETE request for objectID: ",
+        requestHeader.objectID.toString());
 
     ObjectResponseHeader responseHeader {
         .objectID      = requestHeader.objectID,
@@ -343,6 +362,13 @@ void ObjectStorageServer::processDuplicateRequest(
     }
 
     ObjectID originalObjectID = ObjectID::fromBuffer(payload);
+
+    _logger.log(
+        scaler::ymq::Logger::LoggingLevel::info,
+        "ObjectStorageServer: Receiving DUP request for objectID: ",
+        requestHeader.objectID.toString(),
+        " duplicating: ",
+        originalObjectID.toString());
 
     auto objectPtr = objectManager.duplicateObject(originalObjectID, requestHeader.objectID);
 
@@ -385,6 +411,11 @@ void ObjectStorageServer::sendGetResponse(
     const ObjectRequestHeader& requestHeader,
     std::shared_ptr<const ObjectPayload> objectPtr)
 {
+    _logger.log(
+        scaler::ymq::Logger::LoggingLevel::info,
+        "ObjectStorageServer: Send GET response for objectID: ",
+        requestHeader.objectID.toString());
+
     uint64_t payloadLength = std::min(static_cast<uint64_t>(objectPtr->size()), requestHeader.payloadLength);
 
     ObjectResponseHeader responseHeader {
