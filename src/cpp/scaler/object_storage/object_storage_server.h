@@ -78,6 +78,8 @@ private:
 
     void processRequests(std::function<bool()> stopCondition);
 
+    void dumpState();
+
     void processSetRequest(std::shared_ptr<Client> client, std::pair<ObjectRequestHeader, Bytes> request);
 
     void processGetRequest(std::shared_ptr<Client> client, const ObjectRequestHeader& requestHeader);

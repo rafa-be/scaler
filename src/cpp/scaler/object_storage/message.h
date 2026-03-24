@@ -4,6 +4,8 @@
 
 #include <array>
 #include <cstdio>
+#include <sstream>
+#include <string>
 #include <vector>
 
 #include "scaler/protocol/capnp/object_storage.capnp.h"
@@ -37,6 +39,30 @@ struct ObjectID {
     constexpr std::strong_ordering operator<=>(const ObjectID& other) const = default;
 
     static constexpr size_t bufferSize() { return 48; }
+
+    // Returns a string matching Python's ObjectID.__repr__:
+    // ObjectID(owner_hash=<first 16 bytes hex>, object_tag=<last 16 bytes hex>)
+    // Each uint64_t field is printed MSB-first to match Python's bytes.hex() output.
+    std::string toString() const
+    {
+        auto printUint64BigEndian = [](std::ostringstream& out, uint64_t val) {
+            for (int shift = 56; shift >= 0; shift -= 8) {
+                char buf[3];
+                std::snprintf(buf, sizeof(buf), "%02x", static_cast<uint8_t>((val >> shift) & 0xFF));
+                out << buf;
+            }
+        };
+
+        std::ostringstream out;
+        out << "ObjectID(owner_hash=";
+        printUint64BigEndian(out, value[0]);
+        printUint64BigEndian(out, value[1]);
+        out << ", object_tag=";
+        printUint64BigEndian(out, value[2]);
+        printUint64BigEndian(out, value[3]);
+        out << ')';
+        return out.str();
+    }
 
     kj::Array<const capnp::word> toBuffer() const;
 

@@ -2,6 +2,7 @@
 
 #include <map>
 #include <memory>
+#include <string>
 
 #include "scaler/object_storage/defs.h"
 #include "scaler/object_storage/message.h"
@@ -37,6 +38,9 @@ public:
     size_t sizeUnique() const noexcept;
 
     size_t totalObjectsSize() const noexcept { return totalObjectsBytes; };
+
+    // Returns a human-readable string listing each object ID and its payload size.
+    std::string dump() const noexcept;
 
 private:
     using ObjectHash = std::size_t;

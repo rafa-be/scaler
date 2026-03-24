@@ -2,13 +2,12 @@
 
 #include <algorithm>
 #include <cassert>
+#include <sstream>
 
 template <>
 struct std::hash<scaler::object_storage::ObjectPayload> {
     std::size_t operator()(const scaler::object_storage::ObjectPayload& payload) const noexcept
-    {
-        return std::hash<std::string_view> {}({reinterpret_cast<const char*>(payload.data()), payload.size()});
-    }
+    { return std::hash<std::string_view> {}({reinterpret_cast<const char*>(payload.data()), payload.size()}); }
 };
 
 namespace scaler {
@@ -113,18 +112,27 @@ std::shared_ptr<const ObjectPayload> ObjectManager::duplicateObject(
 }
 
 bool ObjectManager::hasObject(const ObjectID& objectID) const noexcept
-{
-    return objectIDToHash.contains(objectID);
-}
+{ return objectIDToHash.contains(objectID); }
 
 size_t ObjectManager::size() const noexcept
-{
-    return objectIDToHash.size();
-}
+{ return objectIDToHash.size(); }
 
 size_t ObjectManager::sizeUnique() const noexcept
+{ return hashToObject.size(); }
+
+std::string ObjectManager::dump() const noexcept
 {
-    return hashToObject.size();
+    std::ostringstream out;
+    out << "objects (" << objectIDToHash.size() << " IDs, " << hashToObject.size() << " unique payloads, "
+        << totalObjectsBytes << " bytes total):\n";
+
+    for (const auto& [objectID, hash]: objectIDToHash) {
+        auto it                  = hashToObject.find(hash);
+        const size_t payloadSize = (it != hashToObject.end()) ? it->second.payload->size() : 0;
+        out << "  " << objectID.toString() << "  size=" << payloadSize << '\n';
+    }
+
+    return out.str();
 }
 
 };  // namespace object_storage

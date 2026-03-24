@@ -7,6 +7,7 @@
 #include <cstdint>
 #include <exception>
 #include <future>
+#include <sstream>
 
 #include "scaler/error/error.h"
 #include "scaler/object_storage/message.h"
@@ -17,13 +18,18 @@ namespace object_storage {
 // Global atomic flag to indicate termination request
 static std::atomic<bool> sigRequestStop {false};
 
+// Global atomic flag to indicate a state dump request
+static std::atomic<bool> sigRequestDump {false};
+
 // Signal handler for SIGTERM
 extern "C" void handleSigTerm([[maybe_unused]] int signum)
-{
-    sigRequestStop = true;
-}
+{ sigRequestStop = true; }
 
-// Function to install the signal handler
+// Signal handler for SIGUSR1: request a state dump
+extern "C" void handleSigUsr1([[maybe_unused]] int signum)
+{ sigRequestDump = true; }
+
+// Function to install the signal handlers
 void setupSignalHandling()
 {
     struct sigaction sa {};
@@ -32,7 +38,16 @@ void setupSignalHandling()
     sa.sa_flags = 0;
 
     if (sigaction(SIGTERM, &sa, nullptr) == -1) {
-        perror("sigaction");
+        perror("sigaction SIGTERM");
+    }
+
+    struct sigaction saDump {};
+    saDump.sa_handler = handleSigUsr1;
+    sigemptyset(&saDump.sa_mask);
+    saDump.sa_flags = 0;
+
+    if (sigaction(SIGUSR1, &saDump, nullptr) == -1) {
+        perror("sigaction SIGUSR1");
     }
 }
 
@@ -43,9 +58,7 @@ ObjectStorageServer::ObjectStorageServer()
 }
 
 ObjectStorageServer::~ObjectStorageServer()
-{
-    closeServerReadyFds();
-}
+{ closeServerReadyFds(); }
 
 void ObjectStorageServer::run(
     std::string name,
@@ -171,6 +184,9 @@ void ObjectStorageServer::processRequests(std::function<bool()> running)
                     _logger.log(scaler::ymq::Logger::LoggingLevel::info, "ObjectStorageServer: stopped by user");
                     pendingRequests.clear();
                     return;
+                }
+                if (sigRequestDump.exchange(false)) {
+                    dumpState();
                 }
             }
             auto maybeMessage = maybeMessageFuture.get();
@@ -420,6 +436,29 @@ void ObjectStorageServer::optionallySendPendingRequests(
         }
     }
     return;
+}
+
+void ObjectStorageServer::dumpState()
+{
+    std::ostringstream out;
+    out << "========== ObjectStorageServer State Dump ==========\n";
+
+    // --- Objects ---
+    out << objectManager.dump();
+
+    // --- Pending requests ---
+    size_t totalPending = 0;
+    for (const auto& [objectID, requests]: pendingRequests) {
+        totalPending += requests.size();
+    }
+    out << "pending requests (" << totalPending << " total across " << pendingRequests.size() << " object IDs):\n";
+    for (const auto& [objectID, requests]: pendingRequests) {
+        out << "  " << objectID.toString() << "  count=" << requests.size() << '\n';
+    }
+
+    out << "====================================================\n";
+
+    std::cerr << out.str();
 }
 
 };  // namespace object_storage
