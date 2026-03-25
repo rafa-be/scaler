@@ -294,7 +294,9 @@ void ObjectStorageServer::processSetRequest(
     _logger.log(
         scaler::ymq::Logger::LoggingLevel::info,
         "ObjectStorageServer: Receiving SET request for objectID: ",
-        requestHeader.objectID.toString());
+        requestHeader.objectID.toString(),
+        " payloadLength: ",
+        requestHeader.payloadLength);
 
     auto objectPtr = objectManager.setObject(requestHeader.objectID, std::move(requestPayload));
 
@@ -411,12 +413,14 @@ void ObjectStorageServer::sendGetResponse(
     const ObjectRequestHeader& requestHeader,
     std::shared_ptr<const ObjectPayload> objectPtr)
 {
+    uint64_t payloadLength = std::min(static_cast<uint64_t>(objectPtr->size()), requestHeader.payloadLength);
+
     _logger.log(
         scaler::ymq::Logger::LoggingLevel::info,
         "ObjectStorageServer: Send GET response for objectID: ",
-        requestHeader.objectID.toString());
-
-    uint64_t payloadLength = std::min(static_cast<uint64_t>(objectPtr->size()), requestHeader.payloadLength);
+        requestHeader.objectID.toString(),
+        " payloadLength: ",
+        payloadLength);
 
     ObjectResponseHeader responseHeader {
         .objectID      = requestHeader.objectID,
