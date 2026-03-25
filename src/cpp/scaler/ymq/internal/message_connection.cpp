@@ -7,9 +7,11 @@
 #include <memory>
 #include <utility>
 #include <variant>
+#include <vector>
 
 #include "scaler/wrapper/uv/pipe.h"
 #include "scaler/wrapper/uv/tcp.h"
+#include "scaler/ymq/configuration.h"
 
 namespace scaler {
 namespace ymq {
@@ -26,9 +28,7 @@ MessageConnection::MessageConnection(
     , _onRemoteIdentityCallback(std::move(onRemoteIdentityCallback))
     , _onRemoteDisconnectCallback(std::move(onRemoteDisconnectCallback))
     , _onRecvMessageCallback(std::move(onRecvMessageCallback))
-{
-    sendLocalIdentity();
-}
+{ sendLocalIdentity(); }
 
 MessageConnection::~MessageConnection() noexcept
 {
@@ -45,19 +45,13 @@ MessageConnection::~MessageConnection() noexcept
 }
 
 MessageConnection::State MessageConnection::state() const noexcept
-{
-    return _state;
-}
+{ return _state; }
 
 bool MessageConnection::connected() const noexcept
-{
-    return _state == State::Connected || _state == State::Established;
-}
+{ return _state == State::Connected || _state == State::Established; }
 
 bool MessageConnection::established() const noexcept
-{
-    return _state == State::Established;
-}
+{ return _state == State::Established; }
 
 void MessageConnection::connect(Client client) noexcept
 {
@@ -95,14 +89,10 @@ void MessageConnection::abort() noexcept
 }
 
 const Identity& MessageConnection::localIdentity() const noexcept
-{
-    return _localIdentity;
-}
+{ return _localIdentity; }
 
 const std::optional<Identity>& MessageConnection::remoteIdentity() const noexcept
-{
-    return _remoteIdentity;
-}
+{ return _remoteIdentity; }
 
 void MessageConnection::sendMessage(scaler::ymq::Bytes messagePayload, SendMessageCallback onMessageSent) noexcept
 {
@@ -311,23 +301,55 @@ void MessageConnection::processSendQueue() noexcept
     assert(connected());
 
     while (!_sendPending.empty()) {
-        // Move operation out of queue and into a unique_ptr to ensure it stays alive during the async write
-        auto operation = std::make_unique<SendOperation>(std::move(_sendPending.front()));
+        SendOperation operation = std::move(_sendPending.front());
         _sendPending.pop();
 
+        processSendOperation(std::move(operation));
+    }
+}
+
+void MessageConnection::processSendOperation(SendOperation operation) noexcept
+{
+    // Move operation into a unique_ptr to ensure it stays alive during the async write
+    auto operationPtr = std::make_unique<SendOperation>(std::move(operation));
+
+    const uint8_t* headerData  = reinterpret_cast<const uint8_t*>(&operationPtr->_messageSize);
+    const std::span<const uint8_t> headerBuffer {headerData, HEADER_SIZE};
+    const uint8_t* messageData = operationPtr->_messagePayload.data();
+    const size_t messageSize   = operationPtr->_messagePayload.size();
+    const size_t totalSize     = HEADER_SIZE + messageSize;
+
+    // Make the callback own the heap-allocated operation object to keep it alive until the write completes
+    auto callback = [operationPtr = std::move(operationPtr)](std::expected<void, scaler::wrapper::uv::Error> result) mutable {
+        MessageConnection::onWriteDone(std::move(operationPtr->_onMessageSent), std::move(result));
+    };
+
+    if (totalSize <= maxWriteBufferSize) {
+        // Small message: header + payload in one syscall
         std::array<std::span<const uint8_t>, 2> buffers = {{
-            std::span<const uint8_t> {
-                reinterpret_cast<const uint8_t*>(&operation->_messageSize), HEADER_SIZE},  // header (message size)
-            std::span<const uint8_t> {operation->_messagePayload.data(), operation->_messagePayload.size()}  // message
+            headerBuffer,
+            std::span<const uint8_t> {messageData, messageSize}
         }};
-
-        // Capture the operation object to keep it alive until callback completes
-        auto callback = [operation =
-                             std::move(operation)](std::expected<void, scaler::wrapper::uv::Error> result) mutable {
-            MessageConnection::onWriteDone(std::move(operation->_onMessageSent), std::move(result));
-        };
-
         write(buffers, std::move(callback));
+    } else {
+        // Large message: chunk the payload in write() calls of up to maxWriteBufferSize.
+        //
+        // Not doing this makes some OSes fail (macOS, Windows) with EINVAL as these don't support large writes.
+        write(std::span(&headerBuffer, 1), [](std::expected<void, scaler::wrapper::uv::Error> result) {UV_EXIT_ON_ERROR(result);});
+
+        for (size_t offset = 0; offset < messageSize; offset += maxWriteBufferSize) {
+            const size_t chunkSize = std::min(messageSize - offset, maxWriteBufferSize);
+            const std::span<const uint8_t> chunk {messageData + offset, chunkSize};
+
+            const bool isLastChunk = offset + chunkSize >= messageSize;
+
+            if (!isLastChunk) {
+                write(std::span(&chunk, 1), [](std::expected<void, scaler::wrapper::uv::Error> result) {UV_EXIT_ON_ERROR(result);});
+            } else {
+                // Attach the callback to the last write() call.
+                write(std::span(&chunk, 1), std::move(callback));
+            }
+        }
     }
 }
 

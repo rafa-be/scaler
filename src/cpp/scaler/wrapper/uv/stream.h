@@ -2,8 +2,10 @@
 
 #include <uv.h>
 
+#include <cassert>
 #include <cstdint>
 #include <expected>
+#include <limits>
 #include <memory>
 #include <span>
 #include <vector>
@@ -57,6 +59,8 @@ public:
         nativeBuffers.reserve(buffers.size());
 
         for (auto const& buffer: buffers) {
+            assert(buffer.size() <= std::numeric_limits<unsigned int>::max());
+
             const uv_buf_t nativeBuffer = uv_buf_init(
                 const_cast<char*>(reinterpret_cast<const char*>(buffer.data())),
                 static_cast<unsigned int>(buffer.size()));
@@ -89,9 +93,7 @@ public:
 
     // A single buffer alternative to write().
     std::expected<WriteRequest, Error> write(std::span<const uint8_t> buffer, WriteCallback callback) noexcept
-    {
-        return write(std::span<std::span<const uint8_t>>(&buffer, 1), std::move(callback));
-    }
+    { return write(std::span<std::span<const uint8_t>>(&buffer, 1), std::move(callback)); }
 
     // See uv_shutdown
     std::expected<ShutdownRequest, Error> shutdown(ShutdownCallback callback) noexcept
@@ -120,9 +122,7 @@ private:
 
     static void onAllocateCallback(
         [[maybe_unused]] uv_handle_t* handle, size_t suggestedSize, uv_buf_t* nativeBuffer) noexcept
-    {
-        *nativeBuffer = uv_buf_init(new char[suggestedSize], suggestedSize);
-    }
+    { *nativeBuffer = uv_buf_init(new char[suggestedSize], suggestedSize); }
 
     static void onReadCallback(uv_stream_t* stream, ssize_t nread, const uv_buf_t* buffer) noexcept
     {
