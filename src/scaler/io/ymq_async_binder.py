@@ -1,10 +1,8 @@
 import logging
-import os
-import uuid
 from collections import defaultdict
 from typing import Awaitable, Callable, Dict, Optional
 
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncBinder
 from scaler.io.utility import deserialize, serialize
 from scaler.io.ymq import BinderSocket, Bytes, IOContext
@@ -13,28 +11,28 @@ from scaler.protocol.python.status import BinderStatus
 
 
 class YMQAsyncBinder(AsyncBinder):
-    def __init__(self, name: str, address: ZMQConfig, identity: Optional[bytes] = None):
-        if identity is None:
-            identity = f"{os.getpid()}|{name}|{uuid.uuid4()}".encode()
+    def __init__(self, context: IOContext, identity: str):
+        self._context = context
         self._identity = identity
+        self._address: Optional[AddressConfig] = None
 
-        self._context = IOContext()
-
-        self._socket = BinderSocket(self._context, self._identity.decode())
-        bound = self._socket.bind_to_sync(address.to_address())
-        self._address: ZMQConfig = ZMQConfig.from_string(repr(bound))
+        self._socket = BinderSocket(self._context, self._identity)
 
         self._callback: Optional[Callable[[bytes, Message], Awaitable[None]]] = None
 
         self._received: Dict[str, int] = defaultdict(lambda: 0)
         self._sent: Dict[str, int] = defaultdict(lambda: 0)
 
+    async def bind(self, address: AddressConfig) -> None:
+        bound_address = await self._socket.bind_to(repr(address))
+        self._address = AddressConfig.from_string(repr(bound_address))
+
     @property
-    def identity(self):
+    def identity(self) -> str:
         return self._identity
 
     @property
-    def address(self) -> ZMQConfig:
+    def address(self) -> Optional[AddressConfig]:
         return self._address
 
     def destroy(self):
@@ -53,6 +51,7 @@ class YMQAsyncBinder(AsyncBinder):
             return
 
         self.__count_received(message.__class__.__name__)
+        assert self._callback is not None
         await self._callback(ymq_msg.address.data, message)
 
     async def send(self, to: bytes, message: Message):

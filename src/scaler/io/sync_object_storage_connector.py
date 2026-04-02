@@ -1,10 +1,10 @@
 import collections
 import socket
 import struct
-import uuid
 from threading import Lock
 from typing import Iterable, List, Optional, Tuple
 
+from scaler.config.types.address import AddressConfig, SocketType
 from scaler.io.mixins import SyncObjectStorageConnector
 from scaler.protocol.capnp._python import _object_storage  # noqa
 from scaler.protocol.python.object_storage import ObjectRequestHeader, ObjectResponseHeader, to_capnp_object_id
@@ -18,23 +18,23 @@ MAX_CHUNK_SIZE = 128 * 1024 * 1024
 class PySyncObjectStorageConnector(SyncObjectStorageConnector):
     """An synchronous connector that uses an raw TCP socket to connect to a Scaler's object storage instance."""
 
-    def __init__(self, host: str, port: int):
-        self._host = host
-        self._port = port
+    def __init__(self, identity: str, address: AddressConfig):
+        self._identity = identity
 
-        self._identity: bytes = (
-            f"{self.__class__.__name__}|{socket.gethostname().split('.')[0]}|{uuid.uuid4()}".encode()
-        )
+        if address.type != SocketType.tcp:
+            raise ValueError(f"PySyncObjectStorageConnector only supports TCP addresses, got {address.type}")
+        assert address.port is not None
 
-        self._socket: Optional[socket.socket] = socket.create_connection((self._host, self._port))
+        self._address = address
+
+        self._socket: Optional[socket.socket] = socket.create_connection((address.host, address.port))
         self._socket.setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
 
         self._next_request_id = 0
 
         self._socket_lock = Lock()
 
-        self.__send_buffers([struct.pack("<Q", len(self._identity)), self._identity])
-        self.__read_framed_message()  # receive server identity
+        self.__do_handshake()
 
     def __del__(self):
         self.destroy()
@@ -46,8 +46,8 @@ class PySyncObjectStorageConnector(SyncObjectStorageConnector):
                 self._socket = None
 
     @property
-    def address(self) -> str:
-        return f"tcp://{self._host}:{self._port}"
+    def address(self) -> AddressConfig:
+        return self._address
 
     def set_object(self, object_id: ObjectID, payload: bytes):
         """
@@ -113,6 +113,11 @@ class PySyncObjectStorageConnector(SyncObjectStorageConnector):
 
         self.__ensure_response_type(response_header, [ObjectResponseHeader.ObjectResponseType.DuplicateOK])
         self.__ensure_empty_payload(response_payload)
+
+    def __do_handshake(self):
+        identity_bytes = self._identity.encode()
+        self.__send_buffers([struct.pack("<Q", len(identity_bytes)), identity_bytes])
+        self.__read_framed_message()  # receive server identity
 
     def __ensure_is_connected(self):
         if self._socket is None:

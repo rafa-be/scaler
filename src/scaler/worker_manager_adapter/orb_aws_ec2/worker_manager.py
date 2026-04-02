@@ -265,7 +265,7 @@ class ORBAWSEC2WorkerAdapter:
         # where cpu_count is determined by the machine type configured by the user.
         script = f"""#!/bin/bash
 INSTANCE_ID=$(ec2-metadata --instance-id --quiet)
-nohup /usr/local/bin/scaler_worker_manager baremetal_native {adapter_config.scheduler_address.to_address()} \
+nohup /usr/local/bin/scaler_worker_manager baremetal_native {adapter_config.scheduler_address!r} \
     --mode fixed \
     --worker-type ORB \
     --worker-manager-id "${{INSTANCE_ID}}" \

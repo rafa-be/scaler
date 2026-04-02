@@ -5,7 +5,7 @@ from scaler.config import defaults
 from scaler.config.common.logging import LoggingConfig
 from scaler.config.config_class import ConfigClass
 from scaler.config.types.object_storage_server import ObjectStorageAddressConfig
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.zmq import AddressConfig
 from scaler.utility.event_loop import EventLoopType
 
 
@@ -23,7 +23,7 @@ class PolicyConfig(ConfigClass):
 
 @dataclasses.dataclass
 class SchedulerConfig(ConfigClass):
-    scheduler_address: ZMQConfig = dataclasses.field(
+    scheduler_address: AddressConfig = dataclasses.field(
         metadata=dict(positional=True, required=True, help="scheduler address to bind to, e.g.: `tcp://0.0.0.0:6378`")
     )
     object_storage_address: Optional[ObjectStorageAddressConfig] = dataclasses.field(
@@ -36,7 +36,7 @@ class SchedulerConfig(ConfigClass):
             "then object storage address is tcp://localhost:2346",
         ),
     )
-    monitor_address: Optional[ZMQConfig] = dataclasses.field(
+    monitor_address: Optional[AddressConfig] = dataclasses.field(
         default=None,
         metadata=dict(
             short="-ma",

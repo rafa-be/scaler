@@ -7,9 +7,9 @@ from typing import Dict, Optional
 
 import zmq.asyncio
 
-from scaler.config.types.network_backend import NetworkBackend
+from scaler.config.types.network_backend import NetworkBackendType
 from scaler.config.types.object_storage_server import ObjectStorageAddressConfig
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.zmq import AddressConfig
 from scaler.io import ymq
 from scaler.io.mixins import AsyncConnector, AsyncObjectStorageConnector
 from scaler.io.utility import (
@@ -45,7 +45,7 @@ class SymphonyWorker(multiprocessing.get_context("spawn").Process):  # type: ign
     def __init__(
         self,
         name: str,
-        address: ZMQConfig,
+        address: AddressConfig,
         object_storage_address: Optional[ObjectStorageAddressConfig],
         service_name: str,
         capabilities: Dict[str, int],
@@ -210,7 +210,7 @@ class SymphonyWorker(multiprocessing.get_context("spawn").Process):  # type: ign
         except Exception as e:
             logging.exception(f"{self.identity!r}: failed with unhandled exception:\n{e}")
 
-        if get_scaler_network_backend_from_env() == NetworkBackend.tcp_zmq:
+        if get_scaler_network_backend_from_env() == NetworkBackendType.tcp_zmq:
             await self.__graceful_shutdown()
 
         self._connector_external.destroy()
@@ -218,10 +218,10 @@ class SymphonyWorker(multiprocessing.get_context("spawn").Process):  # type: ign
 
     def __register_signal(self):
         backend = get_scaler_network_backend_from_env()
-        if backend == NetworkBackend.tcp_zmq:
+        if backend == NetworkBackendType.tcp_zmq:
             self._loop.add_signal_handler(signal.SIGINT, self.__destroy)
             self._loop.add_signal_handler(signal.SIGTERM, self.__destroy)
-        elif backend == NetworkBackend.ymq:
+        elif backend == NetworkBackendType.ymq:
             self._loop.add_signal_handler(signal.SIGINT, lambda: asyncio.ensure_future(self.__graceful_shutdown()))
             self._loop.add_signal_handler(signal.SIGTERM, lambda: asyncio.ensure_future(self.__graceful_shutdown()))
 

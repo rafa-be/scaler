@@ -4,12 +4,12 @@ from typing import Optional
 from scaler.config import defaults
 from scaler.config.config_class import ConfigClass
 from scaler.config.types.object_storage_server import ObjectStorageAddressConfig
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.zmq import AddressConfig
 
 
 @dataclasses.dataclass
 class WorkerManagerConfig(ConfigClass):
-    scheduler_address: ZMQConfig = dataclasses.field(
+    scheduler_address: AddressConfig = dataclasses.field(
         metadata=dict(positional=True, required=True, help="scheduler address to connect workers to")
     )
 

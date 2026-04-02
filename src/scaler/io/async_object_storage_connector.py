@@ -2,9 +2,9 @@ import asyncio
 import logging
 import socket
 import struct
-import uuid
 from typing import Dict, Optional, Tuple
 
+from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncObjectStorageConnector
 from scaler.protocol.capnp._python import _object_storage  # noqa
 from scaler.protocol.python.object_storage import ObjectRequestHeader, ObjectResponseHeader, to_capnp_object_id
@@ -15,9 +15,9 @@ from scaler.utility.identifiers import ObjectID
 class PyAsyncObjectStorageConnector(AsyncObjectStorageConnector):
     """An asyncio connector that uses an raw TCP socket to connect to a Scaler's object storage instance."""
 
-    def __init__(self):
-        self._host: Optional[str] = None
-        self._port: Optional[int] = None
+    def __init__(self, identity: str):
+        self._identity: str = identity
+        self._address: Optional[AddressConfig] = None
 
         self._connected_event = asyncio.Event()
 
@@ -27,32 +27,22 @@ class PyAsyncObjectStorageConnector(AsyncObjectStorageConnector):
         self._next_request_id = 0
         self._pending_get_requests: Dict[ObjectID, asyncio.Future] = {}
 
-        self._identity: bytes = (
-            f"{self.__class__.__name__}|{socket.gethostname().split('.')[0]}|{uuid.uuid4()}".encode()
-        )
-
     def __del__(self):
         self.destroy()
 
-    async def connect(self, host: str, port: int):
-        self._host = host
-        self._port = port
+    async def connect(self, address: AddressConfig):
+        self._address = address
 
         if self.is_connected():
             raise ObjectStorageException("connector is already connected.")
 
-        self._reader, self._writer = await asyncio.open_connection(self._host, self._port)
-        await self.__read_framed_message()
-        self.__write_framed(self._identity)
-
-        try:
-            await self._writer.drain()
-        except ConnectionResetError:
-            self.__raise_connection_failure()
+        self._reader, self._writer = await asyncio.open_connection(self._address.host, self._address.port)
 
         # Makes sure the socket is TCP_NODELAY. It seems to be the case by default, but that's not specified in the
         # asyncio's documentation and might change in the future.
         self._writer.get_extra_info("socket").setsockopt(socket.IPPROTO_TCP, socket.TCP_NODELAY, 1)
+
+        await self.__do_handshake()
 
         self._connected_event.set()
 
@@ -78,9 +68,8 @@ class PyAsyncObjectStorageConnector(AsyncObjectStorageConnector):
         return self._writer
 
     @property
-    def address(self) -> str:
-        self.__ensure_is_connected()
-        return f"tcp://{self._host}:{self._port}"
+    def address(self) -> Optional[AddressConfig]:
+        return self._address
 
     async def routine(self):
         await self.wait_until_connected()
@@ -130,6 +119,16 @@ class PyAsyncObjectStorageConnector(AsyncObjectStorageConnector):
             ObjectRequestHeader.ObjectRequestType.DuplicateObjectID,
             object_id_payload,
         )
+
+    async def __do_handshake(self):
+        self.__write_framed(self._identity.encode())
+        assert self._writer is not None
+        try:
+            await self._writer.drain()
+        except ConnectionResetError:
+            self.__raise_connection_failure()
+
+        await self.__read_framed_message()  # receive server identity
 
     def __ensure_is_connected(self):
         if self._writer is None:

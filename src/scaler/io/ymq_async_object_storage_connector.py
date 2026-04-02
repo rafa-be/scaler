@@ -1,9 +1,8 @@
 import asyncio
 import logging
-import socket
-import uuid
 from typing import Dict, Optional, Tuple
 
+from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncObjectStorageConnector
 from scaler.io.ymq import Bytes, ConnectorSocket, IOContext, YMQException
 from scaler.protocol.capnp._python import _object_storage  # noqa
@@ -15,9 +14,10 @@ from scaler.utility.identifiers import ObjectID
 class YMQAsyncObjectStorageConnector(AsyncObjectStorageConnector):
     """An asyncio connector that uses YMQ to connect to a Scaler's object storage instance."""
 
-    def __init__(self):
-        self._host: Optional[str] = None
-        self._port: Optional[int] = None
+    def __init__(self, context: IOContext, identity: str):
+        self._context = context
+        self._identity = identity
+        self._address: Optional[AddressConfig] = None
 
         self._connected_event = asyncio.Event()
 
@@ -25,24 +25,21 @@ class YMQAsyncObjectStorageConnector(AsyncObjectStorageConnector):
         self._pending_get_requests: Dict[ObjectID, asyncio.Future] = {}
 
         self._lock = asyncio.Lock()
-        self._identity: str = f"{self.__class__.__name__}|{socket.gethostname().split('.')[0]}|{uuid.uuid4()}"
-        self._io_context: IOContext = IOContext()
         self._socket: Optional[ConnectorSocket] = None
 
     def __del__(self):
         if not self.is_connected():
             return
         self._socket = None
-        self._io_context = None
+        self._context = None
 
-    async def connect(self, host: str, port: int):
-        self._host = host
-        self._port = port
+    async def connect(self, address: AddressConfig):
+        self._address = address
 
         if self.is_connected():
             raise ObjectStorageException("connector is already connected.")
 
-        self._socket = ConnectorSocket.connect(self._io_context, self._identity, self.address)
+        self._socket = ConnectorSocket.connect(self._context, self._identity, repr(address))
         self._connected_event.set()
 
     async def wait_until_connected(self):
@@ -58,8 +55,8 @@ class YMQAsyncObjectStorageConnector(AsyncObjectStorageConnector):
         self._io_context = None
 
     @property
-    def address(self) -> str:
-        return f"tcp://{self._host}:{self._port}"
+    def address(self) -> Optional[AddressConfig]:
+        return self._address
 
     async def routine(self):
         await self.wait_until_connected()

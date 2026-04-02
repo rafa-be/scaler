@@ -1,37 +1,35 @@
 import logging
-import os
-import socket
 import threading
-import uuid
 from typing import Optional
 
 import zmq
 
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import SyncConnector
 from scaler.io.utility import deserialize, serialize
 from scaler.protocol.python.mixins import Message
 
 
 class ZMQSyncConnector(SyncConnector):
-    def __init__(self, context: zmq.Context, socket_type: int, address: ZMQConfig, identity: Optional[bytes]):
+    def __init__(
+        self,
+        context: zmq.Context,
+        identity: str,
+        address: AddressConfig,
+        socket_type: int = zmq.DEALER,
+    ):
+        self._context = context
+        self._identity = identity
         self._address = address
 
-        self._context = context
         self._socket = self._context.socket(socket_type)
 
-        self._identity: bytes = (
-            f"{os.getpid()}|{socket.gethostname().split('.')[0]}|{uuid.uuid4()}".encode()
-            if identity is None
-            else identity
-        )
-
         # set socket option
-        self._socket.setsockopt(zmq.IDENTITY, self._identity)
+        self._socket.setsockopt(zmq.IDENTITY, self._identity.encode())
         self._socket.setsockopt(zmq.SNDHWM, 0)
         self._socket.setsockopt(zmq.RCVHWM, 0)
 
-        self._socket.connect(self._address.to_address())
+        self._socket.connect(repr(self._address))
 
         self._lock = threading.Lock()
 
@@ -39,11 +37,11 @@ class ZMQSyncConnector(SyncConnector):
         self._socket.close()
 
     @property
-    def address(self) -> str:
-        return self._address.to_address()
+    def address(self) -> AddressConfig:
+        return self._address
 
     @property
-    def identity(self) -> bytes:
+    def identity(self) -> str:
         return self._identity
 
     def send(self, message: Message):
@@ -65,4 +63,4 @@ class ZMQSyncConnector(SyncConnector):
         return result
 
     def __get_prefix(self):
-        return f"{self.__class__.__name__}[{self._identity.decode()}]:"
+        return f"{self.__class__.__name__}[{self._identity}]:"

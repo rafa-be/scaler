@@ -1,7 +1,7 @@
 import enum
 
 
-class NetworkBackend(enum.Enum):
+class NetworkBackendType(enum.Enum):
     """
     Network backend to select when running scaler
     - tcp_zmq means for oss it use raw tcp, for client/scheduler/worker communication it use zmq

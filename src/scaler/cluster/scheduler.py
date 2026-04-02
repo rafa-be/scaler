@@ -6,7 +6,7 @@ from typing import Any, Optional, Tuple
 
 from scaler.config.section.scheduler import PolicyConfig, SchedulerConfig
 from scaler.config.types.object_storage_server import ObjectStorageAddressConfig
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.zmq import AddressConfig
 from scaler.scheduler.scheduler import Scheduler
 from scaler.utility.event_loop import register_event_loop, run_task_forever
 from scaler.utility.logging.utility import setup_logger
@@ -15,9 +15,9 @@ from scaler.utility.logging.utility import setup_logger
 class SchedulerProcess(multiprocessing.get_context("spawn").Process):  # type: ignore[misc]
     def __init__(
         self,
-        address: ZMQConfig,
+        address: AddressConfig,
         object_storage_address: Optional[ObjectStorageAddressConfig],
-        monitor_address: Optional[ZMQConfig],
+        monitor_address: Optional[AddressConfig],
         io_threads: int,
         max_number_of_tasks_waiting: int,
         client_timeout_seconds: int,

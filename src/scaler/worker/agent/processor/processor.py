@@ -12,7 +12,7 @@ import tblib.pickling_support
 import zmq
 
 from scaler.config.types.object_storage_server import ObjectStorageAddressConfig
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import SyncConnector, SyncObjectStorageConnector
 from scaler.io.sync_connector import ZMQSyncConnector
 from scaler.io.utility import create_sync_object_storage_connector
@@ -37,8 +37,8 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
     def __init__(
         self,
         event_loop: str,
-        agent_address: ZMQConfig,
-        scheduler_address: ZMQConfig,
+        agent_address: AddressConfig,
+        scheduler_address: AddressConfig,
         object_storage_address: ObjectStorageAddressConfig,
         preload: Optional[str],
         resume_event: Optional[EventType],
@@ -77,7 +77,7 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
         """Returns the current Processor instance controlling the current process, if any."""
         return _current_processor.get()
 
-    def scheduler_address(self) -> ZMQConfig:
+    def scheduler_address(self) -> AddressConfig:
         """Returns the scheduler address this processor's worker is connected to."""
         return self._scheduler_address
 

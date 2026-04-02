@@ -1,9 +1,7 @@
 import logging
-import os
-import uuid
-from typing import Awaitable, Callable, Literal, Optional
+from typing import Awaitable, Callable, Optional
 
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncConnector
 from scaler.io.utility import deserialize, serialize
 from scaler.io.ymq import Bytes, ConnectorSocket, IOContext
@@ -11,39 +9,31 @@ from scaler.protocol.python.mixins import Message
 
 
 class YMQAsyncConnector(AsyncConnector):
-    def __init__(
-        self,
-        name: str,
-        socket_type: int,
-        address: ZMQConfig,
-        bind_or_connect: Literal["bind", "connect"],
-        callback: Optional[Callable[[Message], Awaitable[None]]],
-        identity: Optional[bytes],
-    ):
-        self._address = address
-
-        self._context = IOContext()
-
-        if identity is None:
-            identity = f"{os.getpid()}|{name}|{uuid.uuid4().bytes.hex()}".encode()
+    def __init__(self, context: IOContext, identity: str):
+        self._context = context
         self._identity = identity
+        self._address: Optional[AddressConfig] = None
 
-        self._callback: Optional[Callable[[Message], Awaitable[None]]] = callback
+        self._callback: Optional[Callable[[Message], Awaitable[None]]] = None
+        self._socket: Optional[ConnectorSocket] = None
 
-        # Create connector socket
-        if bind_or_connect == "bind":
-            self._socket = ConnectorSocket.bind(self._context, self._identity.decode(), self.address)
-        elif bind_or_connect == "connect":
-            self._socket = ConnectorSocket.connect(self._context, self._identity.decode(), self.address)
-        else:
-            raise TypeError("bind_or_connect has to be 'bind' or 'connect'")
+    async def connect(self, address: AddressConfig) -> None:
+        self._address = address
+        self._socket = ConnectorSocket.connect(self._context, self._identity, repr(self._address))
+
+    async def bind(self, address: AddressConfig) -> None:
+        self._address = address
+        self._socket = ConnectorSocket.bind(self._context, self._identity, repr(self._address))
 
     def destroy(self):
         self._socket = None
         self._context = None
 
+    def register(self, callback: Callable[[Message], Awaitable[None]]):
+        self._callback = callback
+
     @property
-    def identity(self) -> bytes:
+    def identity(self) -> str:
         return self._identity
 
     @property
@@ -51,8 +41,8 @@ class YMQAsyncConnector(AsyncConnector):
         return self._socket
 
     @property
-    def address(self) -> str:
-        return self._address.to_address()
+    def address(self) -> Optional[AddressConfig]:
+        return self._address
 
     async def routine(self):
         if self._callback is None:

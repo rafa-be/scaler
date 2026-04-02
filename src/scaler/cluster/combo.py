@@ -29,7 +29,7 @@ from scaler.config.section.native_worker_manager import NativeWorkerManagerConfi
 from scaler.config.section.scheduler import PolicyConfig
 from scaler.config.types.object_storage_server import ObjectStorageAddressConfig
 from scaler.config.types.worker import WorkerCapabilities
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.address import AddressConfig
 from scaler.utility.network_util import get_available_tcp_port
 from scaler.worker_manager_adapter.baremetal.native import NativeWorkerManager
 
@@ -68,9 +68,9 @@ class SchedulerClusterCombo:
         self._shutdown_called = False
 
         if address is None:
-            self._address = ZMQConfig.from_string(f"tcp://127.0.0.1:{get_available_tcp_port()}")
+            self._address = AddressConfig.from_string(f"tcp://127.0.0.1:{get_available_tcp_port()}")
         else:
-            self._address = ZMQConfig.from_string(address)
+            self._address = AddressConfig.from_string(address)
 
         if object_storage_address is None:
             self._object_storage_address = ObjectStorageAddressConfig(self._address.host, get_available_tcp_port())
@@ -80,7 +80,7 @@ class SchedulerClusterCombo:
         if monitor_address is None:
             self._monitor_address = None
         else:
-            self._monitor_address = ZMQConfig.from_string(monitor_address)
+            self._monitor_address = AddressConfig.from_string(monitor_address)
 
         self._object_storage = ObjectStorageServerProcess(
             object_storage_address=self._object_storage_address,
@@ -161,7 +161,7 @@ class SchedulerClusterCombo:
         self._object_storage.join()
 
     def get_address(self) -> str:
-        return self._address.to_address()
+        return repr(self._address)
 
     def __get_prefix(self):
         return f"{self.__class__.__name__}:"

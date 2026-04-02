@@ -8,7 +8,7 @@ import psutil
 
 from scaler.config.defaults import DEFAULT_PROCESSOR_KILL_DELAY_SECONDS
 from scaler.config.types.object_storage_server import ObjectStorageAddressConfig
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.zmq import AddressConfig
 from scaler.protocol.python.message import Task
 from scaler.utility.identifiers import ProcessorID
 from scaler.worker.agent.processor.processor import SUSPEND_SIGNAL, Processor
@@ -18,8 +18,8 @@ class ProcessorHolder:
     def __init__(
         self,
         event_loop: str,
-        agent_address: ZMQConfig,
-        scheduler_address: ZMQConfig,
+        agent_address: AddressConfig,
+        scheduler_address: AddressConfig,
         object_storage_address: ObjectStorageAddressConfig,
         preload: Optional[str],
         garbage_collect_interval_seconds: int,
