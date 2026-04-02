@@ -4,7 +4,7 @@ from typing import Dict, List, Optional, Tuple
 
 import tblib.pickling_support
 
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.zmq import AddressConfig
 
 # from scaler.utility.logging.utility import setup_logger
 from scaler.io.mixins import AsyncBinder, AsyncConnector, AsyncObjectStorageConnector
@@ -29,8 +29,8 @@ class VanillaProcessorManager(ProcessorManager):
         self,
         identity: WorkerID,
         event_loop: str,
-        address_internal: ZMQConfig,
-        scheduler_address: ZMQConfig,
+        address_internal: AddressConfig,
+        scheduler_address: AddressConfig,
         preload: Optional[str],
         garbage_collect_interval_seconds: int,
         trim_memory_threshold_bytes: int,
@@ -57,7 +57,7 @@ class VanillaProcessorManager(ProcessorManager):
         self._connector_external: Optional[AsyncConnector] = None
         self._connector_storage: Optional[AsyncObjectStorageConnector] = None
 
-        self._address_internal: ZMQConfig = address_internal
+        self._address_internal: AddressConfig = address_internal
 
         self._current_holder: Optional[ProcessorHolder] = None
         self._suspended_holders_by_task_id: Dict[bytes, ProcessorHolder] = {}

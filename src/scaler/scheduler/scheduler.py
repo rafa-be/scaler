@@ -1,14 +1,12 @@
 import asyncio
 import logging
 
-import zmq.asyncio
-
 from scaler.config.defaults import CLEANUP_INTERVAL_SECONDS, STATUS_REPORT_INTERVAL_SECONDS
 from scaler.config.section.scheduler import SchedulerConfig
-from scaler.config.types.zmq import ZMQConfig, ZMQType
+from scaler.config.types.address import AddressConfig, SocketType
 from scaler.io.async_connector import ZMQAsyncConnector
 from scaler.io.mixins import AsyncBinder, AsyncConnector, AsyncObjectStorageConnector
-from scaler.io.utility import create_async_binder, create_async_object_storage_connector
+from scaler.io.utility import create_async_simple_context, create_async_binder, create_async_object_storage_connector
 from scaler.io.ymq import YMQException
 from scaler.protocol.capnp import (
     BaseMessage,
@@ -47,18 +45,12 @@ class Scheduler:
     def __init__(self, config: SchedulerConfig):
         self._config_controller = VanillaConfigController(config)
 
-        if config.bind_address.type != ZMQType.tcp:
-            raise TypeError(
-                f"{self.__class__.__name__}: scheduler bind address must be tcp type: "
-                f"{config.bind_address.to_address()}"
-            )
-
-        self._context = zmq.asyncio.Context(io_threads=config.io_threads)
+        self._context = create_async_simple_context(io_threads=config.io_threads)
 
         self._binder: AsyncBinder = create_async_binder(self._context, name="scheduler", address=config.bind_address)
-        self._address: ZMQConfig = self._binder.address
+        self._address: AddressConfig = self._binder.address
+
         assert self._address.port is not None, "scheduler bind address must have a port"
-        scheduler_port = self._address.port
 
         logging.info(f"{self.__class__.__name__}: listen to scheduler address {self._address}")
 
@@ -76,8 +68,8 @@ class Scheduler:
         self._config_controller.update_config("object_storage_address", object_storage_address)
         self._config_controller.update_config("advertised_object_storage_address", advertised_object_storage_address)
 
-        monitor_address = config.monitor_address or ZMQConfig(
-            type=ZMQType.tcp, host=self._address.host, port=scheduler_port + 2
+        monitor_address = config.monitor_address or AddressConfig(
+            type=SocketType.tcp, host=self._address.host, port=self._address.port + 2
         )
 
         self._connector_storage: AsyncObjectStorageConnector = create_async_object_storage_connector()
@@ -95,7 +87,7 @@ class Scheduler:
             callback=None,
             identity=None,
         )
-        actual_monitor_address = ZMQConfig.from_string(self._binder_monitor.address)
+        actual_monitor_address = AddressConfig.from_string(self._binder_monitor.address)
         self._config_controller.update_config("monitor_address", actual_monitor_address)
         logging.info(f"{self.__class__.__name__}: listen to scheduler monitor address {actual_monitor_address}")
 
@@ -157,7 +149,7 @@ class Scheduler:
         )
 
     @property
-    def address(self) -> ZMQConfig:
+    def address(self) -> AddressConfig:
         return self._address
 
     async def connect_to_storage(self):

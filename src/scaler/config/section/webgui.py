@@ -3,12 +3,12 @@ import dataclasses
 from scaler.config.common.logging import LoggingConfig
 from scaler.config.config_class import ConfigClass
 from scaler.config.types.http import HTTPConfig
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.zmq import AddressConfig
 
 
 @dataclasses.dataclass
 class WebGUIConfig(ConfigClass):
-    monitor_address: ZMQConfig = dataclasses.field(
+    monitor_address: AddressConfig = dataclasses.field(
         metadata=dict(positional=True, help="scheduler monitor address to connect to")
     )
     gui_address: HTTPConfig = dataclasses.field(

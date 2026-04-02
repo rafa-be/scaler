@@ -17,7 +17,7 @@ from scaler.client.object_reference import ObjectReference
 from scaler.client.serializer.default import DefaultSerializer
 from scaler.client.serializer.mixins import Serializer
 from scaler.config.defaults import DEFAULT_CLIENT_TIMEOUT_SECONDS, DEFAULT_HEARTBEAT_INTERVAL_SECONDS
-from scaler.config.types.zmq import ZMQConfig, ZMQType
+from scaler.config.types.zmq import AddressConfig, SocketType
 from scaler.io.mixins import SyncConnector, SyncObjectStorageConnector
 from scaler.io.sync_connector import ZMQSyncConnector
 from scaler.io.utility import create_sync_object_storage_connector
@@ -106,22 +106,26 @@ class Client:
         self._stream_output = stream_output
         self._identity = ClientID.generate_client_id()
 
-        self._client_agent_address = ZMQConfig(ZMQType.inproc, host=f"scaler_client_{uuid.uuid4().hex}")
-        self._scheduler_address = ZMQConfig.from_string(address)
+        self._client_agent_address = AddressConfig(SocketType.inproc, host=f"scaler_client_{uuid.uuid4().hex}")
+        self._scheduler_address = AddressConfig.from_string(address)
         self._timeout_seconds = timeout_seconds
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
 
         self._stop_event = threading.Event()
         self._context = zmq.Context()
         self._connector_agent: SyncConnector = ZMQSyncConnector(
-            context=self._context, socket_type=zmq.PAIR, address=self._client_agent_address, identity=self._identity
+            context=self._context,
+            name="Client",
+            socket_type=zmq.PAIR,
+            address=self._client_agent_address,
+            identity=self._identity,
         )
 
         self._future_manager = ClientFutureManager(self._serializer)
         self._agent = ClientAgent(
             identity=self._identity,
             client_agent_address=self._client_agent_address,
-            scheduler_address=ZMQConfig.from_string(address),
+            scheduler_address=AddressConfig.from_string(address),
             context=self._context,
             future_manager=self._future_manager,
             stop_event=self._stop_event,
@@ -194,7 +198,7 @@ class Client:
         """
 
         return {
-            "address": self._scheduler_address.to_address(),
+            "address": repr(self._scheduler_address),
             "profiling": self._profiling,
             "stream_output": self._stream_output,
             "timeout_seconds": self._timeout_seconds,
@@ -456,7 +460,7 @@ class Client:
             self.__destroy()
             return
 
-        logging.info(f"ScalerClient: disconnect from {self._scheduler_address.to_address()}")
+        logging.info(f"ScalerClient: disconnect from {self._scheduler_address!r}")
 
         self._future_manager.cancel_all_futures()
 
@@ -483,7 +487,7 @@ class Client:
             self.__destroy()
             return
 
-        logging.info(f"ScalerClient: request shutdown for {self._scheduler_address.to_address()}")
+        logging.info(f"ScalerClient: request shutdown for {self._scheduler_address!r}")
 
         self._future_manager.cancel_all_futures()
 
@@ -735,4 +739,4 @@ class Client:
             )
 
         # Return the scheduler address from the current processor
-        return current_processor.scheduler_address().to_address()
+        return repr(current_processor.scheduler_address())

@@ -13,7 +13,7 @@ from scaler.client.agent.heartbeat_manager import ClientHeartbeatManager
 from scaler.client.agent.object_manager import ClientObjectManager
 from scaler.client.agent.task_manager import ClientTaskManager
 from scaler.client.serializer.mixins import Serializer
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.address import AddressConfig
 from scaler.io.async_connector import ZMQAsyncConnector
 from scaler.io.mixins import AsyncConnector
 from scaler.io.utility import create_async_connector
@@ -41,8 +41,8 @@ class ClientAgent(threading.Thread):
     def __init__(
         self,
         identity: ClientID,
-        client_agent_address: ZMQConfig,
-        scheduler_address: ZMQConfig,
+        client_agent_address: AddressConfig,
+        scheduler_address: AddressConfig,
         context: zmq.Context,
         future_manager: ClientFutureManager,
         stop_event: threading.Event,
@@ -64,10 +64,7 @@ class ClientAgent(threading.Thread):
         self._io_context = context
         self._object_storage_address: Future[ObjectStorageAddress] = Future()
         if object_storage_address is not None:
-            manual_config = ZMQConfig.from_string(object_storage_address)
-            self._object_storage_address_override = ObjectStorageAddress(
-                host=manual_config.host, port=manual_config.port
-            )
+            self._object_storage_address_override = AddressConfig.from_string(object_storage_address)
         else:
             self._object_storage_address_override = None
 
@@ -219,7 +216,7 @@ class ClientAgent(threading.Thread):
             logging.info("ClientAgent: client quitting")
             self._future_manager.set_all_futures_with_exception(exception)
         elif isinstance(exception, (TimeoutError, YMQException)):
-            logging.error(f"ClientAgent: client timeout when connecting to {self._scheduler_address.to_address()}")
+            logging.error(f"ClientAgent: client timeout when connecting to {self._scheduler_address!r}")
             self._future_manager.set_all_futures_with_exception(TimeoutError())
         else:
             raise exception

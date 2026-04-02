@@ -351,7 +351,7 @@ set +e
         # NOTE: --max-task-concurrency is not passed; scaler_worker_manager defaults to cpu_count - 1 workers,
         # where cpu_count is determined by the machine type configured by the user.
         script += f"""INSTANCE_ID=$(ec2-metadata --instance-id --quiet)
-nohup scaler_worker_manager baremetal_native {self._worker_scheduler_address.to_address()} \
+nohup scaler_worker_manager baremetal_native {self._worker_scheduler_address!r} \
     --mode fixed \
     --worker-type ORB \
     --worker-manager-id "${{INSTANCE_ID}}" \

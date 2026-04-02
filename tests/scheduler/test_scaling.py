@@ -30,7 +30,7 @@ from scaler.config.section.native_worker_manager import NativeWorkerManagerConfi
 from scaler.config.section.scheduler import PolicyConfig
 from scaler.config.types.object_storage_server import ObjectStorageAddressConfig
 from scaler.config.types.worker import WorkerCapabilities
-from scaler.config.types.zmq import ZMQConfig
+from scaler.config.types.address import AddressConfig
 from scaler.protocol.capnp import (
     Resource,
     Task,
@@ -70,7 +70,7 @@ class TestScaling(unittest.TestCase):
         object_storage.wait_until_ready()
 
         scheduler = SchedulerProcess(
-            bind_address=ZMQConfig.from_string(self.scheduler_address),
+            bind_address=AddressConfig.from_string(self.scheduler_address),
             object_storage_address=self.object_storage_config,
             advertised_object_storage_address=None,
             monitor_address=None,
@@ -117,7 +117,7 @@ class TestScaling(unittest.TestCase):
         object_storage.wait_until_ready()
 
         scheduler = SchedulerProcess(
-            bind_address=ZMQConfig.from_string(self.scheduler_address),
+            bind_address=AddressConfig.from_string(self.scheduler_address),
             object_storage_address=self.object_storage_config,
             advertised_object_storage_address=None,
             monitor_address=None,
@@ -773,7 +773,7 @@ def _run_native_worker_manager(
     manager = NativeWorkerManager(
         NativeWorkerManagerConfig(
             worker_manager_config=WorkerManagerConfig(
-                scheduler_address=ZMQConfig.from_string(scheduler_address),
+                scheduler_address=AddressConfig.from_string(scheduler_address),
                 worker_manager_id=worker_manager_id,
                 object_storage_address=None,
                 max_task_concurrency=max_task_concurrency,

@@ -10,9 +10,9 @@ from typing import Dict, Optional, Tuple
 import zmq.asyncio
 
 from scaler.config.defaults import PROFILING_INTERVAL_SECONDS
-from scaler.config.types.network_backend import NetworkBackend
+from scaler.config.types.network_backend import NetworkBackendType
 from scaler.config.types.object_storage_server import ObjectStorageAddressConfig
-from scaler.config.types.zmq import ZMQConfig, ZMQType
+from scaler.config.types.zmq import AddressConfig, SocketType
 from scaler.io import ymq
 from scaler.io.async_binder import ZMQAsyncBinder
 from scaler.io.mixins import AsyncBinder, AsyncConnector, AsyncObjectStorageConnector
@@ -50,7 +50,7 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
         self,
         event_loop: str,
         name: str,
-        address: ZMQConfig,
+        address: AddressConfig,
         object_storage_address: Optional[ObjectStorageAddressConfig],
         preload: Optional[str],
         capabilities: Dict[str, int],
@@ -84,7 +84,7 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
             self._ident = WorkerID.generate_worker_id(name)
 
         self._address_path_internal = os.path.join(tempfile.gettempdir(), f"scaler_worker_{uuid.uuid4().hex}")
-        self._address_internal = ZMQConfig(ZMQType.ipc, host=self._address_path_internal)
+        self._address_internal = AddressConfig(SocketType.ipc, host=self._address_path_internal)
 
         self._task_queue_size = task_queue_size
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
@@ -276,7 +276,7 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
         except Exception as e:
             logging.exception(f"{self.identity!r}: failed with unhandled exception:\n{e}")
 
-        if get_scaler_network_backend_from_env() == NetworkBackend.tcp_zmq:
+        if get_scaler_network_backend_from_env() == NetworkBackendType.tcp_zmq:
             await self.__graceful_shutdown()
 
         self._connector_external.destroy()
@@ -289,10 +289,10 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
 
     def __register_signal(self):
         backend = get_scaler_network_backend_from_env()
-        if backend == NetworkBackend.tcp_zmq:
+        if backend == NetworkBackendType.tcp_zmq:
             self._loop.add_signal_handler(signal.SIGINT, self.__destroy)
             self._loop.add_signal_handler(signal.SIGTERM, self.__destroy)
-        elif backend == NetworkBackend.ymq:
+        elif backend == NetworkBackendType.ymq:
             self._loop.add_signal_handler(signal.SIGINT, lambda: asyncio.ensure_future(self.__graceful_shutdown()))
             self._loop.add_signal_handler(signal.SIGTERM, lambda: asyncio.ensure_future(self.__graceful_shutdown()))
 
