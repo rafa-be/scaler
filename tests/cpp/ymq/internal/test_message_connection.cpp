@@ -2,8 +2,8 @@
 
 #include <expected>
 #include <memory>
-#include <string>
 #include <span>
+#include <string>
 
 #include "scaler/wrapper/uv/callback.h"
 #include "scaler/wrapper/uv/error.h"
@@ -304,7 +304,7 @@ TEST_F(YMQMessageConnectionTest, InvalidMagicString)
 
     scaler::wrapper::uv::TCPServer server = UV_EXIT_ON_ERROR(scaler::wrapper::uv::TCPServer::init(loop));
 
-    const auto listenAddress              = scaler::ymq::Address::fromString("tcp://127.0.0.1:0").value();
+    const auto listenAddress = scaler::ymq::Address::fromString("tcp://127.0.0.1:0").value();
     UV_EXIT_ON_ERROR(server.bind(listenAddress.asTCP(), uv_tcp_flags(0)));
 
     UV_EXIT_ON_ERROR(server.listen(16, [&](std::expected<void, scaler::wrapper::uv::Error>) {
@@ -313,13 +313,11 @@ TEST_F(YMQMessageConnectionTest, InvalidMagicString)
         UV_EXIT_ON_ERROR(server.accept(*serverSocket));
 
         const std::span<const uint8_t> payload {
-            reinterpret_cast<const uint8_t*>(httpResponse.data()),
-            httpResponse.size()};
+            reinterpret_cast<const uint8_t*>(httpResponse.data()), httpResponse.size()};
 
-        UV_EXIT_ON_ERROR(
-            serverSocket->write(std::span(&payload, 1), [serverSocket = std::move(serverSocket)](auto result) mutable {
-                UV_EXIT_ON_ERROR(result);
-            }));
+        UV_EXIT_ON_ERROR(serverSocket->write(
+            std::span(&payload, 1),
+            [serverSocket = std::move(serverSocket)](auto result) mutable { UV_EXIT_ON_ERROR(result); }));
     }));
 
     // Make the message connection connect to this HTTP server
@@ -337,9 +335,9 @@ TEST_F(YMQMessageConnectionTest, InvalidMagicString)
         },
         [](auto) { FAIL() << "Unexpected message callback"; });
 
-    UV_EXIT_ON_ERROR(clientSocket.connect(UV_EXIT_ON_ERROR(server.getSockName()), [&](std::expected<void, scaler::wrapper::uv::Error>) {
-        clientConnection.connect(std::move(clientSocket));
-    }));
+    UV_EXIT_ON_ERROR(clientSocket.connect(
+        UV_EXIT_ON_ERROR(server.getSockName()),
+        [&](std::expected<void, scaler::wrapper::uv::Error>) { clientConnection.connect(std::move(clientSocket)); }));
 
     // Wait until the abort event is raised
 

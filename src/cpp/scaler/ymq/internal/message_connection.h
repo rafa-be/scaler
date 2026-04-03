@@ -4,8 +4,8 @@
 #include <expected>
 #include <optional>
 #include <queue>
-#include <vector>
 #include <span>
+#include <vector>
 
 #include "scaler/logging/logging.h"
 #include "scaler/utility/move_only_function.h"
@@ -163,8 +163,7 @@ private:
 
     void processSendOperation(SendOperation operation) noexcept;
 
-    void write(
-        std::span<const std::span<const uint8_t>> buffers, scaler::wrapper::uv::WriteCallback callback) noexcept;
+    void write(std::span<const std::span<const uint8_t>> buffers, scaler::wrapper::uv::WriteCallback callback) noexcept;
 
     void setNoDelay() noexcept;
 

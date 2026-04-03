@@ -41,7 +41,7 @@ MessageConnection::~MessageConnection() noexcept
     // Fail all pending send operations
     while (!_sendPending.empty()) {
         auto& callback = _sendPending.front()._onSendDone;
-        callback(std::unexpected(Error { Error::ErrorCode::SocketStopRequested }));
+        callback(std::unexpected(Error {Error::ErrorCode::SocketStopRequested}));
         _sendPending.pop();
     }
 }
@@ -116,9 +116,13 @@ void MessageConnection::sendMessage(Bytes messagePayload, SendMessageCallback on
         std::span<const uint8_t> {messagePayload.data(), messagePayload.size()}                     // payload
     };
 
-    send(std::move(buffers), [header = std::move(header), messagePayload = std::move(messagePayload), onMessageSent = std::move(onMessageSent)](std::expected<void, Error> result) mutable {
-        onMessageSent(std::move(result));
-    });
+    send(
+        std::move(buffers),
+        [header         = std::move(header),
+         messagePayload = std::move(messagePayload),
+         onMessageSent  = std::move(onMessageSent)](std::expected<void, Error> result) mutable {
+            onMessageSent(std::move(result));
+        });
 }
 
 void MessageConnection::shutdownClient() noexcept
@@ -163,7 +167,7 @@ void MessageConnection::initialize() noexcept
 void MessageConnection::send(std::vector<std::span<const uint8_t>> buffers, SendCallback callback) noexcept
 {
     SendOperation operation;
-    operation._buffers = std::move(buffers);
+    operation._buffers    = std::move(buffers);
     operation._onSendDone = std::move(callback);
 
     _sendPending.push(std::move(operation));
@@ -182,13 +186,9 @@ void MessageConnection::recv(size_t size, RecvCallback callback) noexcept
     try {
         _recvCurrent._buffer = Bytes::alloc(size);
     } catch (const std::bad_alloc& e) {
-        _logger.log(
-            Logger::LoggingLevel::error,
-            "Failed to allocate ",
-            size,
-            " bytes.");
-            onRemoteDisconnect(DisconnectReason::Aborted);
-            return;
+        _logger.log(Logger::LoggingLevel::error, "Failed to allocate ", size, " bytes.");
+        onRemoteDisconnect(DisconnectReason::Aborted);
+        return;
     }
 
     if (size == 0) {
@@ -205,13 +205,11 @@ void MessageConnection::sendHandshake() noexcept
     assert(_sendPending.empty() && "handshake should be sent first");
 
     // Magic string
-    const std::vector<std::span<const uint8_t>> magicStringBuffer {
-        std::span<const uint8_t>{magicString}
-    };
+    const std::vector<std::span<const uint8_t>> magicStringBuffer {std::span<const uint8_t> {magicString}};
     send(std::move(magicStringBuffer), []([[maybe_unused]] std::expected<void, Error> result) {});
 
     // Identity
-    const Bytes identityBytes { _localIdentity.data(), _localIdentity.size() };
+    const Bytes identityBytes {_localIdentity.data(), _localIdentity.size()};
     sendMessage(std::move(identityBytes), []([[maybe_unused]] std::expected<void, Error> result) {});
 }
 
@@ -382,12 +380,13 @@ void MessageConnection::processSendOperation(SendOperation operation) noexcept
 {
     // Calculate total size of all buffers
     size_t totalSize = 0;
-    for (const auto& buffer : operation._buffers) {
+    for (const auto& buffer: operation._buffers) {
         totalSize += buffer.size();
     }
 
     // Make the callback own the operation's callback
-    auto callback = [onSendDone = std::move(operation._onSendDone)](std::expected<void, scaler::wrapper::uv::Error> result) mutable {
+    auto callback = [onSendDone = std::move(operation._onSendDone)](
+                        std::expected<void, scaler::wrapper::uv::Error> result) mutable {
         onWriteDone(std::move(onSendDone), std::move(result));
     };
 
@@ -401,7 +400,7 @@ void MessageConnection::processSendOperation(SendOperation operation) noexcept
         //
         // Not doing this makes some OSes fail (macOS, Windows) with EINVAL as these don't support large writes.
         size_t offset = 0;
-        for (const auto& buffer : operation._buffers) {
+        for (const auto& buffer: operation._buffers) {
             for (size_t bufferOffset = 0; bufferOffset < buffer.size(); bufferOffset += maxWriteBufferSize) {
                 const size_t chunkSize = std::min(buffer.size() - bufferOffset, maxWriteBufferSize);
                 const std::span<const uint8_t> chunk {buffer.data() + bufferOffset, chunkSize};
