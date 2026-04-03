@@ -109,7 +109,7 @@ const std::optional<Identity>& MessageConnection::remoteIdentity() const noexcep
 void MessageConnection::sendMessage(Bytes messagePayload, SendMessageCallback onMessageSent) noexcept
 {
     // Heap allocate the header buffer until the send completes.
-    const std::unique_ptr<Header> header = std::make_unique<Header>(messagePayload.size());
+    std::unique_ptr<Header> header = std::make_unique<Header>(messagePayload.size());
 
     const std::vector<std::span<const uint8_t>> buffers {
         std::span<const uint8_t> {reinterpret_cast<const uint8_t*>(header.get()), sizeof(Header)},  // header
@@ -177,6 +177,8 @@ void MessageConnection::recv(size_t size, RecvCallback callback) noexcept
 {
     assert(_recvCurrent._cursor == _recvCurrent._buffer.size() && "previous recv() call not yet completed");
 
+    _recvCurrent._cursor = 0;
+
     try {
         _recvCurrent._buffer = Bytes::alloc(size);
     } catch (const std::bad_alloc& e) {
@@ -195,7 +197,6 @@ void MessageConnection::recv(size_t size, RecvCallback callback) noexcept
         return;
     }
 
-    _recvCurrent._cursor = 0;
     _recvCurrent._onRecvDone = std::move(callback);
 }
 
