@@ -300,7 +300,7 @@ TEST_F(YMQMessageConnectionTest, InvalidMagicString)
 
     // Create a TCP server that always answer with a HTTP response
 
-    constexpr std::string_view httpResponse = "HTTP/1.1 200 OK\n";
+    const std::string_view httpResponse = "HTTP/1.1 200 OK\n";
 
     scaler::wrapper::uv::TCPServer server = UV_EXIT_ON_ERROR(scaler::wrapper::uv::TCPServer::init(loop));
 
@@ -339,7 +339,7 @@ TEST_F(YMQMessageConnectionTest, InvalidMagicString)
         UV_EXIT_ON_ERROR(server.getSockName()),
         [&](std::expected<void, scaler::wrapper::uv::Error>) { clientConnection.connect(std::move(clientSocket)); }));
 
-    // Wait until the abort event is raised
+    // Wait until the message connection raise an abort event
 
     while (!aborted) {
         loop.run(UV_RUN_ONCE);

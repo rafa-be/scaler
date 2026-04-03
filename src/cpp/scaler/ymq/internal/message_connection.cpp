@@ -158,7 +158,7 @@ void MessageConnection::initialize() noexcept
 {
     _client      = std::nullopt;
     _state       = State::Disconnected;
-    _recvCurrent = {};
+    _recvCurrent = RecvOperation {};
 
     sendHandshake();
     recvMagicNumber();

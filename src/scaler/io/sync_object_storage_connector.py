@@ -13,6 +13,7 @@ from scaler.utility.identifiers import ObjectID
 
 # Some OSes raise an OSError when sending buffers too large with send() or sendmsg().
 MAX_CHUNK_SIZE = 128 * 1024 * 1024
+
 YMQ_MAGIC_STRING = b"YMQ\x01"
 
 
