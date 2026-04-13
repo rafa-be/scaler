@@ -1,7 +1,7 @@
 import dataclasses
 
 from scaler.config.config_class import ConfigClass
-from scaler.config.types.zmq import AddressConfig
+from scaler.config.types.address import AddressConfig
 
 
 @dataclasses.dataclass

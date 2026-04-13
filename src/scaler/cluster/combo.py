@@ -27,7 +27,6 @@ from scaler.config.defaults import (
 )
 from scaler.config.section.native_worker_manager import NativeWorkerManagerConfig, NativeWorkerManagerMode
 from scaler.config.section.scheduler import PolicyConfig
-from scaler.config.types.object_storage_server import ObjectStorageAddressConfig
 from scaler.config.types.worker import WorkerCapabilities
 from scaler.config.types.address import AddressConfig
 from scaler.utility.network_util import get_available_tcp_port
@@ -73,9 +72,11 @@ class SchedulerClusterCombo:
             self._address = AddressConfig.from_string(address)
 
         if object_storage_address is None:
-            self._object_storage_address = ObjectStorageAddressConfig(self._address.host, get_available_tcp_port())
+            self._object_storage_address = AddressConfig(
+                self._address.type, self._address.host, get_available_tcp_port()
+            )
         else:
-            self._object_storage_address = ObjectStorageAddressConfig.from_string(object_storage_address)
+            self._object_storage_address = AddressConfig.from_string(object_storage_address)
 
         if monitor_address is None:
             self._monitor_address = None
@@ -84,6 +85,7 @@ class SchedulerClusterCombo:
 
         self._object_storage = ObjectStorageServerProcess(
             bind_address=self._object_storage_address,
+            identity="ObjectStorageServer",
             logging_paths=logging_paths,
             logging_level=logging_level,
             logging_config_file=logging_config_file,

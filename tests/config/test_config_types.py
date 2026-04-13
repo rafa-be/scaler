@@ -2,7 +2,7 @@ import unittest
 
 from scaler.config.types.http import HTTPConfig
 from scaler.config.types.worker import WorkerCapabilities, WorkerNames
-from scaler.config.types.zmq import AddressConfig
+from scaler.config.types.address import AddressConfig
 
 
 class TestConfigTypes(unittest.TestCase):
@@ -27,8 +27,8 @@ class TestConfigTypes(unittest.TestCase):
         with self.assertRaises(ValueError):
             HTTPConfig.from_string("0.0.0.0:notanumber")
 
-    def test_zmq_config_validation(self):
-        """Test ZMQConfig.from_string raises ValueError for malformed strings."""
+    def test_address_config_validation(self):
+        """Test AddressConfig.from_string raises ValueError for malformed strings."""
         with self.assertRaises(ValueError):
             AddressConfig.from_string("this-is-not-a-valid-address")
         with self.assertRaises(ValueError):

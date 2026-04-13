@@ -24,6 +24,18 @@ class ZMQAsyncConnector(AsyncConnector):
 
         self._callback: Callable[[Message], Awaitable[None]] = callback
 
+    def __del__(self):
+        self.destroy()
+
+    def destroy(self):
+        if self._socket is None:
+            return
+
+        if self._socket.closed:
+            return
+
+        self._socket.close(linger=1)
+
     async def connect(self, address: AddressConfig, remote_type: ConnectorRemoteType) -> None:
 
         self._address = address
@@ -41,18 +53,6 @@ class ZMQAsyncConnector(AsyncConnector):
         endpoint = self._socket.getsockopt(zmq.LAST_ENDPOINT)
         assert isinstance(endpoint, bytes)
         self._address = AddressConfig.from_string(endpoint.decode())
-
-    def __del__(self):
-        self.destroy()
-
-    def destroy(self):
-        if self._socket is None:
-            return
-
-        if self._socket.closed:
-            return
-
-        self._socket.close(linger=1)
 
     @property
     def identity(self) -> str:

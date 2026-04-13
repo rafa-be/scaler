@@ -7,7 +7,6 @@ from typing import Optional, Tuple
 import psutil
 
 from scaler.config.defaults import DEFAULT_PROCESSOR_KILL_DELAY_SECONDS
-from scaler.config.types.object_storage_server import ObjectStorageAddressConfig
 from scaler.config.types.address import AddressConfig
 from scaler.protocol.capnp import Task
 from scaler.utility.identifiers import ProcessorID
@@ -20,7 +19,7 @@ class ProcessorHolder:
         event_loop: str,
         agent_address: AddressConfig,
         scheduler_address: AddressConfig,
-        object_storage_address: ObjectStorageAddressConfig,
+        object_storage_address: AddressConfig,
         preload: Optional[str],
         garbage_collect_interval_seconds: int,
         trim_memory_threshold_bytes: int,

@@ -4,9 +4,8 @@ from typing import Dict, List, Optional, Tuple
 
 import tblib.pickling_support
 
-from scaler.config.types.zmq import AddressConfig
-
 # from scaler.utility.logging.utility import setup_logger
+from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncBinder, AsyncConnector, AsyncObjectStorageConnector
 from scaler.protocol.capnp import (
     ObjectInstruction,

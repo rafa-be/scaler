@@ -291,7 +291,7 @@ class TestRunWorkerManager(unittest.TestCase):
         from scaler.config.common.worker import WorkerConfig
         from scaler.config.common.worker_manager import WorkerManagerConfig
         from scaler.config.section.native_worker_manager import NativeWorkerManagerConfig
-        from scaler.config.types.zmq import AddressConfig
+        from scaler.config.types.address import AddressConfig
 
         wmc = WorkerManagerConfig(
             scheduler_address=AddressConfig.from_string("tcp://localhost:6378"), worker_manager_id="wm-test"

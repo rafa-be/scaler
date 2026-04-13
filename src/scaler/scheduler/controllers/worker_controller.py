@@ -7,6 +7,7 @@ from scaler.protocol.capnp import (
     ClientDisconnect,
     DisconnectRequest,
     DisconnectResponse,
+    ObjectStorageAddress,
     ProcessorStatus,
     Resource,
     StateWorker,
@@ -76,10 +77,14 @@ class VanillaWorkerController(WorkerController, Looper, Reporter):
             self._manager_to_workers.setdefault(info.workerManagerID, set()).add(worker_id)
 
         self._worker_alive_since[worker_id] = (time.time(), info)
+
+        object_storage_address = self._config_controller.get_config("advertised_object_storage_address")
         await self._binder.send(
             worker_id,
             WorkerHeartbeatEcho(
-                objectStorageAddress=self._config_controller.get_config("advertised_object_storage_address")
+                object_storage_address=ObjectStorageAddress(
+                    host=object_storage_address.host, port=object_storage_address.port
+                )
             ),
         )
 

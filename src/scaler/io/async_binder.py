@@ -30,6 +30,15 @@ class ZMQAsyncBinder(AsyncBinder):
         self._received: Dict[str, int] = defaultdict(lambda: 0)
         self._sent: Dict[str, int] = defaultdict(lambda: 0)
 
+    def __del__(self):
+        self.destroy()
+
+    def destroy(self):
+        if self._socket.closed:
+            return
+
+        self._socket.close(linger=0)
+
     async def bind(self, address: AddressConfig) -> None:
         self.__set_socket_options()
         self._socket.bind(repr(address))
@@ -46,9 +55,6 @@ class ZMQAsyncBinder(AsyncBinder):
     @property
     def address(self) -> Optional[AddressConfig]:
         return self._address
-
-    def destroy(self):
-        self._context.destroy(linger=0)
 
     async def routine(self):
         frames: List[Frame] = await self._socket.recv_multipart(copy=False)

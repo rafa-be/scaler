@@ -9,6 +9,7 @@ from scaler.protocol.capnp import (
     ClientHeartbeatEcho,
     ClientManagerStatus,
     ClientShutdownResponse,
+    ObjectStorageAddress,
     TaskCancel,
 )
 from scaler.scheduler.controllers.config_controller import VanillaConfigController
@@ -63,10 +64,14 @@ class VanillaClientController(ClientController, Looper, Reporter):
         return self._client_to_task_ids.remove_value(task_id)
 
     async def on_heartbeat(self, client_id: ClientID, info: ClientHeartbeat):
+        object_storage_address = self._config_controller.get_config("advertised_object_storage_address")
+
         await self._binder.send(
             client_id,
             ClientHeartbeatEcho(
-                objectStorageAddress=self._config_controller.get_config("advertised_object_storage_address")
+                object_storage_address=ObjectStorageAddress(
+                    host=object_storage_address.host, port=object_storage_address.port
+                )
             ),
         )
         if client_id not in self._client_last_seen:

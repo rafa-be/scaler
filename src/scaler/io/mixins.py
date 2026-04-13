@@ -18,6 +18,10 @@ class ConnectorRemoteType(Enum):
 
 class NetworkBackend(metaclass=abc.ABCMeta):
     @abc.abstractmethod
+    def destroy(self):
+        raise NotImplementedError()
+
+    @abc.abstractmethod
     def create_async_binder(
         self,
         identity: str,
@@ -31,6 +35,10 @@ class NetworkBackend(metaclass=abc.ABCMeta):
         identity: str,
         callback: Callable[["Message"], Awaitable[None]],
     ) -> "AsyncConnector":
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def create_async_publisher(self, identity: str) -> "AsyncPublisher":
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -108,6 +116,30 @@ class AsyncConnector(Looper, metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     async def receive(self) -> Optional[BaseMessage]:
+        raise NotImplementedError()
+
+
+class AsyncPublisher(metaclass=abc.ABCMeta):
+    @abc.abstractmethod
+    async def bind(self, address: AddressConfig) -> None:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    def destroy(self):
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def identity(self) -> str:
+        raise NotImplementedError()
+
+    @property
+    @abc.abstractmethod
+    def address(self) -> Optional[AddressConfig]:
+        raise NotImplementedError()
+
+    @abc.abstractmethod
+    async def send(self, message: Message):
         raise NotImplementedError()
 
 

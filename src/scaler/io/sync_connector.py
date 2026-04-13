@@ -33,8 +33,14 @@ class ZMQSyncConnector(SyncConnector):
 
         self._lock = threading.Lock()
 
+    def __del__(self):
+        self.destroy()
+
     def destroy(self):
-        self._socket.close()
+        if self._socket.closed:
+            return
+
+        self._socket.close(linger=1)
 
     @property
     def address(self) -> AddressConfig:

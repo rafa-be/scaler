@@ -3,8 +3,7 @@ from typing import Optional
 
 from scaler.config import defaults
 from scaler.config.config_class import ConfigClass
-from scaler.config.types.object_storage_server import ObjectStorageAddressConfig
-from scaler.config.types.zmq import AddressConfig
+from scaler.config.types.address import AddressConfig
 
 
 @dataclasses.dataclass
@@ -29,7 +28,7 @@ class WorkerManagerConfig(ConfigClass):
         ),
     )
 
-    object_storage_address: Optional[ObjectStorageAddressConfig] = dataclasses.field(
+    object_storage_address: Optional[AddressConfig] = dataclasses.field(
         default=None,
         metadata=dict(short="-osa", help="specify the object storage server address, e.g.: tcp://localhost:2346"),
     )
@@ -46,7 +45,7 @@ class WorkerManagerConfig(ConfigClass):
     )
 
     @property
-    def effective_worker_scheduler_address(self) -> ZMQConfig:
+    def effective_worker_scheduler_address(self) -> AddressConfig:
         return self.worker_scheduler_address if self.worker_scheduler_address is not None else self.scheduler_address
 
     def __post_init__(self) -> None:

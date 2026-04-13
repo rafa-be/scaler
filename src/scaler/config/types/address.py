@@ -75,3 +75,6 @@ class AddressConfig(ConfigType):
             return f"{self.type.value}://{self.host}"
 
         raise TypeError(f"Unsupported socket type: {self.type}")
+
+    def __str__(self) -> str:
+        return repr(self)
