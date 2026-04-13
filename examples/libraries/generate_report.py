@@ -62,10 +62,7 @@ def run_graph(filename: str):
     graph_engine = pg.GraphEngine()
 
     # Generate the graph computation
-    graph, keys = generate_and_send_report.to_graph().to_dict(
-        filename=filename,
-        user_table="users"
-    )
+    graph, keys = generate_and_send_report.to_graph().to_dict(filename=filename, user_table="users")
 
     # Runs the graph computation in parallel, computing all nodes
     return graph_engine.get(graph, keys)[0]

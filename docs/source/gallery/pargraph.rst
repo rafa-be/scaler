@@ -23,7 +23,7 @@ These branches join in ``send_report`` as both branch results are required to se
    :alt: Pargraph reporting flowchart
    :width: 600px
 
-.. literalinclude:: ../../../examples/pargraph/generate_report.py
+.. literalinclude:: ../../../examples/libraries/generate_report.py
    :language: python
 
 
@@ -32,4 +32,4 @@ To run the example with a remote scheduler, connecting to a
 
 .. code-block:: bash
 
-    python examples/pargraph/generate_report.py --scaler-address tcp://127.0.0.1:8516
+    python examples/libraries/generate_report.py --scaler-address tcp://127.0.0.1:8516

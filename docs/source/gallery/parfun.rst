@@ -20,7 +20,7 @@ The ``@pf.parallel`` decorator is used to specify how input data should be split
    :alt: Parfun count words flowchart
    :width: 600px
 
-.. literalinclude:: ../../../examples/parfun/count_words.py
+.. literalinclude:: ../../../examples/libraries/count_words.py
    :language: python
 
 
@@ -29,4 +29,4 @@ To count the words in a file, you can run the following command, connecting to a
 
 .. code-block:: bash
 
-    python examples/parfun/count_words.py README.md --scaler-address tcp://127.0.0.1:8516
+    python examples/libraries/count_words.py README.md --scaler-address tcp://127.0.0.1:8516

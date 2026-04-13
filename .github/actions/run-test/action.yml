@@ -90,14 +90,12 @@ runs:
           python $example
         done
 
-        uv pip install --system -r examples/parfun/requirements.txt
-        for example in "./examples/parfun"/*.py; do
-          echo "Running $example"
-          python $example
-        done
-
-        uv pip install --system -r examples/pargraph/requirements.txt
-        for example in "./examples/pargraph"/*.py; do
-          echo "Running $example"
-          python $example
-        done
+        if python -c 'import sys; sys.exit(not sys.version_info >= (3, 10))'; then
+          uv pip install --system -r examples/libraries/requirements.txt
+          for example in "./examples/libraries"/*.py; do
+            echo "Running $example"
+            python $example
+          done
+        else
+          echo "Skipping examples/libraries on Python < 3.10"
+        fi

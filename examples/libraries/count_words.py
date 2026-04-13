@@ -6,11 +6,11 @@ import parfun as pf
 
 
 @pf.parallel(
-    split=pf.per_argument(lines=pf.py_list.by_chunk),            # Parallelize by splitting the file content
+    split=pf.per_argument(lines=pf.py_list.by_chunk),  # Parallelize by splitting the file content
     combine_with=lambda results: sum(results, start=Counter()),  # Sum the result counters
 )
 def count_words(lines: List[str]) -> Counter:
-    counter = Counter()
+    counter: Counter = Counter()
     for line in lines:
         for word in line.split():
             counter[word] += 1
