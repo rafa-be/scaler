@@ -49,8 +49,8 @@ runs:
       run: |
         python -m unittest discover -v tests -t .
 
-    - name: Run Examples (Linux)
-      if: inputs.os == 'Linux'
+    - name: Run Examples
+      if: inputs.os != 'Windows'
       shell: bash
       run: |
         readarray -t skip_examples < examples/skip_examples.txt
