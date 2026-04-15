@@ -1,9 +1,8 @@
 import asyncio
 import logging
 import multiprocessing
-import os
+import pathlib
 import signal
-import tempfile
 import uuid
 from typing import Dict, Optional, Tuple
 
@@ -80,8 +79,7 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
         else:
             self._ident = WorkerID.generate_worker_id(name)
 
-        self._address_path_internal = os.path.join(tempfile.gettempdir(), f"scaler_worker_{uuid.uuid4().hex}")
-        self._address_internal = AddressConfig(SocketType.ipc, host=self._address_path_internal)
+        self._address_internal: Optional[AddressConfig] = None
 
         self._task_queue_size = task_queue_size
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
@@ -132,6 +130,8 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
         self._backend = get_network_backend_from_env(io_threads=self._io_threads)
 
         socket_identity = self._ident.decode()
+
+        self._address_internal = self._backend.create_internal_address(f"scaler_worker_{uuid.uuid4().hex}", same_process=False)
 
         self._connector_external = self._backend.create_async_connector(
             identity=socket_identity,
@@ -280,7 +280,9 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
         self._processor_manager.destroy("quit")
         self._binder_internal.destroy()
         self._connector_storage.destroy()
-        os.remove(self._address_path_internal)
+
+        if self._address_internal.type == SocketType.ipc:
+            pathlib.Path(self._address_internal.host).unlink(missing_ok=True)
 
         logging.info(f"{self.identity!r}: quit")
 

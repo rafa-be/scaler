@@ -37,7 +37,6 @@ class ZMQAsyncConnector(AsyncConnector):
         self._socket.close(linger=1)
 
     async def connect(self, address: AddressConfig, remote_type: ConnectorRemoteType) -> None:
-
         self._address = address
         self.__create_socket(remote_type)
         assert self._socket is not None

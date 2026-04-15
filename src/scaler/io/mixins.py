@@ -21,6 +21,14 @@ class NetworkBackend(metaclass=abc.ABCMeta):
     def destroy(self):
         raise NotImplementedError()
 
+    @staticmethod
+    @abc.abstractmethod
+    def create_internal_address(
+        name: str,
+        same_process: bool,
+    ) -> AddressConfig:
+        raise NotImplementedError()
+
     @abc.abstractmethod
     def create_async_binder(
         self,

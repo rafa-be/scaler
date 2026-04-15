@@ -76,7 +76,7 @@ class Client:
                                        If None, will use address received from scheduler.
         :type object_storage_address: Optional[str]
         """
-        address = self._resolve_scheduler_address(address)
+        address = self.__resolve_scheduler_address(address)
         self.__initialize__(
             address,
             profiling,
@@ -103,18 +103,17 @@ class Client:
         self._stream_output = stream_output
         self._identity = ClientID.generate_client_id()
 
-        self._client_agent_address = AddressConfig(SocketType.inproc, host=f"scaler_client_{uuid.uuid4().hex}")
+        self._backend: NetworkBackend = get_network_backend_from_env()
+
+        self._client_agent_address = self._backend.create_internal_address(
+            f"scaler_client_{uuid.uuid4().hex}", same_process=True
+        )
+
         self._scheduler_address = AddressConfig.from_string(address)
         self._timeout_seconds = timeout_seconds
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
 
         self._stop_event = threading.Event()
-        self._backend: NetworkBackend = get_network_backend_from_env()
-        self._connector_agent: SyncConnector = self._backend.create_sync_connector(
-            identity=self._identity.decode(),
-            connector_remote_type=ConnectorRemoteType.Connector,
-            address=self._client_agent_address,
-        )
 
         self._future_manager = ClientFutureManager(self._serializer)
         self._agent = ClientAgent(
@@ -135,6 +134,12 @@ class Client:
 
         # Blocks until the agent receives the object storage address
         self._object_storage_address = self._agent.get_object_storage_address()
+
+        self._connector_agent: SyncConnector = self._backend.create_sync_connector(
+            identity=self._identity.decode(),
+            connector_remote_type=ConnectorRemoteType.Connector,
+            address=self._client_agent_address,
+        )
 
         logging.info(f"ScalerClient: connect to object storage at {self._object_storage_address}")
         self._connector_storage: SyncObjectStorageConnector = self._backend.create_sync_object_storage_connector(
@@ -722,7 +727,7 @@ class Client:
 
         return retrieve_task_flags_from_task(current_task).priority
 
-    def _resolve_scheduler_address(self, address: Optional[str]) -> str:
+    def __resolve_scheduler_address(self, address: Optional[str]) -> str:
         """Resolve the scheduler address based on the provided address and worker context."""
         # Provided address always takes precedence
         if address is not None:
