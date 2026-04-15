@@ -22,7 +22,7 @@ class ZMQAsyncConnector(AsyncConnector):
         self._address: Optional[AddressConfig] = None
         self._socket: Optional[zmq.asyncio.Socket] = None
 
-        self._callback: Callable[[Message], Awaitable[None]] = callback
+        self._callback: Callable[[BaseMessage], Awaitable[None]] = callback
 
     def __del__(self):
         self.destroy()

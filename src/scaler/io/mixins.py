@@ -25,7 +25,7 @@ class NetworkBackend(metaclass=abc.ABCMeta):
     def create_async_binder(
         self,
         identity: str,
-        callback: Callable[[bytes, "Message"], Awaitable[None]],
+        callback: Callable[[bytes, BaseMessage], Awaitable[None]],
     ) -> "AsyncBinder":
         raise NotImplementedError()
 
@@ -33,7 +33,7 @@ class NetworkBackend(metaclass=abc.ABCMeta):
     def create_async_connector(
         self,
         identity: str,
-        callback: Callable[["Message"], Awaitable[None]],
+        callback: Callable[[BaseMessage], Awaitable[None]],
     ) -> "AsyncConnector":
         raise NotImplementedError()
 
@@ -139,7 +139,7 @@ class AsyncPublisher(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def send(self, message: Message):
+    async def send(self, message: BaseMessage):
         raise NotImplementedError()
 
 

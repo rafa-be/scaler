@@ -6,7 +6,7 @@ import zmq.asyncio
 from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncPublisher
 from scaler.io.utility import serialize
-from scaler.protocol.python.mixins import Message
+from scaler.protocol.capnp import BaseMessage
 
 
 class ZMQAsyncPublisher(AsyncPublisher):
@@ -49,7 +49,7 @@ class ZMQAsyncPublisher(AsyncPublisher):
     def address(self) -> Optional[AddressConfig]:
         return self._address
 
-    async def send(self, message: Message):
+    async def send(self, message: BaseMessage):
         if self._socket is None:
             return
 

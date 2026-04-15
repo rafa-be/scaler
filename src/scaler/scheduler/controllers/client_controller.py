@@ -69,7 +69,7 @@ class VanillaClientController(ClientController, Looper, Reporter):
         await self._binder.send(
             client_id,
             ClientHeartbeatEcho(
-                object_storage_address=ObjectStorageAddress(
+                objectStorageAddress=ObjectStorageAddress(
                     host=object_storage_address.host, port=object_storage_address.port
                 )
             ),

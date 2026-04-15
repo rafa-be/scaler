@@ -82,7 +82,7 @@ class VanillaWorkerController(WorkerController, Looper, Reporter):
         await self._binder.send(
             worker_id,
             WorkerHeartbeatEcho(
-                object_storage_address=ObjectStorageAddress(
+                objectStorageAddress=ObjectStorageAddress(
                     host=object_storage_address.host, port=object_storage_address.port
                 )
             ),

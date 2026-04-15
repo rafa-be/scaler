@@ -9,7 +9,6 @@ from scaler.config.defaults import SCALER_NETWORK_BACKEND
 from scaler.config.types.address import AddressConfig
 from scaler.config.types.network_backend import NetworkBackendType
 from scaler.io import ymq
-from scaler.io.async_object_storage_connector import PyAsyncObjectStorageConnector
 from scaler.io.async_binder import ZMQAsyncBinder
 from scaler.io.async_connector import ZMQAsyncConnector
 from scaler.io.async_publisher import ZMQAsyncPublisher
@@ -24,18 +23,20 @@ from scaler.io.mixins import (
     SyncObjectStorageConnector,
 )
 from scaler.io.sync_connector import ZMQSyncConnector
-from scaler.io.sync_object_storage_connector import PySyncObjectStorageConnector
 from scaler.io.ymq_async_binder import YMQAsyncBinder
 from scaler.io.ymq_async_connector import YMQAsyncConnector
 from scaler.io.ymq_async_object_storage_connector import YMQAsyncObjectStorageConnector
 from scaler.io.ymq_sync_object_storage_connector import YMQSyncObjectStorageConnector
-from scaler.protocol.python.mixins import Message
+from scaler.protocol.capnp import BaseMessage
 
 
 class ZMQNetworkBackend(NetworkBackend):
     def __init__(self, io_threads: int):
         self._context = zmq.Context(io_threads=io_threads)
         self._async_context = zmq.asyncio.Context.shadow(self._context)
+
+        self._object_storage_backend: Optional[None] = YMQNetworkBackend(io_threads)
+
         self._destroyed = False
 
     def __del__(self):
@@ -49,17 +50,19 @@ class ZMQNetworkBackend(NetworkBackend):
 
         self._context.destroy(linger=0)
 
+        self._object_storage_backend = None
+
     def create_async_binder(
         self,
         identity: str,
-        callback: Callable[[bytes, Message], Awaitable[None]],
+        callback: Callable[[bytes, BaseMessage], Awaitable[None]],
     ) -> AsyncBinder:
         return ZMQAsyncBinder(context=self._async_context, identity=identity, callback=callback)
 
     def create_async_connector(
         self,
         identity: str,
-        callback: Callable[[Message], Awaitable[None]],
+        callback: Callable[[BaseMessage], Awaitable[None]],
     ) -> AsyncConnector:
         return ZMQAsyncConnector(
             context=self._async_context,
@@ -83,11 +86,13 @@ class ZMQNetworkBackend(NetworkBackend):
             address=address,
         )
 
-    def create_async_object_storage_connector(self, identity: str) -> AsyncObjectStorageConnector:
-        return PyAsyncObjectStorageConnector(identity=identity)
+    def create_async_object_storage_connector(self, *args, **kwargs) -> AsyncObjectStorageConnector:
+        assert self._object_storage_backend is not None
+        return self._object_storage_backend.create_async_object_storage_connector(*args, **kwargs)
 
-    def create_sync_object_storage_connector(self, identity: str, address: AddressConfig) -> SyncObjectStorageConnector:
-        return PySyncObjectStorageConnector(identity=identity, address=address)
+    def create_sync_object_storage_connector(self, *args, **kwargs) -> SyncObjectStorageConnector:
+        assert self._object_storage_backend is not None
+        return self._object_storage_backend.create_sync_object_storage_connector(*args, **kwargs)
 
 
 class YMQNetworkBackend(NetworkBackend):
@@ -100,7 +105,7 @@ class YMQNetworkBackend(NetworkBackend):
     def create_async_binder(
         self,
         identity: str,
-        callback: Callable[[bytes, Message], Awaitable[None]],
+        callback: Callable[[bytes, BaseMessage], Awaitable[None]],
     ) -> AsyncBinder:
         assert self._context is not None
         return YMQAsyncBinder(context=self._context, identity=identity, callback=callback)
@@ -108,7 +113,7 @@ class YMQNetworkBackend(NetworkBackend):
     def create_async_connector(
         self,
         identity: str,
-        callback: Callable[[Message], Awaitable[None]],
+        callback: Callable[[BaseMessage], Awaitable[None]],
     ) -> AsyncConnector:
         assert self._context is not None
         return YMQAsyncConnector(
