@@ -63,7 +63,7 @@ class NativeWorkerManager:
         # This keeps the object picklable so callers can do Process(target=adapter.run).start().
         self._backend: Optional[NetworkBackend] = None
         self._connector_external: Optional[AsyncConnector] = None
-        self._ident: Optional[str] = None
+        self._ident: Optional[bytes] = None
 
     async def __initialize_network(self) -> None:
         self._name = "worker_manager_native"

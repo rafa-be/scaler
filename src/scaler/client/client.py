@@ -135,14 +135,14 @@ class Client:
         self._object_storage_address = self._agent.get_object_storage_address()
 
         self._connector_agent: SyncConnector = self._backend.create_sync_connector(
-            identity=self._identity.decode(),
+            identity=self._identity,
             connector_remote_type=ConnectorRemoteType.Connector,
             address=self._client_agent_address,
         )
 
         logging.info(f"ScalerClient: connect to object storage at {self._object_storage_address}")
         self._connector_storage: SyncObjectStorageConnector = self._backend.create_sync_object_storage_connector(
-            identity=self._identity.decode(), address=self._object_storage_address
+            identity=self._identity, address=self._object_storage_address
         )
 
         self._object_buffer = ObjectBuffer(

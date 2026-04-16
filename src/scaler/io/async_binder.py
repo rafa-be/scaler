@@ -14,10 +14,10 @@ from scaler.protocol.capnp import BaseMessage, BinderStatus
 
 class ZMQAsyncBinder(AsyncBinder):
     def __init__(
-        self, context: zmq.asyncio.Context, identity: str, callback: Callable[[bytes, BaseMessage], Awaitable[None]]
+        self, context: zmq.asyncio.Context, identity: bytes, callback: Callable[[bytes, BaseMessage], Awaitable[None]]
     ):
         self._context = context
-        self._identity: str = identity
+        self._identity = identity
         self._address: Optional[AddressConfig] = None
 
         self._socket = self._context.socket(zmq.ROUTER)
@@ -46,7 +46,7 @@ class ZMQAsyncBinder(AsyncBinder):
         self._address = AddressConfig.from_string(endpoint.decode())
 
     @property
-    def identity(self) -> str:
+    def identity(self) -> bytes:
         return self._identity
 
     @property
@@ -79,7 +79,7 @@ class ZMQAsyncBinder(AsyncBinder):
         return BinderStatus(received=self._received, sent=self._sent)
 
     def __set_socket_options(self):
-        self._socket.setsockopt(zmq.IDENTITY, self._identity.encode())
+        self._socket.setsockopt(zmq.IDENTITY, self._identity)
         self._socket.setsockopt(zmq.SNDHWM, 0)
         self._socket.setsockopt(zmq.RCVHWM, 0)
 
@@ -97,4 +97,4 @@ class ZMQAsyncBinder(AsyncBinder):
         self._sent[message_type] += 1
 
     def __get_prefix(self):
-        return f"{self.__class__.__name__}[{self._identity}]:"
+        return f"{self.__class__.__name__}[{self._identity!r}]:"

@@ -16,7 +16,7 @@ class YMQAsyncObjectStorageConnector(AsyncObjectStorageConnector):
 
     RESPONSE_HEADER_LENGTH = 80
 
-    def __init__(self, context: IOContext, identity: str):
+    def __init__(self, context: IOContext, identity: bytes):
         self._context = context
         self._identity = identity
         self._address: Optional[AddressConfig] = None
@@ -39,7 +39,7 @@ class YMQAsyncObjectStorageConnector(AsyncObjectStorageConnector):
             raise ObjectStorageException("connector is already connected.")
 
         assert self._context is not None
-        self._socket = ConnectorSocket.connect(self._context, self._identity, repr(address))
+        self._socket = ConnectorSocket.connect(self._context, self._identity.decode(), repr(address))
         self._connected_event.set()
 
     async def wait_until_connected(self):

@@ -28,33 +28,33 @@ class NetworkBackend(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def create_async_binder(
-        self, identity: str, callback: Callable[[bytes, BaseMessage], Awaitable[None]]
+        self, identity: bytes, callback: Callable[[bytes, BaseMessage], Awaitable[None]]
     ) -> "AsyncBinder":
         raise NotImplementedError()
 
     @abc.abstractmethod
     def create_async_connector(
-        self, identity: str, callback: Callable[[BaseMessage], Awaitable[None]]
+        self, identity: bytes, callback: Callable[[BaseMessage], Awaitable[None]]
     ) -> "AsyncConnector":
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def create_async_publisher(self, identity: str) -> "AsyncPublisher":
+    def create_async_publisher(self, identity: bytes) -> "AsyncPublisher":
         raise NotImplementedError()
 
     @abc.abstractmethod
     def create_sync_connector(
-        self, identity: str, connector_remote_type: ConnectorRemoteType, address: AddressConfig
+        self, identity: bytes, connector_remote_type: ConnectorRemoteType, address: AddressConfig
     ) -> "SyncConnector":
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def create_async_object_storage_connector(self, identity: str) -> "AsyncObjectStorageConnector":
+    def create_async_object_storage_connector(self, identity: bytes) -> "AsyncObjectStorageConnector":
         raise NotImplementedError()
 
     @abc.abstractmethod
     def create_sync_object_storage_connector(
-        self, identity: str, address: AddressConfig
+        self, identity: bytes, address: AddressConfig
     ) -> "SyncObjectStorageConnector":
         raise NotImplementedError()
 
@@ -66,7 +66,7 @@ class AsyncBinder(Looper, Reporter, metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def identity(self) -> str:
+    def identity(self) -> bytes:
         raise NotImplementedError()
 
     @property
@@ -102,7 +102,7 @@ class AsyncConnector(Looper, metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def identity(self) -> str:
+    def identity(self) -> bytes:
         raise NotImplementedError()
 
     @property
@@ -130,7 +130,7 @@ class AsyncPublisher(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def identity(self) -> str:
+    def identity(self) -> bytes:
         raise NotImplementedError()
 
     @property
@@ -150,7 +150,7 @@ class SyncConnector(metaclass=abc.ABCMeta):
 
     @property
     @abc.abstractmethod
-    def identity(self) -> str:
+    def identity(self) -> bytes:
         raise NotImplementedError()
 
     @property

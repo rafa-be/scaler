@@ -9,7 +9,7 @@ from scaler.protocol.capnp import BaseMessage
 
 
 class YMQAsyncConnector(AsyncConnector):
-    def __init__(self, context: IOContext, identity: str, callback: Callable[[BaseMessage], Awaitable[None]]):
+    def __init__(self, context: IOContext, identity: bytes, callback: Callable[[BaseMessage], Awaitable[None]]):
         self._context = context
         self._identity = identity
         self._address: Optional[AddressConfig] = None
@@ -27,13 +27,13 @@ class YMQAsyncConnector(AsyncConnector):
             raise ValueError(f"unsupported remote_type={remote_type}")
 
         self._address = address
-        self._socket = ConnectorSocket.connect(self._context, self._identity, repr(self._address))
+        self._socket = ConnectorSocket.connect(self._context, self._identity.decode(), repr(self._address))
 
     async def bind(self, address: AddressConfig) -> None:
         assert self._context is not None
 
         self._address = address
-        self._socket = ConnectorSocket.bind(self._context, self._identity, repr(self._address))
+        self._socket = ConnectorSocket.bind(self._context, self._identity.decode(), repr(self._address))
 
     def destroy(self):
         if self._socket is None:
@@ -45,7 +45,7 @@ class YMQAsyncConnector(AsyncConnector):
         self._context = None
 
     @property
-    def identity(self) -> str:
+    def identity(self) -> bytes:
         return self._identity
 
     @property

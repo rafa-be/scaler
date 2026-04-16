@@ -129,21 +129,19 @@ class Worker(multiprocessing.get_context("spawn").Process):  # type: ignore
 
         self._backend = get_network_backend_from_env(io_threads=self._io_threads)
 
-        socket_identity = self._ident.decode()
-
         self._address_internal = self._backend.create_internal_address(
             f"scaler_worker_{uuid.uuid4().hex}", same_process=False
         )
 
         self._connector_external = self._backend.create_async_connector(
-            identity=socket_identity, callback=self.__on_receive_external
+            identity=self._ident, callback=self.__on_receive_external
         )
 
         self._binder_internal = self._backend.create_async_binder(
-            identity=socket_identity, callback=self.__on_receive_internal
+            identity=self._ident, callback=self.__on_receive_internal
         )
 
-        self._connector_storage = self._backend.create_async_object_storage_connector(identity=socket_identity)
+        self._connector_storage = self._backend.create_async_object_storage_connector(identity=self._ident)
 
         self._heartbeat_manager = VanillaHeartbeatManager(
             object_storage_address=self._object_storage_address,

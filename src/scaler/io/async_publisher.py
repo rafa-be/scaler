@@ -10,9 +10,9 @@ from scaler.protocol.capnp import BaseMessage
 
 
 class ZMQAsyncPublisher(AsyncPublisher):
-    def __init__(self, context: zmq.asyncio.Context, identity: str):
+    def __init__(self, context: zmq.asyncio.Context, identity: bytes):
         self._context = context
-        self._identity: str = identity
+        self._identity = identity
         self._address: Optional[AddressConfig] = None
         self._socket: Optional[zmq.asyncio.Socket] = None
 
@@ -42,7 +42,7 @@ class ZMQAsyncPublisher(AsyncPublisher):
         self._socket.close(linger=1)
 
     @property
-    def identity(self) -> str:
+    def identity(self) -> bytes:
         return self._identity
 
     @property

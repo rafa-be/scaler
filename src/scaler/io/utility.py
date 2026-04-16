@@ -13,8 +13,8 @@ except ImportError:
     from typing_extensions import Buffer
 
 
-def generate_identity_from_name(name: str) -> str:
-    return f"{os.getpid()}|{name}|{uuid.uuid4()}"
+def generate_identity_from_name(name: str) -> bytes:
+    return f"{os.getpid()}|{name}|{uuid.uuid4()}".encode()
 
 
 def deserialize(data: Buffer) -> Optional[BaseMessage]:

@@ -20,7 +20,7 @@ class ObjectStorageServerProcess(multiprocessing.get_context("spawn").Process): 
     ):
         super().__init__(name="ObjectStorageServer")
 
-        self._identity = identity
+        self._ident = identity
 
         self._logging_paths = logging_paths
         self._logging_level = logging_level
@@ -55,7 +55,7 @@ class ObjectStorageServerProcess(multiprocessing.get_context("spawn").Process): 
             self._server.run(
                 self._bind_address.host,
                 self._bind_address.port,
-                self._identity,
+                self._ident,
                 log_level_str,
                 log_format_str,
                 logging_paths,

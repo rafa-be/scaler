@@ -11,9 +11,11 @@ from scaler.protocol.capnp import BaseMessage
 
 
 class ZMQAsyncConnector(AsyncConnector):
-    def __init__(self, context: zmq.asyncio.Context, identity: str, callback: Callable[[BaseMessage], Awaitable[None]]):
+    def __init__(
+        self, context: zmq.asyncio.Context, identity: bytes, callback: Callable[[BaseMessage], Awaitable[None]]
+    ):
         self._context = context
-        self._identity: str = identity
+        self._identity = identity
         self._address: Optional[AddressConfig] = None
         self._socket: Optional[zmq.asyncio.Socket] = None
 
@@ -49,7 +51,7 @@ class ZMQAsyncConnector(AsyncConnector):
         self._address = AddressConfig.from_string(endpoint.decode())
 
     @property
-    def identity(self) -> str:
+    def identity(self) -> bytes:
         return self._identity
 
     @property
@@ -105,6 +107,6 @@ class ZMQAsyncConnector(AsyncConnector):
         self._socket = self._context.socket(socket_type)
         assert self._socket is not None
 
-        self._socket.setsockopt(zmq.IDENTITY, self._identity.encode())
+        self._socket.setsockopt(zmq.IDENTITY, self._identity)
         self._socket.setsockopt(zmq.SNDHWM, 0)
         self._socket.setsockopt(zmq.RCVHWM, 0)

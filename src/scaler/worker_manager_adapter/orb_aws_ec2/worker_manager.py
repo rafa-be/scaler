@@ -80,7 +80,7 @@ class ORBAWSEC2WorkerAdapter:
         self._created_key_name: Optional[str] = None
         self._cleaned_up = False
         self._workers: Dict[WorkerID, str] = {}
-        self._ident: str = "worker_manager_orb_aws_ec2|uninitialized"
+        self._ident: bytes = b"worker_manager_orb_aws_ec2|uninitialized"
         self._subnet_id: Optional[str] = None
 
         if config.image_id is None:

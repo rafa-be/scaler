@@ -61,30 +61,32 @@ class ZMQNetworkBackend(NetworkBackend):
             return AddressConfig(SocketType.ipc, host=ipc_path)
 
     def create_async_binder(
-        self, identity: str, callback: Callable[[bytes, BaseMessage], Awaitable[None]]
+        self, identity: bytes, callback: Callable[[bytes, BaseMessage], Awaitable[None]]
     ) -> AsyncBinder:
         return ZMQAsyncBinder(context=self._async_context, identity=identity, callback=callback)
 
     def create_async_connector(
-        self, identity: str, callback: Callable[[BaseMessage], Awaitable[None]]
+        self, identity: bytes, callback: Callable[[BaseMessage], Awaitable[None]]
     ) -> AsyncConnector:
         return ZMQAsyncConnector(context=self._async_context, identity=identity, callback=callback)
 
-    def create_async_publisher(self, identity: str) -> AsyncPublisher:
+    def create_async_publisher(self, identity: bytes) -> AsyncPublisher:
         return ZMQAsyncPublisher(context=self._async_context, identity=identity)
 
     def create_sync_connector(
-        self, identity: str, connector_remote_type: ConnectorRemoteType, address: AddressConfig
+        self, identity: bytes, connector_remote_type: ConnectorRemoteType, address: AddressConfig
     ) -> SyncConnector:
         return ZMQSyncConnector(
             context=self._context, identity=identity, connector_remote_type=connector_remote_type, address=address
         )
 
-    def create_async_object_storage_connector(self, identity: str) -> AsyncObjectStorageConnector:
+    def create_async_object_storage_connector(self, identity: bytes) -> AsyncObjectStorageConnector:
         assert self._context is not None
         return YMQAsyncObjectStorageConnector(context=self._object_storage_context, identity=identity)
 
-    def create_sync_object_storage_connector(self, identity: str, address: AddressConfig) -> SyncObjectStorageConnector:
+    def create_sync_object_storage_connector(
+        self, identity: bytes, address: AddressConfig
+    ) -> SyncObjectStorageConnector:
         assert self._context is not None
         return YMQSyncObjectStorageConnector(context=self._object_storage_context, identity=identity, address=address)
 
@@ -112,31 +114,33 @@ class YMQNetworkBackend(NetworkBackend):
         return AddressConfig(SocketType.ipc, host=ipc_path)
 
     def create_async_binder(
-        self, identity: str, callback: Callable[[bytes, BaseMessage], Awaitable[None]]
+        self, identity: bytes, callback: Callable[[bytes, BaseMessage], Awaitable[None]]
     ) -> AsyncBinder:
         assert self._context is not None
         return YMQAsyncBinder(context=self._context, identity=identity, callback=callback)
 
     def create_async_connector(
-        self, identity: str, callback: Callable[[BaseMessage], Awaitable[None]]
+        self, identity: bytes, callback: Callable[[BaseMessage], Awaitable[None]]
     ) -> AsyncConnector:
         assert self._context is not None
         return YMQAsyncConnector(context=self._context, identity=identity, callback=callback)
 
-    def create_async_publisher(self, identity: str) -> AsyncPublisher:
+    def create_async_publisher(self, identity: bytes) -> AsyncPublisher:
         return ZMQAsyncPublisher(context=self._publisher_context, identity=identity)
 
     def create_sync_connector(
-        self, identity: str, connector_remote_type: ConnectorRemoteType, address: AddressConfig
+        self, identity: bytes, connector_remote_type: ConnectorRemoteType, address: AddressConfig
     ) -> SyncConnector:
         assert self._context is not None
         return YMQSyncConnector(context=self._context, identity=identity, address=address)
 
-    def create_async_object_storage_connector(self, identity: str) -> AsyncObjectStorageConnector:
+    def create_async_object_storage_connector(self, identity: bytes) -> AsyncObjectStorageConnector:
         assert self._context is not None
         return YMQAsyncObjectStorageConnector(context=self._context, identity=identity)
 
-    def create_sync_object_storage_connector(self, identity: str, address: AddressConfig) -> SyncObjectStorageConnector:
+    def create_sync_object_storage_connector(
+        self, identity: bytes, address: AddressConfig
+    ) -> SyncObjectStorageConnector:
         assert self._context is not None
         return YMQSyncObjectStorageConnector(context=self._context, identity=identity, address=address)
 

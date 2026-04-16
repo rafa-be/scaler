@@ -10,12 +10,12 @@ from scaler.protocol.capnp import BaseMessage, BinderStatus
 
 
 class YMQAsyncBinder(AsyncBinder):
-    def __init__(self, context: IOContext, identity: str, callback: Callable[[bytes, BaseMessage], Awaitable[None]]):
+    def __init__(self, context: IOContext, identity: bytes, callback: Callable[[bytes, BaseMessage], Awaitable[None]]):
         self._context = context
         self._identity = identity
         self._address: Optional[AddressConfig] = None
 
-        self._socket = BinderSocket(self._context, self._identity)
+        self._socket: Optional[BinderSocket] = BinderSocket(self._context, self._identity.decode())
 
         self._callback: Callable[[bytes, BaseMessage], Awaitable[None]] = callback
 
@@ -26,11 +26,12 @@ class YMQAsyncBinder(AsyncBinder):
         self.destroy()
 
     async def bind(self, address: AddressConfig) -> None:
+        assert self._socket is not None
         bound_address = await self._socket.bind_to(repr(address))
         self._address = AddressConfig.from_string(repr(bound_address))
 
     @property
-    def identity(self) -> str:
+    def identity(self) -> bytes:
         return self._identity
 
     @property
@@ -47,6 +48,7 @@ class YMQAsyncBinder(AsyncBinder):
         self._context = None
 
     async def routine(self):
+        assert self._socket is not None
         ymq_msg = await self._socket.recv_message()
 
         message: Optional[BaseMessage] = deserialize(ymq_msg.payload.data)
@@ -58,6 +60,7 @@ class YMQAsyncBinder(AsyncBinder):
         await self._callback(ymq_msg.address.data, message)
 
     async def send(self, to: bytes, message: BaseMessage):
+        assert self._socket is not None
         self.__count_sent(message.__class__.__name__)
         await self._socket.send_message(to.decode(), Bytes(serialize(message)))
 

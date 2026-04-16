@@ -12,7 +12,7 @@ from scaler.protocol.capnp import BaseMessage
 
 class ZMQSyncConnector(SyncConnector):
     def __init__(
-        self, context: zmq.Context, identity: str, address: AddressConfig, connector_remote_type: ConnectorRemoteType
+        self, context: zmq.Context, identity: bytes, address: AddressConfig, connector_remote_type: ConnectorRemoteType
     ):
         self._context = context
         self._identity = identity
@@ -21,7 +21,7 @@ class ZMQSyncConnector(SyncConnector):
         self._socket = self._context.socket(self.__to_zmq_socket_type(connector_remote_type))
 
         # set socket option
-        self._socket.setsockopt(zmq.IDENTITY, self._identity.encode())
+        self._socket.setsockopt(zmq.IDENTITY, self._identity)
         self._socket.setsockopt(zmq.SNDHWM, 0)
         self._socket.setsockopt(zmq.RCVHWM, 0)
 
@@ -43,7 +43,7 @@ class ZMQSyncConnector(SyncConnector):
         return self._address
 
     @property
-    def identity(self) -> str:
+    def identity(self) -> bytes:
         return self._identity
 
     def send(self, message: BaseMessage):
@@ -65,7 +65,7 @@ class ZMQSyncConnector(SyncConnector):
         return result
 
     def __get_prefix(self):
-        return f"{self.__class__.__name__}[{self._identity}]:"
+        return f"{self.__class__.__name__}[{self._identity!r}]:"
 
     @staticmethod
     def __to_zmq_socket_type(connector_remote_type: ConnectorRemoteType) -> int:

@@ -12,7 +12,7 @@ from scaler.utility.mixins import Looper
 
 
 class ClientHeartbeatManager(Looper, HeartbeatManager):
-    def __init__(self, death_timeout_seconds: int, storage_address_future: Future[AddressConfig]):
+    def __init__(self, death_timeout_seconds: int, storage_address_future: Future):
         self._death_timeout_seconds = death_timeout_seconds
         self._object_storage_address = storage_address_future
 
