@@ -27,7 +27,7 @@ from scaler.config.defaults import (
 )
 from scaler.config.section.native_worker_manager import NativeWorkerManagerConfig, NativeWorkerManagerMode
 from scaler.config.section.scheduler import PolicyConfig
-from scaler.config.types.address import AddressConfig
+from scaler.config.types.address import AddressConfig, SocketType
 from scaler.config.types.worker import WorkerCapabilities
 from scaler.utility.network_util import get_available_tcp_port
 from scaler.worker_manager_adapter.baremetal.native import NativeWorkerManager
@@ -67,7 +67,7 @@ class SchedulerClusterCombo:
         self._shutdown_called = False
 
         if address is None:
-            self._address = AddressConfig.from_string(f"tcp://127.0.0.1:{get_available_tcp_port()}")
+            self._address = AddressConfig(SocketType.tcp, "127.0.0.1", get_available_tcp_port())
         else:
             self._address = AddressConfig.from_string(address)
 

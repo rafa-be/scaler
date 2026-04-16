@@ -38,8 +38,10 @@ class YMQAsyncBinder(AsyncBinder):
         return self._address
 
     def destroy(self):
-        if self._socket is not None:
-            self._socket.shutdown()
+        if self._socket is None:
+            return
+
+        self._socket.shutdown()
 
         self._socket = None
         self._context = None

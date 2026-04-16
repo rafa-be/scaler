@@ -1,12 +1,9 @@
 import logging
 import os
 import uuid
-from typing import List, Optional, Union
-
-import zmq.asyncio
+from typing import List, Optional
 
 from scaler.config.defaults import CAPNP_DATA_SIZE_LIMIT, CAPNP_MESSAGE_SIZE_LIMIT
-from scaler.io import ymq
 from scaler.protocol.capnp import BaseMessage, Message
 from scaler.protocol.helpers import PROTOCOL
 
@@ -14,9 +11,6 @@ try:
     from collections.abc import Buffer  # type: ignore[attr-defined]
 except ImportError:
     from typing_extensions import Buffer
-
-
-NetworkContext = Union[zmq.asyncio.Context, ymq.IOContext]
 
 
 def generate_identity_from_name(name: str) -> str:

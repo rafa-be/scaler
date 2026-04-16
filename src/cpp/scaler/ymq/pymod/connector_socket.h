@@ -211,6 +211,7 @@ static PyObject* PyConnectorSocket_shutdown(
         onShutdown.get_future().wait();
         Py_END_ALLOW_THREADS;
 
+        // Explicitly call destructors for placement-new'd members
         self->socket.reset();
         self->ioContext.reset();
     } catch (...) {

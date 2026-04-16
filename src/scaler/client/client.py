@@ -76,7 +76,6 @@ class Client:
                                        If None, will use address received from scheduler.
         :type object_storage_address: Optional[str]
         """
-        address = self.__resolve_scheduler_address(address)
         self.__initialize__(
             address,
             profiling,
@@ -89,7 +88,7 @@ class Client:
 
     def __initialize__(
         self,
-        address: str,
+        address: Optional[str],
         profiling: bool,
         timeout_seconds: int,
         heartbeat_interval_seconds: int,
@@ -109,7 +108,7 @@ class Client:
             f"scaler_client_{uuid.uuid4().hex}", same_process=True
         )
 
-        self._scheduler_address = AddressConfig.from_string(address)
+        self._scheduler_address = self.__resolve_scheduler_address(address)
         self._timeout_seconds = timeout_seconds
         self._heartbeat_interval_seconds = heartbeat_interval_seconds
 
@@ -726,11 +725,11 @@ class Client:
 
         return retrieve_task_flags_from_task(current_task).priority
 
-    def __resolve_scheduler_address(self, address: Optional[str]) -> str:
+    def __resolve_scheduler_address(self, address: Optional[str]) -> AddressConfig:
         """Resolve the scheduler address based on the provided address and worker context."""
         # Provided address always takes precedence
         if address is not None:
-            return address
+            return AddressConfig.from_string(address)
 
         # No address provided, check if we're running inside a worker context
         current_processor = Processor.get_current_processor()
@@ -741,4 +740,4 @@ class Client:
             )
 
         # Return the scheduler address from the current processor
-        return repr(current_processor.scheduler_address())
+        return current_processor.scheduler_address()

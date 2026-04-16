@@ -270,7 +270,12 @@ class VanillaProcessorManager(ProcessorManager):
             self._can_accept_task_lock.release()
 
     async def on_external_object_instruction(self, instruction: ObjectInstruction):
-        for processor_id in self._holders_by_processor_id.keys():
+        processor_ids = list(self._holders_by_processor_id.keys())
+
+        for processor_id in processor_ids:
+            if processor_id not in self._holders_by_processor_id:
+                continue  # processor got killed while we were iterating over the list
+
             await self._binder_internal.send(processor_id, instruction)
 
     async def on_internal_object_instruction(self, processor_id: ProcessorID, instruction: ObjectInstruction):
