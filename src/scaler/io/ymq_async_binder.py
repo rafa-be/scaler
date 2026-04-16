@@ -27,6 +27,9 @@ class YMQAsyncBinder(AsyncBinder):
         self._received: Dict[str, int] = defaultdict(lambda: 0)
         self._sent: Dict[str, int] = defaultdict(lambda: 0)
 
+    def __del__(self):
+        self.destroy()
+
     async def bind(self, address: AddressConfig) -> None:
         bound_address = await self._socket.bind_to(repr(address))
         self._address = AddressConfig.from_string(repr(bound_address))
@@ -40,6 +43,9 @@ class YMQAsyncBinder(AsyncBinder):
         return self._address
 
     def destroy(self):
+        if self._socket is not None:
+            self._socket.shutdown()
+
         self._socket = None
         self._context = None
 

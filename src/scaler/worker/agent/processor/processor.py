@@ -12,6 +12,7 @@ import tblib.pickling_support
 import zmq
 
 from scaler.config.types.address import AddressConfig
+from scaler.io import ymq
 from scaler.io.mixins import ConnectorRemoteType, SyncConnector, SyncObjectStorageConnector
 from scaler.io.network_backends import get_network_backend_from_env
 from scaler.io.utility import generate_identity_from_name
@@ -166,6 +167,9 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
         except zmq.error.ZMQError as e:
             if e.errno != zmq.ENOTSOCK:  # ignore if socket got closed
                 raise
+
+        except ymq.SocketStopRequestedError as e:
+            pass
 
         except ObjectStorageException:
             pass

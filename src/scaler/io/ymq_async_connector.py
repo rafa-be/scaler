@@ -17,6 +17,9 @@ class YMQAsyncConnector(AsyncConnector):
         self._callback: Callable[[BaseMessage], Awaitable[None]] = callback
         self._socket: Optional[ConnectorSocket] = None
 
+    def __del__(self):
+        self.destroy()
+
     async def connect(self, address: AddressConfig, remote_type: ConnectorRemoteType) -> None:
         assert self._context is not None
 
@@ -33,6 +36,9 @@ class YMQAsyncConnector(AsyncConnector):
         self._socket = ConnectorSocket.bind(self._context, self._identity, repr(self._address))
 
     def destroy(self):
+        if self._socket is not None:
+            self._socket.shutdown()
+
         self._socket = None
         self._context = None
 

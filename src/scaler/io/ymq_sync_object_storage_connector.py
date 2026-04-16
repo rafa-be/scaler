@@ -34,8 +34,10 @@ class YMQSyncObjectStorageConnector(SyncObjectStorageConnector):
     def destroy(self):
         with self._socket_lock:
             if self._socket is not None:
-                self._socket = None
-                self._context = None
+                self._socket.shutdown()
+
+            self._socket = None
+            self._context = None
 
     @property
     def address(self) -> AddressConfig:

@@ -29,6 +29,9 @@ class YMQSyncConnector(SyncConnector):
         self.destroy()
 
     def destroy(self):
+        if self._socket is not None:
+            self._socket.shutdown()
+
         self._socket = None
         self._context = None
 

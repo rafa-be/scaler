@@ -30,10 +30,7 @@ class YMQAsyncObjectStorageConnector(AsyncObjectStorageConnector):
         self._socket: Optional[ConnectorSocket] = None
 
     def __del__(self):
-        if not self.is_connected():
-            return
-        self._socket = None
-        self._context = None
+        self.destroy()
 
     async def connect(self, address: AddressConfig):
         self._address = address
@@ -52,8 +49,9 @@ class YMQAsyncObjectStorageConnector(AsyncObjectStorageConnector):
         return self._connected_event.is_set()
 
     def destroy(self):
-        if not self.is_connected():
-            return
+        if self._socket is not None:
+            self._socket.shutdown()
+
         self._socket = None
         self._io_context = None
 
