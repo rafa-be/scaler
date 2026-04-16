@@ -195,7 +195,8 @@ static PyObject* PyConnectorSocket_bind(PyObject* cls, PyObject* args, PyObject*
     return reinterpret_cast<PyObject*>(self.take());
 }
 
-static PyObject* PyConnectorSocket_shutdown(PyConnectorSocket* self, [[maybe_unused]] PyObject* args, [[maybe_unused]] PyObject* kwargs)
+static PyObject* PyConnectorSocket_shutdown(
+    PyConnectorSocket* self, [[maybe_unused]] PyObject* args, [[maybe_unused]] PyObject* kwargs)
 {
     if (!self->socket) {
         Py_RETURN_NONE;
@@ -211,6 +212,7 @@ static PyObject* PyConnectorSocket_shutdown(PyConnectorSocket* self, [[maybe_unu
         Py_END_ALLOW_THREADS;
 
         self->socket.reset();
+        self->ioContext.reset();
     } catch (...) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to shutdown ConnectorSocket");
         return nullptr;
@@ -225,8 +227,6 @@ static void PyConnectorSocket_dealloc(PyConnectorSocket* self)
     if (!result) {
         PyErr_WriteUnraisable((PyObject*)self);
     }
-
-    self->ioContext.reset();
 
     auto* tp = Py_TYPE(self);
     tp->tp_free(self);

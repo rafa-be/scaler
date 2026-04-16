@@ -13,7 +13,7 @@ import zmq
 
 from scaler.config.types.address import AddressConfig
 from scaler.io import ymq
-from scaler.io.mixins import ConnectorRemoteType, SyncConnector, SyncObjectStorageConnector
+from scaler.io.mixins import ConnectorRemoteType, NetworkBackend, SyncConnector, SyncObjectStorageConnector
 from scaler.io.network_backends import get_network_backend_from_env
 from scaler.io.utility import generate_identity_from_name
 from scaler.protocol.capnp import (
@@ -64,7 +64,7 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
         self._preload = preload
 
         self._identity = generate_identity_from_name(f"processor|{self.pid}")
-        self._backend = None
+        self._backend: Optional[NetworkBackend] = None
 
         self._resume_event = resume_event
         self._resumed_event = resumed_event
@@ -104,17 +104,15 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
         tblib.pickling_support.install()
 
         self._backend = get_network_backend_from_env()
+        assert self._backend is not None
 
         self._connector_agent: SyncConnector = self._backend.create_sync_connector(
-            identity=self._identity,
-            connector_remote_type=ConnectorRemoteType.Binder,
-            address=self._agent_address,
+            identity=self._identity, connector_remote_type=ConnectorRemoteType.Binder, address=self._agent_address
         )
 
         logging.info(f"Processor[{self.pid}] connecting to object storage at {self._object_storage_address}...")
         self._connector_storage: SyncObjectStorageConnector = self._backend.create_sync_object_storage_connector(
-            identity=self._identity,
-            address=self._object_storage_address,
+            identity=self._identity, address=self._object_storage_address
         )
 
         self._object_cache = ObjectCache(
@@ -168,7 +166,7 @@ class Processor(multiprocessing.get_context("spawn").Process):  # type: ignore
             if e.errno != zmq.ENOTSOCK:  # ignore if socket got closed
                 raise
 
-        except ymq.SocketStopRequestedError as e:
+        except ymq.SocketStopRequestedError:
             pass
 
         except ObjectStorageException:

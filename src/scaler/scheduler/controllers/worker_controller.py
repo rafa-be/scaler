@@ -2,7 +2,7 @@ import logging
 import time
 from typing import Dict, List, Optional, Set, Tuple
 
-from scaler.io.mixins import AsyncBinder, AsyncConnector
+from scaler.io.mixins import AsyncBinder, AsyncPublisher
 from scaler.protocol.capnp import (
     ClientDisconnect,
     DisconnectRequest,
@@ -33,7 +33,7 @@ class VanillaWorkerController(WorkerController, Looper, Reporter):
         self._config_controller = config_controller
 
         self._binder: Optional[AsyncBinder] = None
-        self._binder_monitor: Optional[AsyncConnector] = None
+        self._binder_monitor: Optional[AsyncPublisher] = None
         self._task_controller: Optional[TaskController] = None
 
         self._worker_alive_since: Dict[WorkerID, Tuple[float, WorkerHeartbeat]] = dict()
@@ -41,7 +41,7 @@ class VanillaWorkerController(WorkerController, Looper, Reporter):
         self._manager_to_workers: Dict[bytes, Set[WorkerID]] = dict()
         self._policy_controller = policy_controller
 
-    def register(self, binder: AsyncBinder, binder_monitor: AsyncConnector, task_controller: TaskController):
+    def register(self, binder: AsyncBinder, binder_monitor: AsyncPublisher, task_controller: TaskController):
         self._binder = binder
         self._binder_monitor = binder_monitor
         self._task_controller = task_controller

@@ -68,7 +68,8 @@ static int PyBinderSocket_init(PyBinderSocket* self, PyObject* args, PyObject* k
     return 0;
 }
 
-static PyObject* PyBinderSocket_shutdown(PyBinderSocket* self, [[maybe_unused]] PyObject* args, [[maybe_unused]] PyObject* kwargs)
+static PyObject* PyBinderSocket_shutdown(
+    PyBinderSocket* self, [[maybe_unused]] PyObject* args, [[maybe_unused]] PyObject* kwargs)
 {
     if (!self->socket) {
         Py_RETURN_NONE;
@@ -84,6 +85,7 @@ static PyObject* PyBinderSocket_shutdown(PyBinderSocket* self, [[maybe_unused]] 
         Py_END_ALLOW_THREADS;
 
         self->socket.reset();
+        self->ioContext.reset();
     } catch (...) {
         PyErr_SetString(PyExc_RuntimeError, "Failed to shutdown BinderSocket");
         return nullptr;
@@ -98,8 +100,6 @@ static void PyBinderSocket_dealloc(PyBinderSocket* self)
     if (!result) {
         PyErr_WriteUnraisable((PyObject*)self);
     }
-
-    self->ioContext.reset();
 
     auto* tp = Py_TYPE(self);
     tp->tp_free(self);

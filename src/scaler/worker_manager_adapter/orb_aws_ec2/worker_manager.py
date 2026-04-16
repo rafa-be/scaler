@@ -2,7 +2,6 @@ import asyncio
 import logging
 import os
 import signal
-import uuid
 from typing import Any, Dict, List, Optional, Tuple
 
 try:
@@ -81,7 +80,7 @@ class ORBAWSEC2WorkerAdapter:
         self._created_key_name: Optional[str] = None
         self._cleaned_up = False
         self._workers: Dict[WorkerID, str] = {}
-        self._ident: bytes = b"worker_manager_orb_aws_ec2|uninitialized"
+        self._ident: str = "worker_manager_orb_aws_ec2|uninitialized"
         self._subnet_id: Optional[str] = None
 
         if config.image_id is None:
@@ -159,8 +158,7 @@ class ORBAWSEC2WorkerAdapter:
         self._ident = generate_identity_from_name(self._name)
 
         self._connector_external = self._backend.create_async_connector(
-            identity=self._ident,
-            callback=self.__on_receive_external,
+            identity=self._ident, callback=self.__on_receive_external
         )
 
     async def __terminate_all_workers(self) -> None:
@@ -366,7 +364,7 @@ nohup scaler_worker_manager baremetal_native {self._worker_scheduler_address!r} 
 
         if adapter_config.object_storage_address:
             script += f" \
-    --object-storage-address {adapter_config.object_storage_address.to_string()}"
+    --object-storage-address {adapter_config.object_storage_address!r}"
 
         capabilities = worker_config.per_worker_capabilities.capabilities
         if capabilities:

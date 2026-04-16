@@ -14,10 +14,7 @@ from scaler.protocol.capnp import BaseMessage, BinderStatus
 
 class ZMQAsyncBinder(AsyncBinder):
     def __init__(
-        self,
-        context: zmq.asyncio.Context,
-        identity: str,
-        callback: Callable[[bytes, BaseMessage], Awaitable[None]],
+        self, context: zmq.asyncio.Context, identity: str, callback: Callable[[bytes, BaseMessage], Awaitable[None]]
     ):
         self._context = context
         self._identity: str = identity

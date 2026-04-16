@@ -10,12 +10,7 @@ from scaler.protocol.capnp import BaseMessage, BinderStatus
 
 
 class YMQAsyncBinder(AsyncBinder):
-    def __init__(
-        self,
-        context: IOContext,
-        identity: str,
-        callback: Callable[[bytes, BaseMessage], Awaitable[None]],
-    ):
+    def __init__(self, context: IOContext, identity: str, callback: Callable[[bytes, BaseMessage], Awaitable[None]]):
         self._context = context
         self._identity = identity
         self._address: Optional[AddressConfig] = None

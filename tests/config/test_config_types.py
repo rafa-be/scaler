@@ -1,8 +1,8 @@
 import unittest
 
+from scaler.config.types.address import AddressConfig
 from scaler.config.types.http import HTTPConfig
 from scaler.config.types.worker import WorkerCapabilities, WorkerNames
-from scaler.config.types.address import AddressConfig
 
 
 class TestConfigTypes(unittest.TestCase):

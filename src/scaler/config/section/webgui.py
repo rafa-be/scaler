@@ -2,8 +2,8 @@ import dataclasses
 
 from scaler.config.common.logging import LoggingConfig
 from scaler.config.config_class import ConfigClass
-from scaler.config.types.http import HTTPConfig
 from scaler.config.types.address import AddressConfig
+from scaler.config.types.http import HTTPConfig
 
 
 @dataclasses.dataclass

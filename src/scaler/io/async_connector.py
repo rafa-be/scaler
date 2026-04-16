@@ -11,12 +11,7 @@ from scaler.protocol.capnp import BaseMessage
 
 
 class ZMQAsyncConnector(AsyncConnector):
-    def __init__(
-        self,
-        context: zmq.asyncio.Context,
-        identity: str,
-        callback: Callable[[BaseMessage], Awaitable[None]],
-    ):
+    def __init__(self, context: zmq.asyncio.Context, identity: str, callback: Callable[[BaseMessage], Awaitable[None]]):
         self._context = context
         self._identity: str = identity
         self._address: Optional[AddressConfig] = None

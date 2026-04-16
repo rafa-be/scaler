@@ -66,13 +66,11 @@ class ClientAgent(threading.Thread):
         self._future_manager = future_manager
 
         self._connector_internal: AsyncConnector = self._network_backend.create_async_connector(
-            identity=self._identity.decode(),
-            callback=self.__on_receive_from_client,
+            identity=self._identity.decode(), callback=self.__on_receive_from_client
         )
 
         self._connector_external: AsyncConnector = self._network_backend.create_async_connector(
-            identity=self._identity.decode(),
-            callback=self.__on_receive_from_scheduler,
+            identity=self._identity.decode(), callback=self.__on_receive_from_scheduler
         )
 
         self._disconnect_manager: Optional[ClientDisconnectManager] = None

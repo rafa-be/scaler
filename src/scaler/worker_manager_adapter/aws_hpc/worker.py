@@ -135,8 +135,7 @@ class AWSBatchWorker(_SpawnProcess):  # type: ignore[valid-type, misc]
         socket_identity = self._ident.decode()
 
         self._connector_external = self._backend.create_async_connector(
-            identity=socket_identity,
-            callback=self.__on_receive_external,
+            identity=socket_identity, callback=self.__on_receive_external
         )
 
         self._connector_storage = self._backend.create_async_object_storage_connector(identity=socket_identity)

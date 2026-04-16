@@ -15,7 +15,7 @@ from scaler.client.object_reference import ObjectReference
 from scaler.client.serializer.default import DefaultSerializer
 from scaler.client.serializer.mixins import Serializer
 from scaler.config.defaults import DEFAULT_CLIENT_TIMEOUT_SECONDS, DEFAULT_HEARTBEAT_INTERVAL_SECONDS
-from scaler.config.types.address import AddressConfig, SocketType
+from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import ConnectorRemoteType, NetworkBackend, SyncConnector, SyncObjectStorageConnector
 from scaler.io.network_backends import get_network_backend_from_env
 from scaler.protocol.capnp import ClientDisconnect, ClientShutdownResponse, GraphTask, Task
@@ -143,8 +143,7 @@ class Client:
 
         logging.info(f"ScalerClient: connect to object storage at {self._object_storage_address}")
         self._connector_storage: SyncObjectStorageConnector = self._backend.create_sync_object_storage_connector(
-            identity=self._identity.decode(),
-            address=self._object_storage_address,
+            identity=self._identity.decode(), address=self._object_storage_address
         )
 
         self._object_buffer = ObjectBuffer(

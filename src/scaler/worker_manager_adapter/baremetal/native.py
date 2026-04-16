@@ -71,8 +71,7 @@ class NativeWorkerManager:
         self._backend = get_network_backend_from_env(io_threads=self._io_threads)
 
         self._connector_external = self._backend.create_async_connector(
-            identity=self._ident,
-            callback=self.__on_receive_external,
+            identity=self._ident, callback=self.__on_receive_external
         )
         await self._connector_external.connect(self._address, ConnectorRemoteType.Binder)
 

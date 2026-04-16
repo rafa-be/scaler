@@ -1,7 +1,5 @@
 import os
 import tempfile
-import uuid
-
 from typing import Awaitable, Callable, Optional
 
 import zmq
@@ -55,10 +53,7 @@ class ZMQNetworkBackend(NetworkBackend):
         self._object_storage_context = None
 
     @staticmethod
-    def create_internal_address(
-        name: str,
-        same_process: bool,
-    ) -> AddressConfig:
+    def create_internal_address(name: str, same_process: bool) -> AddressConfig:
         if same_process:
             return AddressConfig(SocketType.inproc, host=name)
         else:
@@ -66,37 +61,23 @@ class ZMQNetworkBackend(NetworkBackend):
             return AddressConfig(SocketType.ipc, host=ipc_path)
 
     def create_async_binder(
-        self,
-        identity: str,
-        callback: Callable[[bytes, BaseMessage], Awaitable[None]],
+        self, identity: str, callback: Callable[[bytes, BaseMessage], Awaitable[None]]
     ) -> AsyncBinder:
         return ZMQAsyncBinder(context=self._async_context, identity=identity, callback=callback)
 
     def create_async_connector(
-        self,
-        identity: str,
-        callback: Callable[[BaseMessage], Awaitable[None]],
+        self, identity: str, callback: Callable[[BaseMessage], Awaitable[None]]
     ) -> AsyncConnector:
-        return ZMQAsyncConnector(
-            context=self._async_context,
-            identity=identity,
-            callback=callback,
-        )
+        return ZMQAsyncConnector(context=self._async_context, identity=identity, callback=callback)
 
     def create_async_publisher(self, identity: str) -> AsyncPublisher:
         return ZMQAsyncPublisher(context=self._async_context, identity=identity)
 
     def create_sync_connector(
-        self,
-        identity: str,
-        connector_remote_type: ConnectorRemoteType,
-        address: AddressConfig,
+        self, identity: str, connector_remote_type: ConnectorRemoteType, address: AddressConfig
     ) -> SyncConnector:
         return ZMQSyncConnector(
-            context=self._context,
-            identity=identity,
-            connector_remote_type=connector_remote_type,
-            address=address,
+            context=self._context, identity=identity, connector_remote_type=connector_remote_type, address=address
         )
 
     def create_async_object_storage_connector(self, identity: str) -> AsyncObjectStorageConnector:
@@ -126,41 +107,27 @@ class YMQNetworkBackend(NetworkBackend):
         self._publisher_context.destroy(linger=0)
 
     @staticmethod
-    def create_internal_address(
-        name: str,
-        same_process: bool,
-    ) -> AddressConfig:
+    def create_internal_address(name: str, same_process: bool) -> AddressConfig:
         ipc_path = os.path.join(tempfile.gettempdir(), name)
         return AddressConfig(SocketType.ipc, host=ipc_path)
 
     def create_async_binder(
-        self,
-        identity: str,
-        callback: Callable[[bytes, BaseMessage], Awaitable[None]],
+        self, identity: str, callback: Callable[[bytes, BaseMessage], Awaitable[None]]
     ) -> AsyncBinder:
         assert self._context is not None
         return YMQAsyncBinder(context=self._context, identity=identity, callback=callback)
 
     def create_async_connector(
-        self,
-        identity: str,
-        callback: Callable[[BaseMessage], Awaitable[None]],
+        self, identity: str, callback: Callable[[BaseMessage], Awaitable[None]]
     ) -> AsyncConnector:
         assert self._context is not None
-        return YMQAsyncConnector(
-            context=self._context,
-            identity=identity,
-            callback=callback,
-        )
+        return YMQAsyncConnector(context=self._context, identity=identity, callback=callback)
 
     def create_async_publisher(self, identity: str) -> AsyncPublisher:
         return ZMQAsyncPublisher(context=self._publisher_context, identity=identity)
 
     def create_sync_connector(
-        self,
-        identity: str,
-        connector_remote_type: ConnectorRemoteType,
-        address: AddressConfig,
+        self, identity: str, connector_remote_type: ConnectorRemoteType, address: AddressConfig
     ) -> SyncConnector:
         assert self._context is not None
         return YMQSyncConnector(context=self._context, identity=identity, address=address)

@@ -123,8 +123,7 @@ class ECSWorkerManager:
         self._ident = generate_identity_from_name(self._name)
 
         self._connector_external: AsyncConnector = self._backend.create_async_connector(
-            identity=self._ident,
-            callback=self.__on_receive_external,
+            identity=self._ident, callback=self.__on_receive_external
         )
 
     async def __on_receive_external(self, message: BaseMessage):
@@ -230,7 +229,7 @@ class ECSWorkerManager:
             command += " --hard-processor-suspend"
 
         if self._object_storage_address:
-            command += f" --object-storage-address {self._object_storage_address.to_string()}"
+            command += f" --object-storage-address {self._object_storage_address!r}"
 
         if format_capabilities(self._capabilities).strip():
             command += f" --per-worker-capabilities {format_capabilities(self._capabilities)}"

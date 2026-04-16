@@ -16,7 +16,6 @@ from scaler.protocol.capnp import (
     GraphTask,
     InformationRequest,
     ObjectInstruction,
-    ObjectStorageAddress,
     Task,
     TaskCancel,
     TaskCancelConfirm,
@@ -51,8 +50,7 @@ class Scheduler:
         self._address = config.bind_address
 
         self._binder: AsyncBinder = self._backend.create_async_binder(
-            identity=self._identity,
-            callback=self.on_receive_message,
+            identity=self._identity, callback=self.on_receive_message
         )
         self._connector_storage: AsyncObjectStorageConnector = self._backend.create_async_object_storage_connector(
             identity=self._identity
@@ -116,10 +114,12 @@ class Scheduler:
 
     @property
     def address(self) -> AddressConfig:
+        assert self._address is not None
         return self._address
 
     async def __initialize_network(self) -> None:
         # Scheduler's binder
+        assert self._address is not None
 
         await self._binder.bind(self._address)
 
@@ -136,7 +136,9 @@ class Scheduler:
 
         logging.info(f"{self.__class__.__name__}: connected to object storage server {object_storage_address!r}")
 
-        advertised_object_storage_address = self._config_controller.get_config("advertised_object_storage_address") or object_storage_address
+        advertised_object_storage_address = (
+            self._config_controller.get_config("advertised_object_storage_address") or object_storage_address
+        )
 
         logging.info(
             f"{self.__class__.__name__}: advertise object storage address {advertised_object_storage_address!r}"
@@ -146,6 +148,8 @@ class Scheduler:
         self._config_controller.update_config("advertised_object_storage_address", advertised_object_storage_address)
 
         # Monitor
+
+        assert self._address.port is not None, "scheduler bind address must have a port"
 
         monitor_address = self._config_controller.get_config("monitor_address") or AddressConfig(
             type=SocketType.tcp, host=self._address.host, port=self._address.port + 2

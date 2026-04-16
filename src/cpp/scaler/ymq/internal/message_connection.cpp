@@ -263,6 +263,7 @@ void MessageConnection::onWriteDone(
                 return;
             default:
                 // Unexpected error
+                UV_EXIT_ON_ERROR(result);
                 break;
         };
     }

@@ -23,25 +23,18 @@ class NetworkBackend(metaclass=abc.ABCMeta):
 
     @staticmethod
     @abc.abstractmethod
-    def create_internal_address(
-        name: str,
-        same_process: bool,
-    ) -> AddressConfig:
+    def create_internal_address(name: str, same_process: bool) -> AddressConfig:
         raise NotImplementedError()
 
     @abc.abstractmethod
     def create_async_binder(
-        self,
-        identity: str,
-        callback: Callable[[bytes, BaseMessage], Awaitable[None]],
+        self, identity: str, callback: Callable[[bytes, BaseMessage], Awaitable[None]]
     ) -> "AsyncBinder":
         raise NotImplementedError()
 
     @abc.abstractmethod
     def create_async_connector(
-        self,
-        identity: str,
-        callback: Callable[[BaseMessage], Awaitable[None]],
+        self, identity: str, callback: Callable[[BaseMessage], Awaitable[None]]
     ) -> "AsyncConnector":
         raise NotImplementedError()
 
@@ -51,10 +44,7 @@ class NetworkBackend(metaclass=abc.ABCMeta):
 
     @abc.abstractmethod
     def create_sync_connector(
-        self,
-        identity: str,
-        connector_remote_type: ConnectorRemoteType,
-        address: AddressConfig,
+        self, identity: str, connector_remote_type: ConnectorRemoteType, address: AddressConfig
     ) -> "SyncConnector":
         raise NotImplementedError()
 
@@ -63,7 +53,9 @@ class NetworkBackend(metaclass=abc.ABCMeta):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def create_sync_object_storage_connector(self, identity: str, address: AddressConfig) -> "SyncObjectStorageConnector":
+    def create_sync_object_storage_connector(
+        self, identity: str, address: AddressConfig
+    ) -> "SyncObjectStorageConnector":
         raise NotImplementedError()
 
 

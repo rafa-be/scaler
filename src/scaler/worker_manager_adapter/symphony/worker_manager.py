@@ -45,8 +45,7 @@ class SymphonyWorkerManager:
         self._ident = generate_identity_from_name(self._name)
 
         self._connector_external: AsyncConnector = self._backend.create_async_connector(
-            identity=self._ident,
-            callback=self.__on_receive_external,
+            identity=self._ident, callback=self.__on_receive_external
         )
 
         self._workers: Dict[WorkerID, SymphonyWorker] = {}

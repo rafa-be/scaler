@@ -12,11 +12,7 @@ from scaler.protocol.capnp import BaseMessage
 
 class ZMQSyncConnector(SyncConnector):
     def __init__(
-        self,
-        context: zmq.Context,
-        identity: str,
-        address: AddressConfig,
-        connector_remote_type: ConnectorRemoteType,
+        self, context: zmq.Context, identity: str, address: AddressConfig, connector_remote_type: ConnectorRemoteType
     ):
         self._context = context
         self._identity = identity

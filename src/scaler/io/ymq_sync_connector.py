@@ -9,20 +9,13 @@ from scaler.protocol.capnp import BaseMessage
 
 
 class YMQSyncConnector(SyncConnector):
-    def __init__(
-        self,
-        context: IOContext,
-        identity: str,
-        address: AddressConfig,
-    ):
+    def __init__(self, context: IOContext, identity: str, address: AddressConfig):
         self._context = context
         self._identity = identity
         self._address = address
 
         self._socket: Optional[ConnectorSocket] = ConnectorSocket.connect(
-            self._context,
-            self._identity,
-            repr(self._address),
+            self._context, self._identity, repr(self._address)
         )
 
     def __del__(self):

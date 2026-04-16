@@ -279,7 +279,8 @@ TEST_F(YMQBinderSocketTest, StopRequested)
 {
     scaler::ymq::IOContext context {};
     scaler::wrapper::uv::Loop loop = UV_EXIT_ON_ERROR(scaler::wrapper::uv::Loop::init());
-    std::optional<scaler::ymq::BinderSocket> binder = scaler::ymq::BinderSocket {context, BinderClientPair::binderIdentity};
+    std::optional<scaler::ymq::BinderSocket> binder =
+        scaler::ymq::BinderSocket {context, BinderClientPair::binderIdentity};
 
     binder->bindTo("tcp://127.0.0.1:0", [](std::expected<scaler::ymq::Address, scaler::ymq::Error> result) {
         ASSERT_TRUE(result.has_value());

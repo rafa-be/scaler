@@ -27,7 +27,6 @@ from scaler.config.defaults import (
     DEFAULT_WORKER_TIMEOUT_SECONDS,
 )
 from scaler.config.section.native_worker_manager import NativeWorkerManagerConfig
-from scaler.config.types.address import AddressConfig
 from scaler.config.section.scheduler import PolicyConfig
 from scaler.config.types.address import AddressConfig
 from scaler.config.types.worker import WorkerCapabilities
