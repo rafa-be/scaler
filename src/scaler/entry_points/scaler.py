@@ -88,6 +88,7 @@ def main() -> None:
         oss_logging = config.object_storage.logging_config
         oss_process = ObjectStorageServerProcess(
             bind_address=config.object_storage.bind_address,
+            identity=config.object_storage.identity,
             logging_paths=oss_logging.paths,
             logging_config_file=oss_logging.config_file,
             logging_level=oss_logging.level,
