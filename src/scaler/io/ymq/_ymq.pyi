@@ -89,6 +89,9 @@ class BinderSocket:
     ) -> None:
         """Send a message to a remote peer."""
 
+    def send_multicast_message(self, message_payload: Bytes, remote_prefix: Optional[str] = None) -> None:
+        """Send a message to all connected peers, optionally filtered by identity prefix."""
+
     def recv_message(self, callback: Callable[[Union[Message, Exception]], None]) -> None:
         """Receive a message from a remote peer."""
 
@@ -129,6 +132,7 @@ class ConnectorSocket:
         """Create a ConnectorSocket that binds to an address and waits for incoming connections."""
 
     def __repr__(self) -> str: ...
+
     def send_message(self, callback: Callable[[Optional[Exception]], None], message_payload: Bytes) -> None:
         """Send a message to the connected remote peer."""
 

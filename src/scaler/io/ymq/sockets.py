@@ -30,6 +30,9 @@ class BinderSocket:
     ) -> None:
         call_sync(self._base.send_message, remote_identity, message_payload, timeout=timeout)
 
+    def send_multicast_message(self, message_payload: _ymq.Bytes, remote_prefix: Optional[str] = None) -> None:
+        self._base.send_multicast_message(message_payload, remote_prefix)
+
     async def recv_message(self) -> _ymq.Message:
         return await call_async(self._base.recv_message)
 
