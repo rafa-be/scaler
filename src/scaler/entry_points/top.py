@@ -1,12 +1,11 @@
 # PYTHON_ARGCOMPLETE_OK
 import curses
 import functools
-from datetime import timedelta
 from typing import Dict, List, Literal, Union
 
 from scaler.config.section.top import TopConfig
 from scaler.io.network_backends import get_network_backend_from_env
-from scaler.protocol.capnp import BaseMessage, StateScheduler
+from scaler.protocol.capnp import BaseMessage, StateScheduler, TaskState
 from scaler.utility.formatter import (
     format_bytes,
     format_integer,
@@ -73,19 +72,30 @@ def show_status(status: BaseMessage, screen):
 
     task_manager_table = __generate_keyword_data(
         "task_manager",
-        dict(sorted((k._as_str(), v) for k, v in status.taskManager.stateToCount.items())),
+        dict(sorted((TaskState(pair.state).name, pair.count) for pair in status.taskManager.stateToCount)),
         format_integer_flag=True,
     )
     object_manager = __generate_keyword_data("object_manager", {"num_of_objs": status.objectManager.numberOfObjects})
-    sent_table = __generate_keyword_data("scheduler_sent", status.binder.sent, format_integer_flag=True)
-    received_table = __generate_keyword_data("scheduler_received", status.binder.received, format_integer_flag=True)
-    client_table = __generate_keyword_data("client_manager", status.clientManager.clientToNumOfTask, key_col_length=18)
+    sent_table = __generate_keyword_data(
+        "scheduler_sent", {pair.client: pair.number for pair in status.binder.sent}, format_integer_flag=True
+    )
+    received_table = __generate_keyword_data(
+        "scheduler_received", {pair.client: pair.number for pair in status.binder.received}, format_integer_flag=True
+    )
+    client_table = __generate_keyword_data(
+        "client_manager",
+        {
+            pair.client.decode() if isinstance(pair.client, (bytes, bytearray)) else str(pair.client): pair.numTask
+            for pair in status.clientManager.clientToNumOfTask
+        },
+        key_col_length=18,
+    )
 
     manager_map = {}
     if status.scalingManager.managedWorkers:
-        for worker_manager_id, worker_ids in status.scalingManager.managedWorkers.items():
-            manager_id_str = worker_manager_id.decode()
-            for worker_id in worker_ids:
+        for managed_worker in status.scalingManager.managedWorkers:
+            manager_id_str = managed_worker.workerManagerID.decode()
+            for worker_id in managed_worker.workerIDs:
                 manager_map[worker_id.decode()] = manager_id_str
 
     # Include 'manager' as the first column for each worker; empty if not found
@@ -130,7 +140,7 @@ def show_status(status: BaseMessage, screen):
     try:
         screen.addstr(new_row, 0, "-" * max_cols)
         screen.addstr(new_row + 1, 0, "Shortcuts: " + " ".join([f"{v}[{chr(k)}]" for k, v in SORT_BY_OPTIONS.items()]))
-        total_pending = sum(d.get("pending_workers", 0) for d in status.scalingManager.workerManagerDetails)
+        total_pending = sum(d.pendingWorkers for d in status.scalingManager.workerManagerDetails)
         pending_str = f", {total_pending} pending" if total_pending > 0 else ""
         screen.addstr(
             new_row + 3,

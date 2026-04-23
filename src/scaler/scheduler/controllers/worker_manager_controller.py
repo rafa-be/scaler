@@ -134,6 +134,7 @@ class WorkerManagerController(Looper, Reporter):
         for source, (last_seen, heartbeat) in self._manager_alive_since.items():
             caps = heartbeat.capabilities
             caps_str = " ".join(sorted(capabilities_to_dict(caps).keys())) if caps else ""
+
             details.append(
                 {
                     "worker_manager_id": heartbeat.workerManagerID,

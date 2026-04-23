@@ -105,7 +105,17 @@ class VanillaClientController(ClientController, Looper, Reporter):
 
     def get_status(self) -> ClientManagerStatus:
         return ClientManagerStatus(
-            clientToNumOfTask={client: len(task_ids) for client, task_ids in self._client_to_task_ids.items()}
+            clientToNumOfTask=[
+                ClientManagerStatus.Pair(
+                    client=client,
+                    numTask=(
+                        len(self._client_to_task_ids.get_values(client))
+                        if self._client_to_task_ids.has_key(client)
+                        else 0
+                    ),
+                )
+                for client in self._client_last_seen.keys()
+            ]
         )
 
     async def __routine_cleanup_clients(self):
