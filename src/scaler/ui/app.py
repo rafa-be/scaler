@@ -15,7 +15,8 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from scaler.config.section.webgui import WebGUIConfig
-from scaler.io.sync_subscriber import ZMQSyncSubscriber
+from scaler.io.mixins import SyncSubscriber
+from scaler.io.network_backends import get_network_backend_from_env
 from scaler.protocol.capnp import (
     BaseMessage,
     StateBalanceAdvice,
@@ -645,7 +646,8 @@ class WebUIApp:
 
         self._settings = {"stream_window": 5, "memory_scale": "linear"}
 
-        self._subscriber: Optional[ZMQSyncSubscriber] = None
+        self._backend = get_network_backend_from_env()
+        self._subscriber: Optional[SyncSubscriber] = None
         self._batch_task: Optional[asyncio.Task] = None
 
     def _on_zmq_message(self, message: BaseMessage) -> None:
@@ -656,8 +658,8 @@ class WebUIApp:
             pass
 
     def start_subscriber(self) -> None:
-        self._subscriber = ZMQSyncSubscriber(
-            address=self._config.monitor_address, callback=self._on_zmq_message, topic=b"", timeout_seconds=-1
+        self._subscriber = self._backend.create_sync_subscriber(
+            identity=b"", address=self._config.monitor_address, callback=self._on_zmq_message, timeout=None
         )
         self._subscriber.daemon = True
         self._subscriber.start()

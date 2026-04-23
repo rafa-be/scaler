@@ -1,10 +1,11 @@
 # PYTHON_ARGCOMPLETE_OK
 import curses
 import functools
+from datetime import timedelta
 from typing import Dict, List, Literal, Union
 
 from scaler.config.section.top import TopConfig
-from scaler.io.sync_subscriber import ZMQSyncSubscriber
+from scaler.io.network_backends import get_network_backend_from_env
 from scaler.protocol.capnp import BaseMessage, StateScheduler
 from scaler.utility.formatter import (
     format_bytes,
@@ -39,17 +40,20 @@ def main():
 def poke(screen, config: TopConfig):
     screen.nodelay(1)
 
+    backend = get_network_backend_from_env()
+
     try:
-        subscriber = ZMQSyncSubscriber(
+        subscriber = backend.create_sync_subscriber(
+            identity=b"",
             address=config.monitor_address,
             callback=functools.partial(show_status, screen=screen),
-            topic=b"",
-            daemonic=False,
-            timeout_seconds=config.timeout,
+            timeout=config.timeout,
         )
         subscriber.run()
     except KeyboardInterrupt:
         pass
+    finally:
+        backend.destroy()
 
 
 def show_status(status: BaseMessage, screen):

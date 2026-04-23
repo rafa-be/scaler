@@ -1,5 +1,6 @@
 import os
 import tempfile
+from datetime import timedelta
 from typing import Awaitable, Callable, Optional
 
 import zmq
@@ -20,12 +21,16 @@ from scaler.io.mixins import (
     ConnectorRemoteType,
     NetworkBackend,
     SyncConnector,
+    SyncSubscriber,
     SyncObjectStorageConnector,
 )
 from scaler.io.sync_connector import ZMQSyncConnector
+from scaler.io.sync_subscriber import ZMQSyncSubscriber
 from scaler.io.ymq_async_binder import YMQAsyncBinder
 from scaler.io.ymq_async_connector import YMQAsyncConnector
 from scaler.io.ymq_async_object_storage_connector import YMQAsyncObjectStorageConnector
+from scaler.io.ymq_async_publisher import YMQAsyncPublisher
+from scaler.io.ymq_sync_subscriber import YMQSyncSubscriber
 from scaler.io.ymq_sync_connector import YMQSyncConnector
 from scaler.io.ymq_sync_object_storage_connector import YMQSyncObjectStorageConnector
 from scaler.protocol.capnp import BaseMessage
@@ -90,6 +95,21 @@ class ZMQNetworkBackend(NetworkBackend):
         assert self._context is not None
         return YMQSyncObjectStorageConnector(context=self._object_storage_context, identity=identity, address=address)
 
+    def create_sync_subscriber(
+        self,
+        identity: bytes,
+        address: AddressConfig,
+        callback: Callable[[BaseMessage], None],
+        timeout: Optional[timedelta],
+    ) -> SyncSubscriber:
+        return ZMQSyncSubscriber(
+            context=self._context,
+            identity=identity,
+            address=address,
+            callback=callback,
+            timeout=timeout,
+        )
+
 
 class YMQNetworkBackend(NetworkBackend):
     def __init__(self, num_threads: int):
@@ -126,7 +146,8 @@ class YMQNetworkBackend(NetworkBackend):
         return YMQAsyncConnector(context=self._context, identity=identity, callback=callback)
 
     def create_async_publisher(self, identity: bytes) -> AsyncPublisher:
-        return ZMQAsyncPublisher(context=self._publisher_context, identity=identity)
+        assert self._context is not None
+        return YMQAsyncPublisher(context=self._context, identity=identity)
 
     def create_sync_connector(
         self, identity: bytes, connector_remote_type: ConnectorRemoteType, address: AddressConfig
@@ -143,6 +164,22 @@ class YMQNetworkBackend(NetworkBackend):
     ) -> SyncObjectStorageConnector:
         assert self._context is not None
         return YMQSyncObjectStorageConnector(context=self._context, identity=identity, address=address)
+
+    def create_sync_subscriber(
+        self,
+        identity: bytes,
+        address: AddressConfig,
+        callback: Callable[[BaseMessage], None],
+        timeout: Optional[timedelta],
+    ) -> SyncSubscriber:
+        assert self._context is not None
+        return YMQSyncSubscriber(
+            context=self._context,
+            identity=identity,
+            address=address,
+            callback=callback,
+            timeout=timeout,
+        )
 
 
 def get_scaler_network_backend_type_from_env() -> NetworkBackendType:

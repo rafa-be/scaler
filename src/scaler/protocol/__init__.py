@@ -36,7 +36,7 @@ if capnp is None:
             sys.modules[_CAPNP_MODULE_NAME] = capnp
             capnp_spec.loader.exec_module(capnp)
             break
-        except ImportError as error:
+        except (ImportError, TypeError) as error:
             sys.modules.pop(_CAPNP_MODULE_NAME, None)
             import_error = error
     else:
