@@ -103,11 +103,7 @@ class ZMQNetworkBackend(NetworkBackend):
         timeout: Optional[timedelta],
     ) -> SyncSubscriber:
         return ZMQSyncSubscriber(
-            context=self._context,
-            identity=identity,
-            address=address,
-            callback=callback,
-            timeout=timeout,
+            context=self._context, identity=identity, address=address, callback=callback, timeout=timeout
         )
 
 
@@ -174,11 +170,7 @@ class YMQNetworkBackend(NetworkBackend):
     ) -> SyncSubscriber:
         assert self._context is not None
         return YMQSyncSubscriber(
-            context=self._context,
-            identity=identity,
-            address=address,
-            callback=callback,
-            timeout=timeout,
+            context=self._context, identity=identity, address=address, callback=callback, timeout=timeout
         )
 
 

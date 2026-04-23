@@ -132,7 +132,6 @@ class ConnectorSocket:
         """Create a ConnectorSocket that binds to an address and waits for incoming connections."""
 
     def __repr__(self) -> str: ...
-
     def send_message(self, callback: Callable[[Optional[Exception]], None], message_payload: Bytes) -> None:
         """Send a message to the connected remote peer."""
 
