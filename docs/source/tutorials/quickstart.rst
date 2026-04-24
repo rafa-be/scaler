@@ -59,33 +59,9 @@ Start Services
 
         See :ref:`orb_aws_ec2_ec2_quick_setup` for full setup instructions.
 
-    .. group-tab:: Remote AWS HPC
+    .. group-tab:: Remote AWS HPC Batch
 
         Run the scheduler and worker manager locally; tasks execute as AWS Batch jobs.
-
-        .. code-block:: toml
-            :caption: config.toml
-
-            [object_storage_server]
-            bind_address = "tcp://127.0.0.1:2346"
-
-            [scheduler]
-            bind_address = "tcp://127.0.0.1:2345"
-            object_storage_address = "tcp://127.0.0.1:2346"
-
-            [[worker_manager]]
-            type = "aws_hpc"
-            scheduler_address = "tcp://127.0.0.1:2345"
-            object_storage_address = "tcp://127.0.0.1:2346"
-            worker_manager_id = "wm-batch"
-            job_queue = "scaler-batch-queue"
-            job_definition = "scaler-batch-job"
-            s3_bucket = "scaler-batch-<account-id>-us-east-1"
-            aws_region = "us-east-1"
-
-        .. code-block:: bash
-
-            scaler config.toml
 
         See :ref:`aws_hpc_batch_quick_start` for full setup instructions.
 
