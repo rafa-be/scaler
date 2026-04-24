@@ -5,6 +5,7 @@ from typing import Dict, List, Literal, Union
 
 from scaler.config.section.top import TopConfig
 from scaler.io.network_backends import get_network_backend_from_env
+from scaler.io.utility import generate_identity_from_name
 from scaler.protocol.capnp import BaseMessage, StateScheduler, TaskState
 from scaler.utility.formatter import (
     format_bytes,
@@ -39,11 +40,12 @@ def main():
 def poke(screen, config: TopConfig):
     screen.nodelay(1)
 
+    identity = generate_identity_from_name("top")
     backend = get_network_backend_from_env()
 
     try:
         subscriber = backend.create_sync_subscriber(
-            identity=b"",
+            identity=identity,
             address=config.monitor_address,
             callback=functools.partial(show_status, screen=screen),
             timeout=config.timeout,
@@ -72,7 +74,12 @@ def show_status(status: BaseMessage, screen):
 
     task_manager_table = __generate_keyword_data(
         "task_manager",
-        dict(sorted((TaskState(pair.state).name, pair.count) for pair in status.taskManager.stateToCount)),
+        dict(
+            sorted(
+                (TaskState(pair.state).name, pair.count)  # type: ignore[attr-defined]
+                for pair in status.taskManager.stateToCount
+            )
+        ),
         format_integer_flag=True,
     )
     object_manager = __generate_keyword_data("object_manager", {"num_of_objs": status.objectManager.numberOfObjects})

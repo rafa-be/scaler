@@ -185,7 +185,7 @@ class VanillaTaskController(TaskController, Looper, Reporter):
 
         return TaskManagerStatus(
             stateToCount=[
-                TaskManagerStatus.Pair(state=task_state.value, count=count)
+                TaskManagerStatus.Pair(state=task_state.value, count=count)  # type: ignore[attr-defined]
                 for task_state, count in statistics.items()
             ]
         )

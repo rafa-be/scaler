@@ -21,8 +21,8 @@ from scaler.io.mixins import (
     ConnectorRemoteType,
     NetworkBackend,
     SyncConnector,
-    SyncSubscriber,
     SyncObjectStorageConnector,
+    SyncSubscriber,
 )
 from scaler.io.sync_connector import ZMQSyncConnector
 from scaler.io.sync_subscriber import ZMQSyncSubscriber
@@ -30,9 +30,9 @@ from scaler.io.ymq_async_binder import YMQAsyncBinder
 from scaler.io.ymq_async_connector import YMQAsyncConnector
 from scaler.io.ymq_async_object_storage_connector import YMQAsyncObjectStorageConnector
 from scaler.io.ymq_async_publisher import YMQAsyncPublisher
-from scaler.io.ymq_sync_subscriber import YMQSyncSubscriber
 from scaler.io.ymq_sync_connector import YMQSyncConnector
 from scaler.io.ymq_sync_object_storage_connector import YMQSyncObjectStorageConnector
+from scaler.io.ymq_sync_subscriber import YMQSyncSubscriber
 from scaler.protocol.capnp import BaseMessage
 
 
@@ -175,7 +175,7 @@ class YMQNetworkBackend(NetworkBackend):
 
 
 def get_scaler_network_backend_type_from_env() -> NetworkBackendType:
-    backend_str = os.environ.get("SCALER_NETWORK_BACKEND")  # Default to tcp_zmq
+    backend_str = os.environ.get("SCALER_NETWORK_BACKEND")  # Default to tcp_zmqq
     if backend_str is None:
         return SCALER_NETWORK_BACKEND
 
