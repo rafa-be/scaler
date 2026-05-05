@@ -1,0 +1,13 @@
+find_package(OpenSSL REQUIRED)
+
+add_library(scaler_wrapper_openssl STATIC
+    secure_socket.h
+    secure_socket.cpp
+)
+
+target_link_libraries(scaler_wrapper_openssl
+    PUBLIC
+        scaler_wrapper_uv
+        OpenSSL::SSL
+        OpenSSL::Crypto
+)
