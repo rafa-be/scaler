@@ -22,8 +22,6 @@ dependencies = [
     "bidict",
     "cloudpickle",
     "psutil==7.2.2",
-    "pyzmq<27; python_version < '3.9'",
-    "pyzmq; python_version >= '3.9'",
     "sortedcontainers==2.4.0",
     "tblib",
     "typing-extensions",
@@ -31,6 +29,10 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+zmq = [
+    "pyzmq<27; python_version < '3.9'",
+    "pyzmq; python_version >= '3.9'",
+]
 uvloop = [
     "uvloop; platform_system != 'Windows'",
 ]
