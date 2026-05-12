@@ -131,7 +131,9 @@ Both C++ and Python code share these standards:
 5. **Modern C++**:
    - Use C++20 features supported by Clang++, MSVSC++ and GCC
    - Use RAII
-   - Prefer smart pointers
+      - Use smart pointers
+      - Avoid the use of custom copy/move/assignment constructors and operators with the use of smart pointers
+      - Always prefer type-safety, especially for resources management
    - Prefer the {}-initializer syntax, avoid () initialization
    - Prefer `std::optional` over null pointers
    - Prefer `std::expected` over exceptions

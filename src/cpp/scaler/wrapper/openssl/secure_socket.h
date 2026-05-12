@@ -11,6 +11,7 @@
 #include <optional>
 #include <span>
 
+#include "scaler/wrapper/openssl/ssl_context.h"
 #include "scaler/wrapper/uv/callback.h"
 #include "scaler/wrapper/uv/loop.h"
 #include "scaler/wrapper/uv/socket_address.h"
@@ -19,8 +20,6 @@
 namespace scaler {
 namespace wrapper {
 namespace openssl {
-
-static const SSL_METHOD* defaultSSLMethod = TLS_method();
 
 // A libuv-like socket implementing SSL/TLS using OpenSSL.
 class SecureSocket {
@@ -34,8 +33,7 @@ public:
         Closed,
     };
 
-    static std::expected<SecureSocket, uv::Error> init(
-        uv::TCPSocket socket, const SSL_METHOD* method = defaultSSLMethod) noexcept;
+    static std::expected<SecureSocket, uv::Error> init(SSLContext context, uv::TCPSocket transport) noexcept;
 
     std::expected<uv::ConnectRequest, uv::Error> connect(
         const uv::SocketAddress& address, uv::ConnectCallback callback) noexcept;
@@ -66,8 +64,7 @@ public:
     uv::TCPSocket& transport() noexcept;
 
 private:
-    // TODO: use camelCase for constants
-    static constexpr size_t DEFAULT_DECRYPT_CHUNK_SIZE = 16 * 1024;
+    static constexpr size_t defaultDecryptChunkSize = 16 * 1024;
 
     struct PendingWrite {
         std::span<const uint8_t> _payload;
@@ -75,8 +72,8 @@ private:
     };
 
     SecureSocket(
-        uv::TCPSocket socket,
-        SSLPtr<SSL_CTX> context,
+        SSLContext context,
+        uv::TCPSocket transport,
         SSLPtr<SSL> ssl,
         SSLPtr<BIO> readBIO,
         SSLPtr<BIO> writeBIO) noexcept;
@@ -103,16 +100,17 @@ private:
 
     void onTransportRead(std::expected<std::span<const uint8_t>, uv::Error> result) noexcept;
 
+    SSLContext _context;
     uv::TCPSocket _transport;
-    State _state {State::Uninitialized};
 
-    SSLPtr<SSL_CTX> _context {};
     SSLPtr<SSL> _ssl {};
     SSLPtr<BIO> _readBIO {};
     SSLPtr<BIO> _writeBIO {};
 
+    State _state {State::Uninitialized};
+
     std::optional<uv::ReadCallback> _onReadCallback {};
-    std::optional<uv::ShutdownCallback> _shutdownCallback {};
+    std::optional<uv::ShutdownCallback> _onShutdownCallback {};
 
     std::deque<PendingWrite> _pendingWrites {};
 };

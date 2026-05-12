@@ -12,20 +12,10 @@ namespace scaler {
 namespace wrapper {
 namespace openssl {
 
-std::expected<SecureSocket, uv::Error> SecureSocket::init(uv::TCPSocket socket, const SSL_METHOD* method) noexcept
+std::expected<SecureSocket, uv::Error> SecureSocket::init(SSLContext context, uv::TCPSocket transport) noexcept
 {
-    if (method == nullptr) {
-        return std::unexpected {uv::Error {UV_EPROTO}};
-    }
-
-    // Create SSL context
-    SSLPtr<SSL_CTX> context {SSL_CTX_new(method)};
-    if (context == nullptr) {
-        return std::unexpected {uv::Error {UV_ENOMEM}};
-    }
-
     // Create SSL session
-    SSLPtr<SSL> ssl {SSL_new(context.get())};
+    SSLPtr<SSL> ssl {SSL_new(context.native())};
     if (ssl == nullptr) {
         return std::unexpected {uv::Error {UV_ENOMEM}};
     }
@@ -43,13 +33,13 @@ std::expected<SecureSocket, uv::Error> SecureSocket::init(uv::TCPSocket socket, 
     SSL_set_bio(ssl.get(), readBIO.get(), writeBIO.get());
 
     return SecureSocket {
-        std::move(socket), std::move(context), std::move(ssl), std::move(readBIO), std::move(writeBIO)};
+        std::move(context), std::move(transport), std::move(ssl), std::move(readBIO), std::move(writeBIO)};
 }
 
 SecureSocket::SecureSocket(
-    uv::TCPSocket socket, SSLPtr<SSL_CTX> context, SSLPtr<SSL> ssl, SSLPtr<BIO> readBIO, SSLPtr<BIO> writeBIO) noexcept
-    : _transport(std::move(socket))
-    , _context(std::move(context))
+    SSLContext context, uv::TCPSocket transport, SSLPtr<SSL> ssl, SSLPtr<BIO> readBIO, SSLPtr<BIO> writeBIO) noexcept
+    : _context(std::move(context))
+    , _transport(std::move(transport))
     , _ssl(std::move(ssl))
     , _readBIO(std::move(readBIO))
     , _writeBIO(std::move(writeBIO))
@@ -115,8 +105,8 @@ std::expected<void, uv::Error> SecureSocket::write(std::span<const uint8_t> buff
 
 std::expected<void, uv::Error> SecureSocket::shutdown(uv::ShutdownCallback callback) noexcept
 {
-    _state            = State::Closing;
-    _shutdownCallback = std::move(callback);
+    _state              = State::Closing;
+    _onShutdownCallback = std::move(callback);
 
     failPendingWrites(uv::Error {UV_ECANCELED});
 
@@ -196,14 +186,14 @@ std::expected<void, uv::Error> SecureSocket::tryFinishHandshake() noexcept
 std::expected<void, uv::Error> SecureSocket::tryFinishShutdown() noexcept
 {
     assert(_state == State::Closing);
-    assert(_shutdownCallback.has_value());
+    assert(_onShutdownCallback.has_value());
 
     const int status = SSL_shutdown(_ssl.get());
 
     std::expected<void, uv::Error> flushResult = flushToTransport();
     if (!flushResult.has_value()) {
-        (*_shutdownCallback)(std::unexpected {flushResult.error()});
-        _shutdownCallback.reset();
+        (*_onShutdownCallback)(std::unexpected {flushResult.error()});
+        _onShutdownCallback.reset();
         return flushResult;
     }
 
@@ -222,8 +212,8 @@ std::expected<void, uv::Error> SecureSocket::tryFinishShutdown() noexcept
         } else {
             onSSLError(sslError);
             uv::Error error {UV_EPROTO};
-            (*_shutdownCallback)(std::unexpected {error});
-            _shutdownCallback.reset();
+            (*_onShutdownCallback)(std::unexpected {error});
+            _onShutdownCallback.reset();
             return std::unexpected {error};
         }
     }
@@ -231,7 +221,7 @@ std::expected<void, uv::Error> SecureSocket::tryFinishShutdown() noexcept
     assert(status == 1);
 
     // SSL shutdown completed, shut down the transport.
-    std::expected<uv::ShutdownRequest, uv::Error> shutdownResult = _transport.shutdown(std::move(*_shutdownCallback));
+    std::expected<uv::ShutdownRequest, uv::Error> shutdownResult = _transport.shutdown(std::move(*_onShutdownCallback));
     if (!shutdownResult.has_value()) {
         return std::unexpected {shutdownResult.error()};
     }
@@ -241,7 +231,7 @@ std::expected<void, uv::Error> SecureSocket::tryFinishShutdown() noexcept
 
 std::expected<void, uv::Error> SecureSocket::flushToApplication() noexcept
 {
-    std::array<uint8_t, DEFAULT_DECRYPT_CHUNK_SIZE> buffer {};
+    std::array<uint8_t, defaultDecryptChunkSize> buffer {};
 
     while (_onReadCallback.has_value()) {  // Stops if a callback calls readStop().
         const int readCount = SSL_read(_ssl.get(), buffer.data(), static_cast<int>(buffer.size()));
@@ -367,7 +357,7 @@ void SecureSocket::failWithError(uv::Error error) noexcept
 
     failPendingWrites(error);
 
-    _shutdownCallback.reset();
+    _onShutdownCallback.reset();
 }
 
 void SecureSocket::onSSLError([[maybe_unused]] int sslError) noexcept
