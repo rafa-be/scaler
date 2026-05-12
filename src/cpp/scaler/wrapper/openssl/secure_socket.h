@@ -8,8 +8,8 @@
 #include <deque>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <span>
-#include <vector>
 
 #include "scaler/wrapper/uv/callback.h"
 #include "scaler/wrapper/uv/loop.h"
@@ -19,6 +19,8 @@
 namespace scaler {
 namespace wrapper {
 namespace openssl {
+
+static const SSL_METHOD* defaultSSLMethod = TLS_method();
 
 // A libuv-like socket implementing SSL/TLS using OpenSSL.
 class SecureSocket {
@@ -32,7 +34,8 @@ public:
         Closed,
     };
 
-    static std::expected<SecureSocket, uv::Error> init(uv::Loop& loop) noexcept;
+    static std::expected<SecureSocket, uv::Error> init(
+        uv::TCPSocket socket, const SSL_METHOD* method = defaultSSLMethod) noexcept;
 
     std::expected<uv::ConnectRequest, uv::Error> connect(
         const uv::SocketAddress& address, uv::ConnectCallback callback) noexcept;
@@ -60,84 +63,58 @@ public:
 
     bool established() const noexcept;
 
-    uv::TCPSocket& tcpSocket() noexcept;
-
-    const uv::TCPSocket& tcpSocket() const noexcept;
+    uv::TCPSocket& transport() noexcept;
 
 private:
-    struct PendingPlaintextWrite {
-        std::vector<uint8_t> _payload;
-        uv::WriteCallback _callback;
-    };
-
-    struct PendingCiphertextWrite {
-        std::vector<uint8_t> _payload;
-        uv::WriteCallback _callback;
-        size_t _id {0};
-    };
-
-    using SSLContextPtr = std::unique_ptr<SSL_CTX, decltype(&SSL_CTX_free)>;
-    using SSLPtr        = std::unique_ptr<SSL, decltype(&SSL_free)>;
-    using BIOPtr        = std::unique_ptr<BIO, decltype(&BIO_free)>;
-
     // TODO: use camelCase for constants
-    static constexpr size_t DEFAULT_MAX_PENDING_BYTES  = 16 * 1024 * 1024;
     static constexpr size_t DEFAULT_DECRYPT_CHUNK_SIZE = 16 * 1024;
 
-    explicit SecureSocket(uv::TCPSocket socket) noexcept;
+    struct PendingWrite {
+        std::span<const uint8_t> _payload;
+        uv::WriteCallback _callback;
+    };
 
-    std::expected<void, uv::Error> createContext() noexcept;
+    SecureSocket(
+        uv::TCPSocket socket,
+        SSLPtr<SSL_CTX> context,
+        SSLPtr<SSL> ssl,
+        SSLPtr<BIO> readBIO,
+        SSLPtr<BIO> writeBIO) noexcept;
 
-    std::expected<void, uv::Error> createTLSObjects() noexcept;
+    std::expected<void, uv::Error> tryFinishHandshake() noexcept;
 
-    std::expected<void, uv::Error> startTransportRead() noexcept;
+    std::expected<void, uv::Error> tryFinishShutdown() noexcept;
 
-    std::expected<void, uv::Error> startHandshake() noexcept;
+    std::expected<void, uv::Error> flushToApplication() noexcept;
 
-    std::expected<void, uv::Error> driveHandshake() noexcept;
+    std::expected<void, uv::Error> flushToTransport() noexcept;
 
-    std::expected<void, uv::Error> drainPlaintextReads() noexcept;
-
-    std::expected<void, uv::Error> queueWrite(
-        std::span<const std::span<const uint8_t>> buffers, uv::WriteCallback callback) noexcept;
-
-    std::expected<void, uv::Error> processPendingPlaintextWrites() noexcept;
-
-    std::expected<void, uv::Error> flushCiphertextBIO() noexcept;
-
-    std::expected<void, uv::Error> processPendingCiphertextWrites() noexcept;
-
-    void onTransportRead(std::expected<std::span<const uint8_t>, uv::Error> result) noexcept;
-
-    void onUnderlyingWriteDone(size_t writeId, std::expected<void, uv::Error> result) noexcept;
+    std::expected<void, uv::Error> processPendingWrites() noexcept;
 
     void failPendingWrites(uv::Error error) noexcept;
 
-    std::expected<void, uv::Error> sendCloseNotify() noexcept;
+    void failWithError(uv::Error error) noexcept;
 
-    uv::TCPSocket _socket;
+    void onSSLError(int sslError) noexcept;
+
+    void onTransportError(uv::Error error) noexcept;
+
+    void onTransportConnected(std::expected<void, uv::Error> result, uv::ConnectCallback callback) noexcept;
+
+    void onTransportRead(std::expected<std::span<const uint8_t>, uv::Error> result) noexcept;
+
+    uv::TCPSocket _transport;
     State _state {State::Uninitialized};
 
-    // TODO: can we allocate these values inside the object itself?
-    SSLContextPtr _context {nullptr, &SSL_CTX_free};
-    SSLPtr _ssl {nullptr, &SSL_free};
-    BIOPtr _readBIO {nullptr, &BIO_free};
-    BIOPtr _writeBIO {nullptr, &BIO_free};
+    SSLPtr<SSL_CTX> _context {};
+    SSLPtr<SSL> _ssl {};
+    SSLPtr<BIO> _readBIO {};
+    SSLPtr<BIO> _writeBIO {};
 
-    uv::ReadCallback _onRead {};
+    std::optional<uv::ReadCallback> _onReadCallback {};
+    std::optional<uv::ShutdownCallback> _shutdownCallback {};
 
-    bool _readEnabled {false};
-    bool _transportReadStarted {false};
-    bool _underlyingWriteInFlight {false};
-    bool _closeNotifySent {false};
-
-    size_t _nextWriteId {1};
-    size_t _pendingPlaintextBytes {0};
-    size_t _pendingCiphertextBytes {0};
-    size_t _maxPendingBytes {DEFAULT_MAX_PENDING_BYTES};
-
-    std::deque<PendingPlaintextWrite> _pendingPlaintextWrites {};
-    std::deque<PendingCiphertextWrite> _pendingCiphertextWrites {};
+    std::deque<PendingWrite> _pendingWrites {};
 };
 
 }  // namespace openssl
