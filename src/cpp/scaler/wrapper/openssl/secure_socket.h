@@ -21,8 +21,6 @@ namespace scaler {
 namespace wrapper {
 namespace openssl {
 
-static const SSL_METHOD* defaultSSLMethod = TLS_method();
-
 // A libuv-like socket implementing SSL/TLS using OpenSSL.
 class SecureSocket {
 public:
