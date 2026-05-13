@@ -3,6 +3,7 @@
 #include <expected>
 #include <functional>
 #include <memory>
+#include <optional>
 #include <span>
 #include <string>
 #include <vector>
@@ -87,10 +88,16 @@ public:
         return UV_EXIT_ON_ERROR(_server.getSockName());
     }
 
+    bool clientConnected() const noexcept
+    {
+        return _client.has_value();
+    }
+
 private:
     scaler::wrapper::uv::Loop& _loop;
     scaler::wrapper::openssl::SSLContext _context;
     scaler::wrapper::openssl::SecureServer _server;
+    std::optional<scaler::wrapper::openssl::SecureSocket> _client {};
 
     void onClientConnected(std::expected<void, scaler::wrapper::uv::Error> result)
     {
@@ -100,19 +107,18 @@ private:
         auto secureSocket =
             UV_EXIT_ON_ERROR(scaler::wrapper::openssl::SecureSocket::init(_context, std::move(transport)));
 
-        auto client = std::make_shared<scaler::wrapper::openssl::SecureSocket>(std::move(secureSocket));
+        _client.emplace(std::move(secureSocket));
 
-        UV_EXIT_ON_ERROR(_server.accept(*client));
+        UV_EXIT_ON_ERROR(_server.accept(*_client));
 
-        UV_EXIT_ON_ERROR(client->readStart(std::bind_front(onClientRead, client)));
+        UV_EXIT_ON_ERROR(_client->readStart(std::bind_front(&TLSEchoServer::onClientRead, this)));
     }
 
-    static void onClientRead(
-        std::shared_ptr<scaler::wrapper::openssl::SecureSocket> client,
-        std::expected<std::span<const uint8_t>, scaler::wrapper::uv::Error> readResult)
+    void onClientRead(std::expected<std::span<const uint8_t>, scaler::wrapper::uv::Error> readResult)
     {
         if (!readResult.has_value() && readResult.error() == scaler::wrapper::uv::Error {UV_EOF}) {
-            client->readStop();
+            _client->readStop();
+            _client.reset();
             return;
         }
 
@@ -120,7 +126,7 @@ private:
 
         auto buffer = std::make_shared<const std::vector<uint8_t>>(readBuffer.begin(), readBuffer.end());
 
-        UV_EXIT_ON_ERROR(client->write(*buffer, [buffer](std::expected<void, scaler::wrapper::uv::Error> result) {
+        UV_EXIT_ON_ERROR(_client->write(*buffer, [buffer](std::expected<void, scaler::wrapper::uv::Error> result) {
             UV_EXIT_ON_ERROR(std::move(result));
         }));
     }
@@ -169,4 +175,14 @@ TEST_F(OpenSSLTest, EchoServer)
     }
 
     client.readStop();
+    ASSERT_TRUE(server.clientConnected());
+
+    // Shutdown the client and verify the server sees the disconnect
+
+    UV_EXIT_ON_ERROR(client.shutdown(
+        [&](std::expected<void, scaler::wrapper::uv::Error> shutdownResult) { UV_EXIT_ON_ERROR(shutdownResult); }));
+
+    while (server.clientConnected()) {
+        loop.run(UV_RUN_ONCE);
+    }
 }

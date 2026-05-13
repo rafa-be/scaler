@@ -97,13 +97,7 @@ private:
 
     std::expected<void, uv::Error> processPendingWrites() noexcept;
 
-    void failPendingWrites(uv::Error error) noexcept;
-
     void failWithError(uv::Error error) noexcept;
-
-    void onSSLError(int sslError) noexcept;
-
-    void onTransportError(uv::Error error) noexcept;
 
     void onTransportConnected(std::expected<void, uv::Error> result) noexcept;
 
