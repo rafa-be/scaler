@@ -5,7 +5,7 @@ target_link_libraries(test_wrapper_openssl PRIVATE
     scaler_wrapper_uv
 )
 
-# Copy sample certificates next to the build directory
+# Copy sample certificates into the build directory
 configure_file(sample_cert.pem ${CMAKE_CURRENT_BINARY_DIR}/sample_cert.pem COPYONLY)
 configure_file(sample_private_key.pem ${CMAKE_CURRENT_BINARY_DIR}/sample_private_key.pem COPYONLY)
 

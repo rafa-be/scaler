@@ -27,7 +27,7 @@ std::expected<SecureSocket, uv::Error> SecureSocket::init(SSLContext context, uv
         return std::unexpected {uv::Error {UV_ENOMEM}};
     }
 
-    // Configure SSL with BIOs.
+    // Associate BIOs with the SSL session.
     BIO_up_ref(readBIO.get());  // BIO_up_ref() is required as SSL_set_bio() takes ownership of these buffers.
     BIO_up_ref(writeBIO.get());
     SSL_set_bio(ssl.get(), readBIO.get(), writeBIO.get());
@@ -84,7 +84,7 @@ std::expected<void, uv::Error> SecureSocket::readStart(uv::ReadCallback callback
     }
 
     // We do not propagate readStart() to the transport layer, as we already enabled it during the SSL handshake.
-    // We instead "mask" and queue the reads until the application layer register a callback.
+    // We instead "mask" and queue the reads until the application layer registers a callback.
 
     _onReadCallback = std::move(callback);
 
