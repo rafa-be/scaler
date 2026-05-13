@@ -51,16 +51,26 @@ std::expected<uv::ConnectRequest, uv::Error> SecureSocket::connect(
 {
     assert(_state == State::Uninitialized);
 
-    _state = State::Connecting;
+    _state               = State::Connecting;
+    _onHandshakeCallback = std::move(callback);
 
     std::expected<uv::ConnectRequest, uv::Error> result =
-        _transport.connect(address, std::bind_front(&SecureSocket::onTransportConnected, this, std::move(callback)));
+        _transport.connect(address, std::bind_front(&SecureSocket::onTransportConnected, this));
     if (!result.has_value()) {
         onTransportError(result.error());
         return result;
     }
 
     return result;
+}
+
+std::expected<void, uv::Error> SecureSocket::accept(uv::ConnectCallback callback) noexcept
+{
+    assert(_state == State::Uninitialized);
+
+    _onHandshakeCallback = std::move(callback);
+
+    return startHandshake(HandshakeMode::Accept);
 }
 
 std::expected<void, uv::Error> SecureSocket::readStart(uv::ReadCallback callback) noexcept
@@ -152,14 +162,42 @@ uv::TCPSocket& SecureSocket::transport() noexcept
     return _transport;
 }
 
+std::expected<void, uv::Error> SecureSocket::startHandshake(HandshakeMode mode) noexcept
+{
+    assert(_state == State::Uninitialized || _state == State::Connecting);
+    assert(_onHandshakeCallback.has_value());
+
+    _state = State::Handshaking;
+
+    if (mode == HandshakeMode::Connect) {
+        SSL_set_connect_state(_ssl.get());
+    } else {
+        SSL_set_accept_state(_ssl.get());
+    }
+
+    std::expected<void, uv::Error> readResult =
+        _transport.readStart(std::bind_front(&SecureSocket::onTransportRead, this));
+    if (!readResult.has_value()) {
+        onTransportError(readResult.error());
+        (*_onHandshakeCallback)(std::move(readResult));
+        _onHandshakeCallback.reset();
+        return readResult;
+    }
+
+    return tryFinishHandshake();
+}
+
 std::expected<void, uv::Error> SecureSocket::tryFinishHandshake() noexcept
 {
     assert(_state == State::Handshaking);
+    assert(_onHandshakeCallback.has_value());
 
     const int status = SSL_do_handshake(_ssl.get());
 
     std::expected<void, uv::Error> flushResult = flushToTransport();
     if (!flushResult.has_value()) {
+        (*_onHandshakeCallback)(std::unexpected {flushResult.error()});
+        _onHandshakeCallback.reset();
         return flushResult;
     }
 
@@ -172,13 +210,19 @@ std::expected<void, uv::Error> SecureSocket::tryFinishHandshake() noexcept
             return {};  // try again later
         } else {
             onSSLError(sslError);
-            return std::unexpected {uv::Error {UV_EPROTO}};
+            uv::Error error {UV_EPROTO};
+            (*_onHandshakeCallback)(std::unexpected {error});
+            _onHandshakeCallback.reset();
+            return std::unexpected {error};
         }
     }
 
     assert(status == 1);
 
     _state = State::Established;
+
+    (*_onHandshakeCallback)({});
+    _onHandshakeCallback.reset();
 
     return {};
 }
@@ -357,6 +401,7 @@ void SecureSocket::failWithError(uv::Error error) noexcept
 
     failPendingWrites(error);
 
+    _onHandshakeCallback.reset();
     _onShutdownCallback.reset();
 }
 
@@ -370,34 +415,19 @@ void SecureSocket::onTransportError(uv::Error error) noexcept
     failWithError(error);
 }
 
-void SecureSocket::onTransportConnected(std::expected<void, uv::Error> result, uv::ConnectCallback callback) noexcept
+void SecureSocket::onTransportConnected(std::expected<void, uv::Error> result) noexcept
 {
+    assert(_state == State::Connecting);
+    assert(_onHandshakeCallback.has_value());
+
     if (!result.has_value()) {
         onTransportError(result.error());
-        callback(std::unexpected {result.error()});
+        (*_onHandshakeCallback)(std::unexpected {result.error()});
+        _onHandshakeCallback.reset();
         return;
     }
 
-    // Set SSL to connect state before starting handshake
-    SSL_set_connect_state(_ssl.get());
-
-    std::expected<void, uv::Error> readResult =
-        _transport.readStart(std::bind_front(&SecureSocket::onTransportRead, this));
-    if (!readResult.has_value()) {
-        onTransportError(readResult.error());
-        callback(std::move(readResult));
-        return;
-    }
-
-    _state = State::Handshaking;
-
-    std::expected<void, uv::Error> handshakeResult = tryFinishHandshake();
-    if (!handshakeResult.has_value()) {
-        callback(std::move(handshakeResult));
-        return;
-    }
-
-    callback({});
+    startHandshake(HandshakeMode::Connect);
 }
 
 void SecureSocket::onTransportRead(std::expected<std::span<const uint8_t>, uv::Error> result) noexcept

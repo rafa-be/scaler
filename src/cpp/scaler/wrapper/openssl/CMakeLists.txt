@@ -1,6 +1,8 @@
 find_package(OpenSSL REQUIRED)
 
 add_library(scaler_wrapper_openssl STATIC
+    secure_server.h
+    secure_server.cpp
     secure_socket.h
     secure_socket.cpp
     ssl_context.h

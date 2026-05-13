@@ -35,8 +35,13 @@ public:
 
     static std::expected<SecureSocket, uv::Error> init(SSLContext context, uv::TCPSocket transport) noexcept;
 
+    // Initiate a client-side TLS connection.
     std::expected<uv::ConnectRequest, uv::Error> connect(
         const uv::SocketAddress& address, uv::ConnectCallback callback) noexcept;
+
+    // Initiate a server-side TLS handshake.
+    // The callback is called when the handshake completes (or fails).
+    std::expected<void, uv::Error> accept(uv::ConnectCallback callback) noexcept;
 
     std::expected<void, uv::Error> readStart(uv::ReadCallback callback) noexcept;
 
@@ -66,6 +71,8 @@ public:
 private:
     static constexpr size_t defaultDecryptChunkSize = 16 * 1024;
 
+    enum class HandshakeMode { Connect, Accept };
+
     struct PendingWrite {
         std::span<const uint8_t> _payload;
         uv::WriteCallback _callback;
@@ -77,6 +84,8 @@ private:
         SSLPtr<SSL> ssl,
         SSLPtr<BIO> readBIO,
         SSLPtr<BIO> writeBIO) noexcept;
+
+    std::expected<void, uv::Error> startHandshake(HandshakeMode mode) noexcept;
 
     std::expected<void, uv::Error> tryFinishHandshake() noexcept;
 
@@ -96,7 +105,7 @@ private:
 
     void onTransportError(uv::Error error) noexcept;
 
-    void onTransportConnected(std::expected<void, uv::Error> result, uv::ConnectCallback callback) noexcept;
+    void onTransportConnected(std::expected<void, uv::Error> result) noexcept;
 
     void onTransportRead(std::expected<std::span<const uint8_t>, uv::Error> result) noexcept;
 
@@ -109,6 +118,7 @@ private:
 
     State _state {State::Uninitialized};
 
+    std::optional<uv::ConnectCallback> _onHandshakeCallback {};
     std::optional<uv::ReadCallback> _onReadCallback {};
     std::optional<uv::ShutdownCallback> _onShutdownCallback {};
 
