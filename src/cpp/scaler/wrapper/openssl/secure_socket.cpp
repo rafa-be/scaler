@@ -320,9 +320,8 @@ std::expected<void, uv::Error> SecureSocket::flushToTransport() noexcept
         const std::span<const uint8_t> bufferSpan {*buffer};
 
         // Callback captures the buffer to extend its lifetime until the write completes
-        // TODO: handle write errors?
         auto writeResult = _transport.write(
-            bufferSpan, [buffer = std::move(buffer)](std::expected<void, uv::Error> result) mutable noexcept {});
+            bufferSpan, [buffer = std::move(buffer)](std::expected<void, uv::Error>) mutable noexcept {});
         if (!writeResult.has_value()) {
             onTransportError(writeResult.error());
             return std::unexpected {writeResult.error()};

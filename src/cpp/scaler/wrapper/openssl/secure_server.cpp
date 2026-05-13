@@ -13,11 +13,11 @@ std::expected<SecureServer, uv::Error> SecureServer::init(SSLContext context, uv
         return std::unexpected {server.error()};
     }
 
-    return SecureServer {std::move(context), loop, std::move(server.value())};
+    return SecureServer {std::move(context), std::move(server.value())};
 }
 
-SecureServer::SecureServer(SSLContext context, uv::Loop& loop, uv::TCPServer server) noexcept
-    : _context(std::move(context)), _loop(loop), _server(std::move(server))
+SecureServer::SecureServer(SSLContext context, uv::TCPServer server) noexcept
+    : _context(std::move(context)), _server(std::move(server))
 {
 }
 

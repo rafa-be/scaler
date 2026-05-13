@@ -16,7 +16,7 @@ namespace openssl {
 // A RAII wrapper over OpenSSL's SSL_CTX
 class SSLContext {
 public:
-    static const SSL_METHOD* defaultSSLMethod = TLS_method();
+    inline static const SSL_METHOD* defaultSSLMethod = TLS_method();
 
     // See SSL_CTX_new
     static std::expected<SSLContext, uv::Error> init(const SSL_METHOD* method = defaultSSLMethod) noexcept;

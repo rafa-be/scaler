@@ -27,10 +27,9 @@ public:
     std::expected<uv::SocketAddress, uv::Error> getSockName() const noexcept;
 
 private:
-    SecureServer(SSLContext context, uv::Loop& loop, uv::TCPServer server) noexcept;
+    SecureServer(SSLContext context, uv::TCPServer server) noexcept;
 
     SSLContext _context;
-    uv::Loop& _loop;
     uv::TCPServer _server;
 };
 
