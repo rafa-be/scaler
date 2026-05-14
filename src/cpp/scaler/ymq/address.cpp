@@ -9,7 +9,7 @@ namespace ymq {
 
 namespace details {
 
-std::expected<Address, Error> fromTCPString(std::string_view addrPart) noexcept
+std::expected<Address, Error> fromTCPString(std::string_view addrPart, bool secure) noexcept
 {
     const size_t colonPos = addrPart.rfind(':');
     if (colonPos == std::string_view::npos) {
@@ -29,13 +29,13 @@ std::expected<Address, Error> fromTCPString(std::string_view addrPart) noexcept
     // Try IPv4 first
     auto socketAddress = scaler::wrapper::uv::SocketAddress::IPv4(ip, port);
     if (socketAddress.has_value()) {
-        return Address(std::move(*socketAddress));
+        return Address(std::move(*socketAddress), secure);
     }
 
     // Try IPv6
     socketAddress = scaler::wrapper::uv::SocketAddress::IPv6(ip, port);
     if (socketAddress.has_value()) {
-        return Address(std::move(*socketAddress));
+        return Address(std::move(*socketAddress), secure);
     }
 
     return std::unexpected {Error {Error::ErrorCode::InvalidAddressFormat, "Failed to parse IP address"}};
@@ -82,15 +82,15 @@ std::expected<Address, Error> fromWSString(std::string_view addrPart, bool secur
         .host       = host,
         .port       = static_cast<uint16_t>(port),
         .path       = path,
-        .secure     = secure,
     };
-    return Address(std::move(wsAddr));
+    return Address(std::move(wsAddr), secure);
 }
 
 }  // namespace details
 
-Address::Address(std::variant<scaler::wrapper::uv::SocketAddress, std::string, WebSocketAddress> value) noexcept
-    : _value(std::move(value))
+Address::Address(
+    std::variant<scaler::wrapper::uv::SocketAddress, std::string, WebSocketAddress> value, bool secure) noexcept
+    : _value(std::move(value)), _secure(secure)
 {
 }
 
@@ -110,6 +110,11 @@ Address::Type Address::type() const noexcept
     } else {
         std::unreachable();
     }
+}
+
+bool Address::secure() const noexcept
+{
+    return _secure;
 }
 
 const scaler::wrapper::uv::SocketAddress& Address::asTCP() const noexcept
@@ -139,12 +144,13 @@ std::expected<std::string, Error> Address::toString() const noexcept
                 return std::unexpected {
                     Error {Error::ErrorCode::InvalidAddressFormat, "Failed to convert TCP address to string"}};
             }
-            return std::string(_tcpPrefix) + tcpAddrStr.value();
+            const std::string_view prefix = _secure ? _tlsPrefix : _tcpPrefix;
+            return std::string(prefix) + tcpAddrStr.value();
         }
         case Type::IPC: return std::string {_ipcPrefix} + asIPC();
         case Type::WebSocket: {
             const auto& ws                = asWebSocket();
-            const std::string_view prefix = ws.secure ? _wssPrefix : _wsPrefix;
+            const std::string_view prefix = _secure ? _wssPrefix : _wsPrefix;
             return std::string(prefix) + ws.host + ":" + std::to_string(ws.port) + ws.path;
         }
         default: std::unreachable();
@@ -154,7 +160,11 @@ std::expected<std::string, Error> Address::toString() const noexcept
 std::expected<Address, Error> Address::fromString(std::string_view address) noexcept
 {
     if (address.starts_with(_tcpPrefix)) {
-        return details::fromTCPString(address.substr(_tcpPrefix.size()));
+        return details::fromTCPString(address.substr(_tcpPrefix.size()), false);
+    }
+
+    if (address.starts_with(_tlsPrefix)) {
+        return details::fromTCPString(address.substr(_tlsPrefix.size()), true);
     }
 
     if (address.starts_with(_ipcPrefix)) {
@@ -170,7 +180,8 @@ std::expected<Address, Error> Address::fromString(std::string_view address) noex
     }
 
     return std::unexpected {Error {
-        Error::ErrorCode::InvalidAddressFormat, "Address must start with 'tcp://', 'ipc://', 'ws://', or 'wss://'"}};
+        Error::ErrorCode::InvalidAddressFormat,
+        "Address must start with 'tcp://', 'tls://', 'ipc://', 'ws://', or 'wss://'"}};
 }
 
 }  // namespace ymq

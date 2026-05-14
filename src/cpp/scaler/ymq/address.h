@@ -18,7 +18,6 @@ struct WebSocketAddress {
     std::string host;                               // original hostname (for the HTTP Host header)
     uint16_t port;                                  // port number
     std::string path;                               // request path, always starts with '/'
-    bool secure;                                    // true for wss://, false for ws://
 };
 
 // A socket address, can either be a SocketAddress (IPv4/6), an IPC path, or a WebSocket address.
@@ -30,7 +29,9 @@ public:
         WebSocket,
     };
 
-    Address(std::variant<scaler::wrapper::uv::SocketAddress, std::string, WebSocketAddress> value) noexcept;
+    Address(
+        std::variant<scaler::wrapper::uv::SocketAddress, std::string, WebSocketAddress> value,
+        bool secure = false) noexcept;
 
     Address(const Address&) noexcept            = default;
     Address& operator=(const Address&) noexcept = default;
@@ -41,6 +42,9 @@ public:
     const std::variant<scaler::wrapper::uv::SocketAddress, std::string, WebSocketAddress>& value() const noexcept;
 
     Type type() const noexcept;
+
+    // Whether this address uses TLS/SSL.
+    bool secure() const noexcept;
 
     const scaler::wrapper::uv::SocketAddress& asTCP() const noexcept;
 
@@ -56,6 +60,7 @@ public:
     //
     //     ipc://some_ipc_socket_name
     //     tcp://127.0.0.1:1827
+    //     tls://127.0.0.1:1827
     //     tcp://2001:db8::1:1211
     //     ws://127.0.0.1:8765/
     //     wss://example.com:443/ymq
@@ -64,11 +69,14 @@ public:
 
 private:
     static constexpr std::string_view _tcpPrefix = "tcp://";
+    static constexpr std::string_view _tlsPrefix = "tls://";
     static constexpr std::string_view _ipcPrefix = "ipc://";
     static constexpr std::string_view _wsPrefix  = "ws://";
     static constexpr std::string_view _wssPrefix = "wss://";
 
     std::variant<scaler::wrapper::uv::SocketAddress, std::string, WebSocketAddress> _value;
+
+    bool _secure;
 };
 
 }  // namespace ymq
