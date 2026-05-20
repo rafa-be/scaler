@@ -2,12 +2,14 @@
 
 #include <cstdint>
 #include <expected>
+#include <optional>
 #include <string>
 #include <string_view>
 #include <variant>
 
 #include "scaler/error/error.h"
 #include "scaler/wrapper/uv/socket_address.h"
+#include "scaler/ymq/tls_config.h"
 
 namespace scaler {
 namespace ymq {
@@ -23,15 +25,15 @@ struct WebSocketAddress {
 // A socket address, can either be a SocketAddress (IPv4/6), an IPC path, or a WebSocket address.
 class Address {
 public:
+    using AddressValue = std::variant<scaler::wrapper::uv::SocketAddress, std::string, WebSocketAddress>;
+
     enum class Type {
         IPC,
         TCP,
         WebSocket,
     };
 
-    Address(
-        std::variant<scaler::wrapper::uv::SocketAddress, std::string, WebSocketAddress> value,
-        bool secure = false) noexcept;
+    Address(AddressValue value, bool secure = false, std::optional<TLSConfig> tlsConfig = std::nullopt) noexcept;
 
     Address(const Address&) noexcept            = default;
     Address& operator=(const Address&) noexcept = default;
@@ -39,12 +41,14 @@ public:
     Address(Address&&) noexcept            = default;
     Address& operator=(Address&&) noexcept = default;
 
-    const std::variant<scaler::wrapper::uv::SocketAddress, std::string, WebSocketAddress>& value() const noexcept;
+    const AddressValue& value() const noexcept;
 
     Type type() const noexcept;
 
     // Whether this address uses TLS/SSL.
     bool secure() const noexcept;
+
+    const std::optional<TLSConfig>& tlsConfig() const noexcept;
 
     const scaler::wrapper::uv::SocketAddress& asTCP() const noexcept;
 
@@ -65,7 +69,8 @@ public:
     //     ws://127.0.0.1:8765/
     //     wss://example.com:443/ymq
     //
-    static std::expected<Address, Error> fromString(std::string_view address) noexcept;
+    static std::expected<Address, Error> fromString(
+        std::string_view address, std::optional<TLSConfig> tlsConfig = std::nullopt) noexcept;
 
 private:
     static constexpr std::string_view _tcpPrefix = "tcp://";
@@ -74,9 +79,11 @@ private:
     static constexpr std::string_view _wsPrefix  = "ws://";
     static constexpr std::string_view _wssPrefix = "wss://";
 
-    std::variant<scaler::wrapper::uv::SocketAddress, std::string, WebSocketAddress> _value;
+    AddressValue _value;
 
     bool _secure;
+
+    std::optional<TLSConfig> _tlsConfig;
 };
 
 }  // namespace ymq

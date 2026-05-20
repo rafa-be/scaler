@@ -1,5 +1,6 @@
 #include "scaler/ymq/address.h"
 
+#include <array>
 #include <cassert>
 #include <charconv>
 #include <utility>
@@ -9,7 +10,8 @@ namespace ymq {
 
 namespace details {
 
-std::expected<Address, Error> fromTCPString(std::string_view addrPart, bool secure) noexcept
+// Parse a "ip:port" address.
+std::expected<Address::AddressValue, Error> fromTCPString(std::string_view addrPart) noexcept
 {
     const size_t colonPos = addrPart.rfind(':');
     if (colonPos == std::string_view::npos) {
@@ -29,20 +31,25 @@ std::expected<Address, Error> fromTCPString(std::string_view addrPart, bool secu
     // Try IPv4 first
     auto socketAddress = scaler::wrapper::uv::SocketAddress::IPv4(ip, port);
     if (socketAddress.has_value()) {
-        return Address(std::move(*socketAddress), secure);
+        return *socketAddress;
     }
 
     // Try IPv6
     socketAddress = scaler::wrapper::uv::SocketAddress::IPv6(ip, port);
     if (socketAddress.has_value()) {
-        return Address(std::move(*socketAddress), secure);
+        return *socketAddress;
     }
 
     return std::unexpected {Error {Error::ErrorCode::InvalidAddressFormat, "Failed to parse IP address"}};
 }
 
-// Parse ws://host:port/path or wss://host:port/path.
-std::expected<Address, Error> fromWSString(std::string_view addrPart, bool secure) noexcept
+std::expected<Address::AddressValue, Error> fromIPCString(std::string_view addrPart) noexcept
+{
+    return {std::string {addrPart}};
+}
+
+// Parse host:port/path address.
+std::expected<Address::AddressValue, Error> fromWSString(std::string_view addrPart) noexcept
 {
     // Split authority (host:port) from path
     const size_t slashPos            = addrPart.find('/');
@@ -77,24 +84,22 @@ std::expected<Address, Error> fromWSString(std::string_view addrPart, bool secur
             Error {Error::ErrorCode::InvalidAddressFormat, "Failed to parse WebSocket host as IP address"}};
     }
 
-    WebSocketAddress wsAddr {
+    return WebSocketAddress {
         .tcpAddress = std::move(*socketAddress),
         .host       = host,
         .port       = static_cast<uint16_t>(port),
         .path       = path,
     };
-    return Address(std::move(wsAddr), secure);
 }
 
 }  // namespace details
 
-Address::Address(
-    std::variant<scaler::wrapper::uv::SocketAddress, std::string, WebSocketAddress> value, bool secure) noexcept
-    : _value(std::move(value)), _secure(secure)
+Address::Address(AddressValue value, bool secure, std::optional<TLSConfig> tlsConfig) noexcept
+    : _value(std::move(value)), _secure(secure), _tlsConfig(std::move(tlsConfig))
 {
 }
 
-const std::variant<scaler::wrapper::uv::SocketAddress, std::string, WebSocketAddress>& Address::value() const noexcept
+const Address::AddressValue& Address::value() const noexcept
 {
     return _value;
 }
@@ -157,26 +162,32 @@ std::expected<std::string, Error> Address::toString() const noexcept
     };
 }
 
-std::expected<Address, Error> Address::fromString(std::string_view address) noexcept
+std::expected<Address, Error> Address::fromString(std::string_view address, std::optional<TLSConfig> tlsConfig) noexcept
 {
-    if (address.starts_with(_tcpPrefix)) {
-        return details::fromTCPString(address.substr(_tcpPrefix.size()), false);
-    }
+    using ParseFunction = std::expected<AddressValue, Error> (*)(std::string_view);
 
-    if (address.starts_with(_tlsPrefix)) {
-        return details::fromTCPString(address.substr(_tlsPrefix.size()), true);
-    }
+    struct PrefixEntry {
+        std::string_view prefix;
+        ParseFunction parser;
+        bool secure;
+    };
 
-    if (address.starts_with(_ipcPrefix)) {
-        return Address(std::string {address.substr(_ipcPrefix.size())});
-    }
+    static constexpr std::array<PrefixEntry, 5> prefixParsers {{
+        {_tcpPrefix, details::fromTCPString, false},
+        {_tlsPrefix, details::fromTCPString, true},
+        {_ipcPrefix, details::fromIPCString, false},
+        {_wsPrefix, details::fromWSString, false},
+        {_wssPrefix, details::fromWSString, true},
+    }};
 
-    if (address.starts_with(_wsPrefix)) {
-        return details::fromWSString(address.substr(_wsPrefix.size()), false);
-    }
-
-    if (address.starts_with(_wssPrefix)) {
-        return details::fromWSString(address.substr(_wssPrefix.size()), true);
+    for (const PrefixEntry& entry: prefixParsers) {
+        if (address.starts_with(entry.prefix)) {
+            auto result = entry.parser(address.substr(entry.prefix.size()));
+            if (!result.has_value()) {
+                return std::unexpected {result.error()};
+            }
+            return Address(std::move(*result), entry.secure, std::move(tlsConfig));
+        }
     }
 
     return std::unexpected {Error {
