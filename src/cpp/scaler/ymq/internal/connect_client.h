@@ -7,6 +7,8 @@
 #include <variant>
 
 #include "scaler/logging/logging.h"
+#include "scaler/wrapper/openssl/secure_socket.h"
+#include "scaler/wrapper/openssl/ssl_context.h"
 #include "scaler/wrapper/uv/loop.h"
 #include "scaler/wrapper/uv/timer.h"
 #include "scaler/ymq/address.h"
@@ -59,6 +61,8 @@ private:
 
         // Holds the TCP socket during the WebSocket upgrade phase (after TCP connect, before upgrade done).
         std::optional<scaler::wrapper::uv::TCPSocket> _upgradeSocket {};
+
+        std::optional<scaler::wrapper::openssl::SSLContext> _sslContext;
 
         size_t _maxRetryTimes;
         size_t _retryTimes {0};

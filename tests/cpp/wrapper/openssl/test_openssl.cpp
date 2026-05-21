@@ -74,7 +74,7 @@ public:
     TLSEchoServer(scaler::wrapper::uv::Loop& loop, scaler::wrapper::openssl::SSLContext context)
         : _loop(loop)
         , _context(std::move(context))
-        , _server(UV_EXIT_ON_ERROR(scaler::wrapper::openssl::SecureServer::init(_context, loop)))
+        , _server(UV_EXIT_ON_ERROR(scaler::wrapper::openssl::SecureServer::init(loop)))
     {
         scaler::wrapper::uv::SocketAddress address =
             UV_EXIT_ON_ERROR(scaler::wrapper::uv::SocketAddress::IPv4("127.0.0.1", 0));

@@ -5,6 +5,7 @@
 #include <variant>
 
 #include "scaler/logging/logging.h"
+#include "scaler/wrapper/openssl/secure_server.h"
 #include "scaler/wrapper/uv/loop.h"
 #include "scaler/wrapper/uv/pipe.h"
 #include "scaler/wrapper/uv/tcp.h"
@@ -37,7 +38,10 @@ public:
     void disconnect() noexcept;
 
 private:
-    using Server = std::variant<scaler::wrapper::uv::TCPServer, scaler::wrapper::uv::PipeServer>;
+    using Server = std::variant<
+        scaler::wrapper::uv::TCPServer,
+        scaler::wrapper::openssl::SecureServer,
+        scaler::wrapper::uv::PipeServer>;
 
     // State is heap-allocated to provide a stable memory for callbacks if the client is std::move'd or freed.
 
@@ -51,14 +55,19 @@ private:
         // Set when the transport is WebSocket; used to reconstruct the address() return value.
         std::optional<WebSocketAddress> _webSocketAddress;
 
+        std::optional<scaler::wrapper::openssl::SSLContext> _sslContext;
+
         State(
             scaler::wrapper::uv::Loop& loop,
             ConnectionCallback onConnectionCallback,
             Server server,
-            std::optional<WebSocketAddress> webSocketAddress) noexcept;
+            std::optional<WebSocketAddress> webSocketAddress,
+            std::optional<scaler::wrapper::openssl::SSLContext> sslContext) noexcept;
     };
 
     std::shared_ptr<State> _state;
+
+    static std::optional<scaler::wrapper::openssl::SSLContext> getSSLContext(const Address& address) noexcept;
 
     static void onConnection(
         std::shared_ptr<State> state, std::expected<void, scaler::wrapper::uv::Error> result) noexcept;
