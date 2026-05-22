@@ -42,6 +42,9 @@ protected:
         if (transport == "tcp") {
             return std::format("tcp://127.0.0.1:{}", port);
         }
+        if (transport == "tls") {
+            return std::format("tls://127.0.0.1:{}", port);
+        }
         if (transport == "ipc") {
             // using a unique path for each test based on port
             const char* runner_temp = std::getenv("RUNNER_TEMP");
@@ -707,6 +710,7 @@ std::vector<std::string> GetTransports()
 {
     std::vector<std::string> transports;
     transports.push_back("tcp");
+    transports.push_back("tls");
     transports.push_back("ws");
 #ifdef __linux__
     transports.push_back("ipc");

@@ -51,7 +51,8 @@ public:
         std::string address,
         ConnectCallback onConnectCallback,
         size_t maxRetryTimes                     = defaultClientMaxRetryTimes,
-        std::chrono::milliseconds initRetryDelay = defaultClientInitRetryDelay) noexcept;
+        std::chrono::milliseconds initRetryDelay = defaultClientInitRetryDelay,
+        std::optional<TLSConfig> tlsConfig       = std::nullopt) noexcept;
 
     // Create a connector socket that binds to a local address and waits for a single incoming connection.
     //
@@ -59,7 +60,11 @@ public:
     //
     // The onBindCallback will be invoked once the server is listening, or with an error.
     static ConnectorSocket bind(
-        IOContext& context, Identity identity, std::string address, BindCallback onBindCallback) noexcept;
+        IOContext& context,
+        Identity identity,
+        std::string address,
+        BindCallback onBindCallback,
+        std::optional<TLSConfig> tlsConfig = std::nullopt) noexcept;
 
     ~ConnectorSocket() noexcept;
 

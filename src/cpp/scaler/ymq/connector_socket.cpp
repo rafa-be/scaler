@@ -13,11 +13,12 @@ ConnectorSocket ConnectorSocket::connect(
     std::string address,
     ConnectCallback onConnectCallback,
     size_t maxRetryTimes,
-    std::chrono::milliseconds initRetryDelay) noexcept
+    std::chrono::milliseconds initRetryDelay,
+    std::optional<TLSConfig> tlsConfig) noexcept
 {
     internal::EventLoopThread& thread = context.nextThread();
 
-    auto parsedAddress = Address::fromString(address);
+    auto parsedAddress = Address::fromString(address, std::move(tlsConfig));
     if (!parsedAddress.has_value()) {
         onConnectCallback(std::unexpected(parsedAddress.error()));
         return {};
@@ -39,11 +40,15 @@ ConnectorSocket ConnectorSocket::connect(
 }
 
 ConnectorSocket ConnectorSocket::bind(
-    IOContext& context, Identity identity, std::string address, BindCallback onBindCallback) noexcept
+    IOContext& context,
+    Identity identity,
+    std::string address,
+    BindCallback onBindCallback,
+    std::optional<TLSConfig> tlsConfig) noexcept
 {
     internal::EventLoopThread& thread = context.nextThread();
 
-    auto parsedAddress = Address::fromString(address);
+    auto parsedAddress = Address::fromString(address, std::move(tlsConfig));
     if (!parsedAddress.has_value()) {
         onBindCallback(std::unexpected(parsedAddress.error()));
         return {};

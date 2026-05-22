@@ -12,7 +12,8 @@ std::expected<ConnectorSocket, scaler::ymq::Error> ConnectorSocket::connect(
     Identity identity,
     std::string address,
     size_t maxRetryTimes,
-    std::chrono::milliseconds initRetryDelay)
+    std::chrono::milliseconds initRetryDelay,
+    std::optional<TLSConfig> tlsConfig)
 {
     std::promise<std::expected<void, scaler::ymq::Error>> promise {};
     auto future = promise.get_future();
@@ -25,7 +26,8 @@ std::expected<ConnectorSocket, scaler::ymq::Error> ConnectorSocket::connect(
             promise.set_value(std::move(result));
         },
         maxRetryTimes,
-        initRetryDelay);
+        initRetryDelay,
+        std::move(tlsConfig));
 
     auto connectResult = future.get();
     if (!connectResult.has_value()) {
@@ -36,7 +38,7 @@ std::expected<ConnectorSocket, scaler::ymq::Error> ConnectorSocket::connect(
 }
 
 std::expected<std::pair<ConnectorSocket, Address>, scaler::ymq::Error> ConnectorSocket::bind(
-    IOContext& context, Identity identity, std::string address)
+    IOContext& context, Identity identity, std::string address, std::optional<TLSConfig> tlsConfig)
 {
     std::promise<std::expected<Address, scaler::ymq::Error>> promise {};
     auto future = promise.get_future();
@@ -47,7 +49,8 @@ std::expected<std::pair<ConnectorSocket, Address>, scaler::ymq::Error> Connector
         std::move(address),
         [promise = std::move(promise)](std::expected<Address, scaler::ymq::Error> result) mutable {
             promise.set_value(std::move(result));
-        });
+        },
+        std::move(tlsConfig));
 
     auto bindResult = future.get();
     if (!bindResult.has_value()) {

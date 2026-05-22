@@ -122,6 +122,11 @@ bool Address::secure() const noexcept
     return _secure;
 }
 
+const std::optional<TLSConfig>& Address::tlsConfig() const noexcept
+{
+    return _tlsConfig;
+}
+
 const scaler::wrapper::uv::SocketAddress& Address::asTCP() const noexcept
 {
     assert(type() == Type::TCP);
