@@ -45,7 +45,7 @@ public:
 
     Type type() const noexcept;
 
-    // Whether this address uses TLS/SSL.
+    // Whether this address requires TLS/SSL.
     bool secure() const noexcept;
 
     const std::optional<TLSConfig>& tlsConfig() const noexcept;

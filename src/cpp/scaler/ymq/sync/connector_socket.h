@@ -3,6 +3,7 @@
 #include <chrono>
 #include <expected>
 #include <memory>
+#include <optional>
 #include <string>
 
 #include "scaler/error/error.h"
@@ -10,6 +11,7 @@
 #include "scaler/ymq/future/connector_socket.h"
 #include "scaler/ymq/io_context.h"
 #include "scaler/ymq/message.h"
+#include "scaler/ymq/tls_config.h"
 #include "scaler/ymq/typedefs.h"
 
 namespace scaler {
@@ -24,10 +26,14 @@ public:
         Identity identity,
         std::string address,
         size_t maxRetryTimes                     = defaultClientMaxRetryTimes,
-        std::chrono::milliseconds initRetryDelay = defaultClientInitRetryDelay) noexcept;
+        std::chrono::milliseconds initRetryDelay = defaultClientInitRetryDelay,
+        std::optional<TLSConfig> tlsConfig       = std::nullopt) noexcept;
 
     static std::expected<std::pair<ConnectorSocket, Address>, Error> bind(
-        IOContext& context, Identity identity, std::string address) noexcept;
+        IOContext& context,
+        Identity identity,
+        std::string address,
+        std::optional<TLSConfig> tlsConfig = std::nullopt) noexcept;
 
     ~ConnectorSocket() noexcept = default;
 
