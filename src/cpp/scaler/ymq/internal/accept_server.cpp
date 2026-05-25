@@ -58,7 +58,7 @@ AcceptServer::AcceptServer(
         std::move(onConnectionCallback),
         std::move(server.value()),
         std::move(webSocketAddress),
-        getSSLContext(address));
+        address.getSSLContext());
 
     auto listenCallback = std::bind_front(&AcceptServer::onConnection, _state);
 
@@ -141,24 +141,6 @@ void AcceptServer::disconnect() noexcept
     }
 }
 
-std::optional<scaler::wrapper::openssl::SSLContext> AcceptServer::getSSLContext(const Address& address) noexcept
-{
-    if (!address.secure()) {
-        return std::nullopt;
-    }
-
-    if (address.tlsConfig().has_value()) {
-        auto context = address.tlsConfig()->getSSLContext();
-        if (!context.has_value()) {
-            unrecoverableError(context.error());
-        }
-        return std::move(context.value());
-    }
-
-    // No TLS config provided, use default SSL context.
-    return UV_EXIT_ON_ERROR(scaler::wrapper::openssl::SSLContext::init());
-}
-
 void AcceptServer::onConnection(
     std::shared_ptr<State> state, std::expected<void, scaler::wrapper::uv::Error> result) noexcept
 {
@@ -187,10 +169,8 @@ void AcceptServer::onConnection(
 
         return state->_onConnectionCallback(Client(std::move(tcpClient)));
     } else if (auto* secureServer = std::get_if<scaler::wrapper::openssl::SecureServer>(&state->_server.value())) {
-        scaler::wrapper::uv::TCPSocket tcpTransport =
-            UV_EXIT_ON_ERROR(scaler::wrapper::uv::TCPSocket::init(state->_loop));
-        scaler::wrapper::openssl::SecureSocket secureClient = UV_EXIT_ON_ERROR(
-            scaler::wrapper::openssl::SecureSocket::init(state->_sslContext.value(), std::move(tcpTransport)));
+        scaler::wrapper::openssl::SecureSocket secureClient =
+            UV_EXIT_ON_ERROR(scaler::wrapper::openssl::SecureSocket::init(state->_loop, state->_sslContext.value()));
         UV_EXIT_ON_ERROR(secureServer->accept(secureClient));
         return state->_onConnectionCallback(Client(std::move(secureClient)));
     } else if (auto* pipeServer = std::get_if<scaler::wrapper::uv::PipeServer>(&state->_server.value())) {

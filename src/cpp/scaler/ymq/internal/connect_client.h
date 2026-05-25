@@ -15,6 +15,7 @@
 #include "scaler/ymq/configuration.h"
 #include "scaler/ymq/internal/client.h"
 #include "scaler/ymq/internal/event_loop_thread.h"
+#include "scaler/ymq/utils.h"
 
 namespace scaler {
 namespace ymq {

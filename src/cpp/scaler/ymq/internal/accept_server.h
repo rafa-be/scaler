@@ -11,6 +11,7 @@
 #include "scaler/wrapper/uv/tcp.h"
 #include "scaler/ymq/address.h"
 #include "scaler/ymq/internal/client.h"
+#include "scaler/ymq/utils.h"
 
 namespace scaler {
 namespace ymq {
@@ -66,8 +67,6 @@ private:
     };
 
     std::shared_ptr<State> _state;
-
-    static std::optional<scaler::wrapper::openssl::SSLContext> getSSLContext(const Address& address) noexcept;
 
     static void onConnection(
         std::shared_ptr<State> state, std::expected<void, scaler::wrapper::uv::Error> result) noexcept;
