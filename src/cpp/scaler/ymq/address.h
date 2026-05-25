@@ -8,6 +8,7 @@
 #include <variant>
 
 #include "scaler/error/error.h"
+#include "scaler/wrapper/openssl/ssl_context.h"
 #include "scaler/wrapper/uv/socket_address.h"
 #include "scaler/ymq/tls_config.h"
 
@@ -71,6 +72,11 @@ public:
     //
     static std::expected<Address, Error> fromString(
         std::string_view address, std::optional<TLSConfig> tlsConfig = std::nullopt) noexcept;
+
+    // Build an SSLContext from the address's encryption requirement.
+    //
+    // Returns std::nullopt if the address is not secure.
+    std::optional<scaler::wrapper::openssl::SSLContext> getSSLContext() const noexcept;
 
 private:
     static constexpr std::string_view _tcpPrefix = "tcp://";

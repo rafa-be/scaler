@@ -5,6 +5,8 @@
 #include <charconv>
 #include <utility>
 
+#include "scaler/wrapper/uv/error.h"
+
 namespace scaler {
 namespace ymq {
 
@@ -198,6 +200,24 @@ std::expected<Address, Error> Address::fromString(std::string_view address, std:
     return std::unexpected {Error {
         Error::ErrorCode::InvalidAddressFormat,
         "Address must start with 'tcp://', 'tls://', 'ipc://', 'ws://', or 'wss://'"}};
+}
+
+std::optional<scaler::wrapper::openssl::SSLContext> Address::getSSLContext() const noexcept
+{
+    if (!_secure) {
+        return std::nullopt;
+    }
+
+    if (_tlsConfig.has_value()) {
+        auto context = _tlsConfig->getSSLContext();
+        if (!context.has_value()) {
+            unrecoverableError(context.error());
+        }
+        return std::move(context.value());
+    }
+
+    // No TLS config provided, use default SSL context.
+    return UV_EXIT_ON_ERROR(scaler::wrapper::openssl::SSLContext::init());
 }
 
 }  // namespace ymq
