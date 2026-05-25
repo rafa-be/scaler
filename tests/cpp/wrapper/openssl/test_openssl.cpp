@@ -114,7 +114,12 @@ private:
     {
         if (!readResult.has_value() && readResult.error() == scaler::wrapper::uv::Error {UV_EOF}) {
             _client->readStop();
-            _client.reset();
+
+            UV_EXIT_ON_ERROR(_client->shutdown([this](std::expected<void, scaler::wrapper::uv::Error> result) {
+                UV_EXIT_ON_ERROR(result);
+                _client.reset();
+            }));
+
             return;
         }
 
@@ -174,10 +179,14 @@ TEST_F(OpenSSLTest, EchoServer)
 
     // Shutdown the client and verify the server sees the disconnect
 
-    UV_EXIT_ON_ERROR(client.shutdown(
-        [&](std::expected<void, scaler::wrapper::uv::Error> shutdownResult) { UV_EXIT_ON_ERROR(shutdownResult); }));
+    bool shutdownComplete = false;
 
-    while (server.clientConnected()) {
+    UV_EXIT_ON_ERROR(client.shutdown([&](std::expected<void, scaler::wrapper::uv::Error> shutdownResult) {
+        UV_EXIT_ON_ERROR(shutdownResult);
+        shutdownComplete = true;
+    }));
+
+    while (!shutdownComplete || server.clientConnected()) {
         loop.run(UV_RUN_ONCE);
     }
 }

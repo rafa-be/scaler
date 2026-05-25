@@ -26,6 +26,19 @@ SecureSocket::SecureSocket(std::shared_ptr<State> state) noexcept: _state(std::m
 {
 }
 
+SecureSocket::~SecureSocket() noexcept
+{
+    if (_state == nullptr) {
+        return;
+    }
+
+    if (_state->_connectionState == ConnectionState::Closed) {
+        return;
+    }
+
+    failWithError(_state, uv::Error {UV_ECANCELED});
+}
+
 std::expected<SecureSocket, uv::Error> SecureSocket::init(uv::Loop& loop, SSLContext context) noexcept
 {
     // Create the TCP transport socket
@@ -295,15 +308,19 @@ std::expected<void, uv::Error> SecureSocket::tryFinishShutdown(std::shared_ptr<S
 
     assert(status == 1);
 
-    state->_connectionState = ConnectionState::Closed;
-
     // SSL shutdown completed, shut down the transport.
 
     state->_transport.readStop();
 
     std::expected<uv::ShutdownRequest, uv::Error> shutdownResult =
-        state->_transport.shutdown(std::move(*state->_onShutdownCallback));
-    state->_onShutdownCallback.reset();
+        state->_transport.shutdown([state](std::expected<void, uv::Error> result) mutable {
+            state->_connectionState = ConnectionState::Closed;
+
+            if (state->_onShutdownCallback.has_value()) {
+                (*state->_onShutdownCallback)(std::move(result));
+                state->_onShutdownCallback.reset();
+            }
+        });
 
     if (!shutdownResult.has_value()) {
         return std::unexpected {shutdownResult.error()};
@@ -511,6 +528,7 @@ void SecureSocket::onTransportRead(
             }
             break;
         }
+        case ConnectionState::Closed: return;
         default: std::unreachable();
     }
 }
