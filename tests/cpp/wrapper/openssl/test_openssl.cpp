@@ -14,7 +14,6 @@
 #include "scaler/wrapper/uv/callback.h"
 #include "scaler/wrapper/uv/loop.h"
 #include "scaler/wrapper/uv/socket_address.h"
-#include "scaler/wrapper/uv/tcp.h"
 
 static const std::string sampleCertPath       = "sample_cert.pem";
 static const std::string samplePrivateKeyPath = "sample_private_key.pem";
@@ -60,12 +59,11 @@ TEST_F(OpenSSLTest, SecureSocketInit)
 {
     scaler::wrapper::uv::Loop loop = scaler::wrapper::uv::Loop::init().value();
 
-    auto context   = createClientContext();
-    auto transport = scaler::wrapper::uv::TCPSocket::init(loop).value();
-    auto socket    = scaler::wrapper::openssl::SecureSocket::init(std::move(context), std::move(transport));
+    auto context = createClientContext();
+    auto socket  = scaler::wrapper::openssl::SecureSocket::init(loop, std::move(context));
 
     ASSERT_TRUE(socket.has_value());
-    ASSERT_EQ(socket->state(), scaler::wrapper::openssl::SecureSocket::State::Uninitialized);
+    ASSERT_EQ(socket->state(), scaler::wrapper::openssl::SecureSocket::ConnectionState::Uninitialized);
     ASSERT_FALSE(socket->established());
 }
 
@@ -103,9 +101,7 @@ private:
     {
         UV_EXIT_ON_ERROR(result);
 
-        auto transport = UV_EXIT_ON_ERROR(scaler::wrapper::uv::TCPSocket::init(_loop));
-        auto secureSocket =
-            UV_EXIT_ON_ERROR(scaler::wrapper::openssl::SecureSocket::init(_context, std::move(transport)));
+        auto secureSocket = UV_EXIT_ON_ERROR(scaler::wrapper::openssl::SecureSocket::init(_loop, _context));
 
         _client.emplace(std::move(secureSocket));
 
@@ -142,10 +138,9 @@ TEST_F(OpenSSLTest, EchoServer)
 
     // Create a TLS client and connect to the server
 
-    auto clientContext                            = createClientContext();
-    auto clientTransport                          = UV_EXIT_ON_ERROR(scaler::wrapper::uv::TCPSocket::init(loop));
-    scaler::wrapper::openssl::SecureSocket client = UV_EXIT_ON_ERROR(
-        scaler::wrapper::openssl::SecureSocket::init(std::move(clientContext), std::move(clientTransport)));
+    auto clientContext = createClientContext();
+    scaler::wrapper::openssl::SecureSocket client =
+        UV_EXIT_ON_ERROR(scaler::wrapper::openssl::SecureSocket::init(loop, std::move(clientContext)));
 
     bool responseReceived = false;
 
