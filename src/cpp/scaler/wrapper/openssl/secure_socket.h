@@ -33,6 +33,8 @@ public:
         Closed,
     };
 
+    ~SecureSocket() noexcept;
+
     SecureSocket(const SecureSocket&)            = delete;
     SecureSocket& operator=(const SecureSocket&) = delete;
 
