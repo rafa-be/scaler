@@ -25,9 +25,9 @@ public:
         IOContext& context,
         Identity identity,
         std::string address,
+        std::optional<TLSConfig> tlsConfig       = std::nullopt,
         size_t maxRetryTimes                     = defaultClientMaxRetryTimes,
-        std::chrono::milliseconds initRetryDelay = defaultClientInitRetryDelay,
-        std::optional<TLSConfig> tlsConfig       = std::nullopt) noexcept;
+        std::chrono::milliseconds initRetryDelay = defaultClientInitRetryDelay) noexcept;
 
     static std::expected<std::pair<ConnectorSocket, Address>, Error> bind(
         IOContext& context,

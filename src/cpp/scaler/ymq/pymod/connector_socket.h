@@ -117,6 +117,7 @@ static PyObject* PyConnectorSocket_connect(PyObject* cls, PyObject* args, PyObje
 
                 completeCallback(callback, OwnedPyObject<>::none());
             },
+            std::nullopt,
             maxRetryTimes,
             std::chrono::milliseconds(initRetryDelay)));
     } catch (...) {

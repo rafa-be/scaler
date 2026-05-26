@@ -12,9 +12,9 @@ ConnectorSocket ConnectorSocket::connect(
     Identity identity,
     std::string address,
     ConnectCallback onConnectCallback,
+    std::optional<TLSConfig> tlsConfig,
     size_t maxRetryTimes,
-    std::chrono::milliseconds initRetryDelay,
-    std::optional<TLSConfig> tlsConfig) noexcept
+    std::chrono::milliseconds initRetryDelay) noexcept
 {
     internal::EventLoopThread& thread = context.nextThread();
 

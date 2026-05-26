@@ -4,16 +4,18 @@
 #include <expected>
 #include <future>
 #include <string>
+#include <vector>
 
 #include "scaler/wrapper/uv/error.h"
 #include "scaler/wrapper/uv/loop.h"
-#include "scaler/wrapper/uv/tcp.h"
 #include "scaler/ymq/address.h"
 #include "scaler/ymq/bytes.h"
 #include "scaler/ymq/connector_socket.h"
+#include "scaler/ymq/internal/accept_server.h"
 #include "scaler/ymq/internal/message_connection.h"
 #include "scaler/ymq/io_context.h"
 #include "scaler/ymq/sync/connector_socket.h"
+#include "tests/cpp/ymq/common/utils.h"
 
 namespace {
 
@@ -28,13 +30,13 @@ public:
     static const scaler::ymq::Identity connectorIdentity;
 
     ConnectorServerPair(
+        const std::string& transport,
         scaler::ymq::internal::MessageConnection::RemoteIdentityCallback serverOnIdentity,
         scaler::ymq::internal::MessageConnection::RemoteDisconnectCallback serverOnDisconnect,
         scaler::ymq::internal::MessageConnection::RecvMessageCallback serverOnMessage,
         scaler::ymq::ConnectorSocket::ConnectCallback connectorOnConnect)
         : _context()
         , _loop(UV_EXIT_ON_ERROR(scaler::wrapper::uv::Loop::init()))
-        , _server(UV_EXIT_ON_ERROR(scaler::wrapper::uv::TCPServer::init(_loop)))
         , _serverConnection(
               serverIdentity,
               std::nullopt,
@@ -42,18 +44,14 @@ public:
               std::move(serverOnDisconnect),
               std::move(serverOnMessage))
     {
-        const auto listenAddress = scaler::ymq::Address::fromString("tcp://127.0.0.1:0").value();
-        UV_EXIT_ON_ERROR(_server.bind(listenAddress.asTCP(), uv_tcp_flags(0)));
+        const auto listenAddress =
+            scaler::ymq::Address::fromString(getTransportAddress(transport, 0), getTLSConfig(transport)).value();
 
-        UV_EXIT_ON_ERROR(_server.listen(16, [&](std::expected<void, scaler::wrapper::uv::Error>) {
-            scaler::wrapper::uv::TCPSocket serverSocket = UV_EXIT_ON_ERROR(scaler::wrapper::uv::TCPSocket::init(_loop));
-            UV_EXIT_ON_ERROR(_server.accept(serverSocket));
+        _server.emplace(_loop, listenAddress, [this](scaler::ymq::internal::Client client) {
+            _serverConnection.connect(std::move(client));
+        });
 
-            _serverConnection.connect(scaler::ymq::internal::Client(std::move(serverSocket)));
-        }));
-
-        scaler::wrapper::uv::SocketAddress serverAddr = UV_EXIT_ON_ERROR(_server.getSockName());
-        std::string address                           = "tcp://127.0.0.1:" + std::to_string(serverAddr.port());
+        std::string address = _server->address().toString().value();
 
         _connector = std::make_unique<scaler::ymq::ConnectorSocket>(
             scaler::ymq::ConnectorSocket::connect(_context, connectorIdentity, address, std::move(connectorOnConnect)));
@@ -75,7 +73,7 @@ public:
 private:
     scaler::ymq::IOContext _context;
     scaler::wrapper::uv::Loop _loop;
-    scaler::wrapper::uv::TCPServer _server;
+    std::optional<scaler::ymq::internal::AcceptServer> _server;
     scaler::ymq::internal::MessageConnection _serverConnection;
     std::unique_ptr<scaler::ymq::ConnectorSocket> _connector;
 };
@@ -83,9 +81,9 @@ private:
 const scaler::ymq::Identity ConnectorServerPair::serverIdentity    = "server-identity";
 const scaler::ymq::Identity ConnectorServerPair::connectorIdentity = "connector-identity";
 
-class YMQConnectorSocketTest: public ::testing::Test {};
+class YMQConnectorSocketTest: public ::testing::TestWithParam<std::string> {};
 
-TEST_F(YMQConnectorSocketTest, ConnectionFailure)
+TEST_P(YMQConnectorSocketTest, ConnectionFailure)
 {
     // Test that ConnectorSocket properly handles connection failure
 
@@ -96,7 +94,12 @@ TEST_F(YMQConnectorSocketTest, ConnectionFailure)
 
     // Port 49151 is IANA reserved, hopefully never assigned
     auto result = scaler::ymq::sync::ConnectorSocket::connect(
-        context, ConnectorServerPair::connectorIdentity, "tcp://127.0.0.1:49151", maxRetryTimes, initRetryDelay);
+        context,
+        ConnectorServerPair::connectorIdentity,
+        getTransportAddress(GetParam(), 49151),
+        getTLSConfig(GetParam()),
+        maxRetryTimes,
+        initRetryDelay);
 
     // Connection should fail after retries
     ASSERT_FALSE(result.has_value());
@@ -117,7 +120,7 @@ TEST_F(YMQConnectorSocketTest, InvalidAddress)
     ASSERT_EQ(result.error()._errorCode, scaler::ymq::Error::ErrorCode::InvalidAddressFormat);
 }
 
-TEST_F(YMQConnectorSocketTest, SendMessage)
+TEST_P(YMQConnectorSocketTest, SendMessage)
 {
     // Test sending messages before connection, during connection, and after disconnect
 
@@ -126,6 +129,8 @@ TEST_F(YMQConnectorSocketTest, SendMessage)
     int serverMessagesReceived = 0;
 
     ConnectorServerPair connections(
+        GetParam(),
+
         // Server callbacks
         []([[maybe_unused]] auto identity) {},                      // onRemoteIdentity
         [](auto) { FAIL() << "Unexpected disconnect on server"; },  // onRemoteDisconnect
@@ -194,13 +199,15 @@ TEST_F(YMQConnectorSocketTest, SendMessage)
     ASSERT_EQ(error._errorCode, scaler::ymq::Error::ErrorCode::ConnectorSocketClosedByRemoteEnd);
 }
 
-TEST_F(YMQConnectorSocketTest, RecvMessage)
+TEST_P(YMQConnectorSocketTest, RecvMessage)
 {
     // Test receiving messages before and after connection
 
     std::promise<void> connectCalled {};
 
     ConnectorServerPair connections(
+        GetParam(),
+
         // Server callbacks
         []([[maybe_unused]] auto identity) {},                      // onRemoteIdentity
         [](auto) { FAIL() << "Unexpected disconnect on server"; },  // onRemoteDisconnect
@@ -270,13 +277,15 @@ TEST_F(YMQConnectorSocketTest, RecvMessage)
     message = recvCalled.get_future().get();
 }
 
-TEST_F(YMQConnectorSocketTest, RemoteDisconnect)
+TEST_P(YMQConnectorSocketTest, RemoteDisconnect)
 {
     // Test that ConnectorSocket properly handles a graceful remote disconnection
 
     std::promise<void> connectCalled {};
 
     ConnectorServerPair connections(
+        GetParam(),
+
         // Server callbacks
         []([[maybe_unused]] auto identity) {},                      // onRemoteIdentity
         [](auto) { FAIL() << "Unexpected disconnect on server"; },  // onRemoteDisconnect
@@ -319,11 +328,13 @@ TEST_F(YMQConnectorSocketTest, RemoteDisconnect)
     ASSERT_EQ(error._errorCode, scaler::ymq::Error::ErrorCode::ConnectorSocketClosedByRemoteEnd);
 }
 
-TEST_F(YMQConnectorSocketTest, Reconnect)
+TEST_P(YMQConnectorSocketTest, Reconnect)
 {
     // Test that ConnectorSocket automatically reconnects after an unexpected disconnection (abort)
 
     ConnectorServerPair connections(
+        GetParam(),
+
         // Server callbacks
         []([[maybe_unused]] auto identity) {},                   // onRemoteIdentity
         []([[maybe_unused]] auto reason) {},                     // onRemoteDisconnect
@@ -367,7 +378,7 @@ TEST_F(YMQConnectorSocketTest, Reconnect)
     ASSERT_TRUE(server.established());
 }
 
-TEST_F(YMQConnectorSocketTest, Bind)
+TEST_P(YMQConnectorSocketTest, Bind)
 {
     // Test that a connecting ConnectorSocket can connect and exchange with a binding ConnectorSocket
 
@@ -377,13 +388,14 @@ TEST_F(YMQConnectorSocketTest, Bind)
     const scaler::ymq::Identity connectorIdentity = "connector-identity";
 
     // Create a binding connector socket
-    auto binderResult = scaler::ymq::sync::ConnectorSocket::bind(context, binderIdentity, "tcp://127.0.0.1:0");
+    auto binderResult = scaler::ymq::sync::ConnectorSocket::bind(
+        context, binderIdentity, getTransportAddress(GetParam(), 0), getTLSConfig(GetParam()));
     ASSERT_TRUE(binderResult.has_value());
     auto [binderSocket, boundAddress] = std::move(binderResult.value());
 
     // Create a connecting connector socket
-    auto connectorResult =
-        scaler::ymq::sync::ConnectorSocket::connect(context, connectorIdentity, boundAddress.toString().value());
+    auto connectorResult = scaler::ymq::sync::ConnectorSocket::connect(
+        context, connectorIdentity, boundAddress.toString().value(), getTLSConfig(GetParam()));
     ASSERT_TRUE(connectorResult.has_value());
     auto connectorSocket = std::move(connectorResult.value());
 
@@ -407,3 +419,21 @@ TEST_F(YMQConnectorSocketTest, Bind)
     ASSERT_EQ(recvResult2.value().address.as_string(), binderIdentity);
     ASSERT_EQ(recvResult2.value().payload.as_string(), messagePayload);
 }
+
+std::vector<std::string> GetConnectorSocketTransports()
+{
+    std::vector<std::string> transports;
+    transports.push_back("tcp");
+    transports.push_back("tls");
+    transports.push_back("ws");
+#ifdef __linux__
+    transports.push_back("ipc");
+#endif
+    return transports;
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    YMQTransport,
+    YMQConnectorSocketTest,
+    ::testing::ValuesIn(GetConnectorSocketTransports()),
+    [](const testing::TestParamInfo<YMQConnectorSocketTest::ParamType>& info) { return info.param; });

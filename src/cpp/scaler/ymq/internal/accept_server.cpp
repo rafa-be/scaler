@@ -111,7 +111,7 @@ Address AcceptServer::address() const noexcept
 
         return Address {actualAddr};
     } else if (auto* secureServer = std::get_if<scaler::wrapper::openssl::SecureServer>(&_state->_server.value())) {
-        return Address {UV_EXIT_ON_ERROR(secureServer->getSockName())};
+        return Address {UV_EXIT_ON_ERROR(secureServer->getSockName()), true};
     } else if (auto* pipeServer = std::get_if<scaler::wrapper::uv::PipeServer>(&_state->_server.value())) {
         return Address {UV_EXIT_ON_ERROR(pipeServer->getSockName())};
     } else {

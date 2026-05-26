@@ -1,6 +1,10 @@
 #include "tests/cpp/ymq/common/utils.h"
 
+#include <cstdlib>
 #include <filesystem>
+#include <format>
+#include <stdexcept>
+#include <string>
 
 // change the current working directory to the project root
 // this is important for finding the python mitm script
@@ -16,4 +20,38 @@ void chdirToProjectRoot()
             return;
         }
     }
+}
+
+std::string getTransportAddress(const std::string& transport, int port)
+{
+    if (transport == "tcp") {
+        return std::format("tcp://127.0.0.1:{}", port);
+    }
+    if (transport == "tls") {
+        return std::format("tls://127.0.0.1:{}", port);
+    }
+    if (transport == "ipc") {
+        const char* runnerTemp = std::getenv("RUNNER_TEMP");
+        if (runnerTemp) {
+            return std::format("ipc://{}/ymq-test-{}.ipc", runnerTemp, port);
+        }
+        return std::format("ipc:///tmp/ymq-test-{}.ipc", port);
+    }
+    if (transport == "ws") {
+        return std::format("ws://127.0.0.1:{}/", port);
+    }
+    if (transport == "wss") {
+        return std::format("wss://127.0.0.1:{}/", port);
+    }
+
+    throw std::invalid_argument("invalid transport");
+}
+
+std::optional<scaler::ymq::TLSConfig> getTLSConfig(const std::string& transport)
+{
+    if (transport == "tls" || transport == "wss") {
+        return scaler::ymq::TLSConfig {
+            "../wrapper/openssl/sample_cert.pem", "../wrapper/openssl/sample_private_key.pem"};
+    }
+    return std::nullopt;
 }
