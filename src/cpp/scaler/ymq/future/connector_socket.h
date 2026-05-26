@@ -27,9 +27,9 @@ public:
         IOContext& context,
         Identity identity,
         std::string address,
+        std::optional<TLSConfig> tlsConfig       = std::nullopt,
         size_t maxRetryTimes                     = defaultClientMaxRetryTimes,
-        std::chrono::milliseconds initRetryDelay = defaultClientInitRetryDelay,
-        std::optional<TLSConfig> tlsConfig       = std::nullopt);
+        std::chrono::milliseconds initRetryDelay = defaultClientInitRetryDelay);
 
     static std::expected<std::pair<ConnectorSocket, Address>, scaler::ymq::Error> bind(
         IOContext& context, Identity identity, std::string address, std::optional<TLSConfig> tlsConfig = std::nullopt);

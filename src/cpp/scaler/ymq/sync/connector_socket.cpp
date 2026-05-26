@@ -10,12 +10,12 @@ std::expected<ConnectorSocket, Error> ConnectorSocket::connect(
     IOContext& context,
     Identity identity,
     std::string address,
+    std::optional<TLSConfig> tlsConfig,
     size_t maxRetryTimes,
-    std::chrono::milliseconds initRetryDelay,
-    std::optional<TLSConfig> tlsConfig) noexcept
+    std::chrono::milliseconds initRetryDelay) noexcept
 {
     auto result = future::ConnectorSocket::connect(
-        context, std::move(identity), std::move(address), maxRetryTimes, initRetryDelay, std::move(tlsConfig));
+        context, std::move(identity), std::move(address), std::move(tlsConfig), maxRetryTimes, initRetryDelay);
     if (!result.has_value()) {
         return std::unexpected(result.error());
     }

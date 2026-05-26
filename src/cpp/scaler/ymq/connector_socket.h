@@ -50,9 +50,9 @@ public:
         Identity identity,
         std::string address,
         ConnectCallback onConnectCallback,
+        std::optional<TLSConfig> tlsConfig       = std::nullopt,
         size_t maxRetryTimes                     = defaultClientMaxRetryTimes,
-        std::chrono::milliseconds initRetryDelay = defaultClientInitRetryDelay,
-        std::optional<TLSConfig> tlsConfig       = std::nullopt) noexcept;
+        std::chrono::milliseconds initRetryDelay = defaultClientInitRetryDelay) noexcept;
 
     // Create a connector socket that binds to a local address and waits for a single incoming connection.
     //
