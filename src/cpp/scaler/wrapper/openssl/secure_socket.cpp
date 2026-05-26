@@ -333,7 +333,11 @@ std::expected<void, uv::Error> SecureSocket::flushToApplication(std::shared_ptr<
 {
     std::array<uint8_t, defaultDecryptChunkSize> buffer {};
 
-    while (state->_onReadCallback.has_value()) {  // Stops if a callback calls readStop().
+    // When closing, we must drain and discard any pending application data from the SSL buffer even if no read callback
+    // is registered, or else OpenSSL cannot complete its shutdown process.
+    const bool isClosing = (state->_connectionState == ConnectionState::Closing);
+
+    while (state->_onReadCallback.has_value() || isClosing) {
         const int readCount = SSL_read(state->_ssl.get(), buffer.data(), static_cast<int>(buffer.size()));
         if (readCount <= 0) {
             const int sslError = SSL_get_error(state->_ssl.get(), readCount);
@@ -352,7 +356,9 @@ std::expected<void, uv::Error> SecureSocket::flushToApplication(std::shared_ptr<
             }
         }
 
-        (*state->_onReadCallback)(std::span<const uint8_t> {buffer.data(), static_cast<size_t>(readCount)});
+        if (state->_onReadCallback.has_value()) {
+            (*state->_onReadCallback)(std::span<const uint8_t> {buffer.data(), static_cast<size_t>(readCount)});
+        }
     }
 
     return {};
