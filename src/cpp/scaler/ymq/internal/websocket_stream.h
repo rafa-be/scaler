@@ -41,7 +41,7 @@ public:
         scaler::utility::MoveOnlyFunction<void(std::expected<WebSocketStream, scaler::wrapper::uv::Error>)>
             callback) noexcept;
 
-    ~WebSocketStream() noexcept = default;
+    ~WebSocketStream() noexcept;
 
     WebSocketStream(const WebSocketStream&)            = delete;
     WebSocketStream& operator=(const WebSocketStream&) = delete;
