@@ -672,8 +672,16 @@ std::expected<void, scaler::wrapper::uv::Error> WebSocketStream::shutdown(
     return {};
 }
 
+WebSocketStream::~WebSocketStream() noexcept
+{
+    if (_state && _state->_readActive) {
+        readStop();
+    }
+}
+
 std::expected<void, scaler::wrapper::uv::Error> WebSocketStream::closeReset() noexcept
 {
+    readStop();
     return _state->_socket.closeReset();
 }
 
