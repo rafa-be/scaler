@@ -162,6 +162,8 @@ private:
     void processSendQueue() noexcept;
 
     void processSendOperation(SendOperation operation) noexcept;
+
+    static bool isConnectionError(const scaler::wrapper::uv::Error& error);
 };
 
 }  // namespace internal
