@@ -129,7 +129,9 @@ void MessageConnection::shutdownClient() noexcept
     // By moving its ownership to the shutdown()'s callback, close() is guaranteed to be called only after the callback
     // completes.
 
-    auto client       = std::make_unique<Client>(std::move(_client.value()));
+    auto client = std::make_unique<Client>(std::move(_client.value()));
+    _client.reset();
+
     Client* clientPtr = client.get();
 
     auto shutdownCallback = [client =
@@ -348,7 +350,10 @@ void MessageConnection::onRemoteDisconnect(MessageConnection::DisconnectReason r
 {
     assert(connected());
 
-    _client->readStop();
+    if (reason == DisconnectReason::Disconnected) {
+        shutdownClient();
+    }
+
     initialize();
 
     _onRemoteDisconnectCallback(reason);

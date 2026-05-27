@@ -123,7 +123,6 @@ TEST_F(YMQConnectorSocketTest, InvalidAddress)
 TEST_P(YMQConnectorSocketTest, SendMessage)
 {
     // Test sending messages before connection, during connection, and after disconnect
-
     std::promise<void> connectCalled {};
 
     int serverMessagesReceived = 0;
@@ -159,6 +158,9 @@ TEST_P(YMQConnectorSocketTest, SendMessage)
     connector.sendMessage(scaler::ymq::Bytes(messagePayload), onMessageSent);
 
     // Wait for connection to complete
+    while (!server.established()) {
+        loop.run(UV_RUN_ONCE);
+    }
     connectCalled.get_future().get();
 
     // Wait for first message to be sent
@@ -234,12 +236,10 @@ TEST_P(YMQConnectorSocketTest, RecvMessage)
     connector.recvMessage(onConnectorRecvMessage);
 
     // Wait for connection to complete
-    connectCalled.get_future().get();
-
-    // Wait for identity exchange
     while (!server.established()) {
         loop.run(UV_RUN_ONCE);
     }
+    connectCalled.get_future().get();
 
     // Send first message from server
     bool sendCalled    = false;
@@ -302,12 +302,10 @@ TEST_P(YMQConnectorSocketTest, RemoteDisconnect)
     scaler::wrapper::uv::Loop& loop                  = connections.loop();
 
     // Wait for connection to complete
-    connectCalled.get_future().get();
-
-    // Wait for identity exchange
     while (!server.established()) {
         loop.run(UV_RUN_ONCE);
     }
+    connectCalled.get_future().get();
 
     // Register a receive callback
     std::promise<scaler::ymq::Error> recvCalled {};
