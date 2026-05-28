@@ -195,7 +195,7 @@ void BinderSocket::onRemoteIdentity(
 void BinderSocket::onRemoteDisconnect(
     std::shared_ptr<State> state,
     ConnectionID connectionId,
-    internal::MessageConnection::DisconnectReason reason) noexcept
+    [[maybe_unused]] internal::MessageConnection::DisconnectReason reason) noexcept
 {
     auto node = state->_connections.extract(connectionId);
     assert(!node.empty());

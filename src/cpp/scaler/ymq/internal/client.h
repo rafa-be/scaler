@@ -50,7 +50,9 @@ public:
 
     std::expected<void, scaler::wrapper::uv::Error> shutdown(scaler::wrapper::uv::ShutdownCallback callback) noexcept;
 
-    // Only valid for TCP and WebSocket (which is TCP-backed) clients.
+    // Send a RST packet to the remote, immediately closing the connection.
+    //
+    // Returns UV_ENOTSUP if not supported.
     std::expected<void, scaler::wrapper::uv::Error> closeReset() noexcept;
 
 private:

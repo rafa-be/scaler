@@ -332,7 +332,7 @@ TEST_P(YMQBinderSocketTest, CloseConnection)
     ASSERT_FALSE(client.connected());
 }
 
-TEST_F(YMQBinderSocketTest, SendToClosedIdentityFailsFast)
+TEST_P(YMQBinderSocketTest, SendToClosedIdentityFailsFast)
 {
     // Regression test: after the binder has terminated a peer connection (either via an
     // explicit closeConnection() or by observing the peer's graceful FIN), a subsequent
@@ -355,7 +355,7 @@ TEST_F(YMQBinderSocketTest, SendToClosedIdentityFailsFast)
         clientDisconnected = true;
     };
 
-    BinderClientPair connections(std::move(onClientRecvMessage), std::move(onClientDisconnect));
+    BinderClientPair connections(GetParam(), std::move(onClientRecvMessage), std::move(onClientDisconnect));
 
     scaler::ymq::BinderSocket& binder                = connections.binder();
     scaler::ymq::internal::MessageConnection& client = connections.client();
@@ -416,7 +416,7 @@ TEST_F(YMQBinderSocketTest, SendToClosedIdentityFailsFast)
     ASSERT_EQ(result.error()._errorCode, scaler::ymq::Error::ErrorCode::ConnectorSocketClosedByRemoteEnd);
 }
 
-TEST_F(YMQBinderSocketTest, StopRequested)
+TEST_P(YMQBinderSocketTest, StopRequested)
 {
     scaler::ymq::IOContext context {};
     scaler::wrapper::uv::Loop loop = UV_EXIT_ON_ERROR(scaler::wrapper::uv::Loop::init());
