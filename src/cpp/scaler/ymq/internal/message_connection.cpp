@@ -83,7 +83,11 @@ void MessageConnection::abort() noexcept
     assert(connected());
 
     _client->readStop();
-    UV_EXIT_ON_ERROR(_client->closeReset());
+
+    auto result = _client->closeReset();
+    if (!result.has_value() && result.error() != scaler::wrapper::uv::Error {UV_ENOTSUP}) {
+        UV_EXIT_ON_ERROR(std::move(result));
+    }
 
     initialize();
 }

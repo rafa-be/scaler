@@ -144,7 +144,11 @@ std::expected<void, scaler::wrapper::uv::Error> Client::closeReset() noexcept
     if (auto* ws = std::get_if<WebSocketStream>(&_socket)) {
         return ws->closeReset();
     }
-    assert(false && "closeReset() is only supported for TCP-based sockets");
+    if (auto* pipe = std::get_if<scaler::wrapper::uv::Pipe>(&_socket)) {
+        // IPC don't support RST-style close.
+        return std::unexpected(scaler::wrapper::uv::Error {UV_ENOTSUP});
+    }
+
     std::unreachable();
 }
 
