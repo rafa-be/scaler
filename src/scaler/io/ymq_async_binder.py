@@ -5,7 +5,7 @@ from typing import Awaitable, Callable, Dict, Optional
 from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncBinder
 from scaler.io.utility import deserialize, serialize
-from scaler.io.ymq import BinderSocket, Bytes, IOContext
+from scaler.io.ymq import BinderSocket, Bytes, ConnectorSocketClosedByRemoteEndError, IOContext
 from scaler.protocol.capnp import BaseMessage, BinderStatus
 
 
@@ -62,7 +62,14 @@ class YMQAsyncBinder(AsyncBinder):
     async def send(self, to: bytes, message: BaseMessage):
         assert self._socket is not None
         self.__count_sent(message.__class__.__name__)
-        await self._socket.send_message(to.decode(), Bytes(serialize(message)))
+        try:
+            await self._socket.send_message(to.decode(), Bytes(serialize(message)))
+        except ConnectorSocketClosedByRemoteEndError:
+            # Peer has disconnected. Treat the send as a no-op: heartbeat-echo / task-dispatch
+            # callers expect peer-gone to be a routine event handled by their own timeout/cleanup
+            # paths. Re-raising here would bubble up through binder.routine and asyncio.gather and
+            # tear down the whole scheduler for what is a normal peer departure.
+            pass
 
     def get_status(self) -> BinderStatus:
         return BinderStatus(

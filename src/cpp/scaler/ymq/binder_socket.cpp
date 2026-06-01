@@ -88,7 +88,17 @@ void BinderSocket::sendMessage(
                                        callback       = std::move(onMessageSent)]() mutable {
         auto it = state->_identityToConnectionID.find(remoteIdentity);
         if (it == state->_identityToConnectionID.end()) {
-            // We don't know this identity yet, queue the message until the peer eventually connects
+            // The peer is not currently connected.
+            //
+            // If we have seen this identity complete an identity exchange and then disconnect,
+            // the peer is gone and won't be back; fail the callback immediately. Otherwise this
+            // is a send-before-first-connect case (used by some tests and the warm-up path);
+            // queue until the peer eventually identifies itself.
+            if (state->_disconnectedIdentities.count(remoteIdentity) > 0) {
+                callback(std::unexpected {Error {Error::ErrorCode::ConnectorSocketClosedByRemoteEnd}});
+                return;
+            }
+
             state->_pendingSendMessages[remoteIdentity].emplace_back(
                 PendingSendMessage {std::move(messagePayload), std::move(callback)});
             return;
@@ -144,6 +154,17 @@ void BinderSocket::closeConnection(Identity remoteIdentity) noexcept
         ConnectionID connectionID = node.mapped();
 
         state->_connections.erase(connectionID);
+
+        // Symmetric with onRemoteDisconnect: any subsequent send to this identity should fail
+        // fast rather than wait for a reconnect that may never come.
+        state->_disconnectedIdentities.insert(node.key());
+        auto pendingIt = state->_pendingSendMessages.find(node.key());
+        if (pendingIt != state->_pendingSendMessages.end()) {
+            for (auto& pending: pendingIt->second) {
+                pending.onMessageSent(std::unexpected {Error {Error::ErrorCode::ConnectorSocketClosedByRemoteEnd}});
+            }
+            state->_pendingSendMessages.erase(pendingIt);
+        }
     });
 }
 
@@ -162,6 +183,7 @@ void BinderSocket::onRemoteIdentity(
     }
 
     state->_identityToConnectionID[remoteIdentity] = connectionId;
+    state->_disconnectedIdentities.erase(remoteIdentity);  // peer is back; allow sends to queue again
 
     // Send any pending messages previously queued for this identity
     auto pendingIt = state->_pendingSendMessages.find(remoteIdentity);
@@ -177,14 +199,39 @@ void BinderSocket::onRemoteIdentity(
 void BinderSocket::onRemoteDisconnect(
     std::shared_ptr<State> state,
     ConnectionID connectionId,
-    internal::MessageConnection::DisconnectReason /*reason*/) noexcept
+    internal::MessageConnection::DisconnectReason reason) noexcept
 {
     auto node = state->_connections.extract(connectionId);
     assert(!node.empty());
 
     internal::MessageConnection& connection = *node.mapped();
-    if (connection.remoteIdentity()) {
-        state->_identityToConnectionID.erase(connection.remoteIdentity().value());
+    if (!connection.remoteIdentity()) {
+        return;
+    }
+
+    const Identity& remoteIdentity = connection.remoteIdentity().value();
+    state->_identityToConnectionID.erase(remoteIdentity);
+
+    // For an aborted disconnect we expect the remote to reconnect, so keep _pendingSendMessages
+    // intact - onRemoteIdentity will drain them onto the new MessageConnection. Only graceful
+    // (Disconnected) disconnects are terminal.
+    if (reason != internal::MessageConnection::DisconnectReason::Disconnected) {
+        return;
+    }
+
+    // Remember the identity so any sendMessage call that lands *after* this disconnect (because
+    // Python is just catching up on messages libuv already buffered) fails fast instead of
+    // queueing forever in _pendingSendMessages and hanging the asyncio loop.
+    state->_disconnectedIdentities.insert(remoteIdentity);
+
+    // Drain any sends already queued for this identity (rare: covers the case where Python
+    // raced ahead of the disconnect).
+    auto pendingIt = state->_pendingSendMessages.find(remoteIdentity);
+    if (pendingIt != state->_pendingSendMessages.end()) {
+        for (auto& pending: pendingIt->second) {
+            pending.onMessageSent(std::unexpected {Error {Error::ErrorCode::ConnectorSocketClosedByRemoteEnd}});
+        }
+        state->_pendingSendMessages.erase(pendingIt);
     }
 }
 

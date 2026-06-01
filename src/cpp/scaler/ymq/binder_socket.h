@@ -6,6 +6,7 @@
 #include <memory>
 #include <optional>
 #include <queue>
+#include <set>
 #include <string>
 #include <vector>
 
@@ -96,6 +97,11 @@ private:
 
         std::map<ConnectionID, std::unique_ptr<internal::MessageConnection>> _connections {};
         std::map<Identity, ConnectionID> _identityToConnectionID {};
+
+        // Identities that completed identity exchange and then disconnected. Sends to these are
+        // failed immediately (instead of queued in _pendingSendMessages) to avoid a hang when the
+        // peer has gracefully gone away. Cleared on reconnect.
+        std::set<Identity> _disconnectedIdentities {};
 
         std::map<Identity, std::vector<PendingSendMessage>> _pendingSendMessages {};
 
