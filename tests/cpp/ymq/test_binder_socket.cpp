@@ -4,6 +4,7 @@
 #include <expected>
 #include <future>
 #include <string>
+#include <thread>
 
 #include "scaler/wrapper/uv/callback.h"
 #include "scaler/wrapper/uv/error.h"
@@ -322,6 +323,74 @@ TEST_F(YMQBinderSocketTest, CloseConnection)
     }
 
     ASSERT_FALSE(client.connected());
+}
+
+TEST_F(YMQBinderSocketTest, SendToGracefullyDisconnectedIdentityFailsFast)
+{
+    // Regression test: after a peer completes identity exchange and then gracefully
+    // disconnects (Disconnected reason), a subsequent sendMessage to that identity must
+    // resolve its callback with ConnectorSocketClosedByRemoteEnd rather than queue the
+    // callback in _pendingSendMessages forever. The latter was the scheduler hang
+    // reproduced by examples/graphtask_nested_client.py.
+
+    auto onClientRecvMessage = [](scaler::ymq::Bytes) {};
+    auto onClientDisconnect  = [](auto) {};
+
+    BinderClientPair connections(std::move(onClientRecvMessage), std::move(onClientDisconnect));
+
+    scaler::ymq::BinderSocket& binder                = connections.binder();
+    scaler::ymq::internal::MessageConnection& client = connections.client();
+    scaler::wrapper::uv::Loop& loop                  = connections.loop();
+
+    // Establish the connection by exchanging a message (forces identity exchange).
+
+    std::promise<scaler::ymq::Message> binderRecvCalled;
+    binder.recvMessage([&](std::expected<scaler::ymq::Message, scaler::ymq::Error> result) {
+        ASSERT_TRUE(result.has_value());
+        binderRecvCalled.set_value(result.value());
+    });
+
+    bool clientSendCalled = false;
+    client.sendMessage(
+        scaler::ymq::Bytes(messagePayload),
+        [&]([[maybe_unused]] std::expected<void, scaler::ymq::Error> result) { clientSendCalled = true; });
+
+    while (!clientSendCalled) {
+        loop.run(UV_RUN_NOWAIT);
+    }
+    ASSERT_EQ(binderRecvCalled.get_future().wait_for(std::chrono::seconds {1}), std::future_status::ready);
+
+    // Client gracefully disconnects (sends FIN). uv_shutdown is async on the test's loop, so we
+    // drive that loop alongside a short wall-clock wait: the loop flushes the FIN to the kernel,
+    // and the wait gives the binder's IOContext thread time to observe the EOF and run its
+    // onRemoteDisconnect cascade. Without this, the next sendMessage races with the FIN and
+    // lands on the still-connected MessageConnection - a different branch than the one this
+    // test is targeting.
+    client.disconnect();
+    auto disconnectWaitStart = std::chrono::steady_clock::now();
+    while (std::chrono::steady_clock::now() - disconnectWaitStart < std::chrono::milliseconds {200}) {
+        loop.run(UV_RUN_NOWAIT);
+        std::this_thread::sleep_for(std::chrono::milliseconds {1});
+    }
+
+    // Send to the now-gone identity. Pre-fix, the binder would park this callback in
+    // _pendingSendMessages[clientIdentity] until the peer reconnects -- which never happens
+    // for a graceful disconnect -- and the callback would never fire (the original hang).
+    // Post-fix, the binder remembers the identity is gone and fails the callback fast.
+
+    std::promise<std::expected<void, scaler::ymq::Error>> sendResult;
+    binder.sendMessage(
+        BinderClientPair::clientIdentity,
+        scaler::ymq::Bytes(messagePayload),
+        [&](std::expected<void, scaler::ymq::Error> result) { sendResult.set_value(std::move(result)); });
+
+    auto sendFuture = sendResult.get_future();
+    ASSERT_EQ(sendFuture.wait_for(std::chrono::seconds {5}), std::future_status::ready)
+        << "send callback did not fire: regression of the binder hang for gracefully-disconnected peers";
+
+    auto result = sendFuture.get();
+    ASSERT_FALSE(result.has_value());
+    ASSERT_EQ(result.error()._errorCode, scaler::ymq::Error::ErrorCode::ConnectorSocketClosedByRemoteEnd);
 }
 
 TEST_F(YMQBinderSocketTest, StopRequested)
