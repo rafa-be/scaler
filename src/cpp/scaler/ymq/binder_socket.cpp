@@ -145,26 +145,17 @@ void BinderSocket::recvMessage(RecvMessageCallback onRecvMessage) noexcept
 
 void BinderSocket::closeConnection(Identity remoteIdentity) noexcept
 {
-    _state->_thread.executeThreadSafe([state = _state, remoteIdentity = std::move(remoteIdentity)]() {
-        auto node = state->_identityToConnectionID.extract(remoteIdentity);
-        if (node.empty()) {
+    _state->_thread.executeThreadSafe([state = _state, remoteIdentity = std::move(remoteIdentity)]() mutable {
+        auto it = state->_identityToConnectionID.find(remoteIdentity);
+        if (it == state->_identityToConnectionID.end()) {
             // Connection not found. Might have disconnected earlier.
             return;
         }
-        ConnectionID connectionID = node.mapped();
+        ConnectionID connectionID = it->second;
 
-        state->_connections.erase(connectionID);
-
-        // Symmetric with onRemoteDisconnect: any subsequent send to this identity should fail
-        // fast rather than wait for a reconnect that may never come.
-        state->_disconnectedIdentities.insert(node.key());
-        auto pendingIt = state->_pendingSendMessages.find(node.key());
-        if (pendingIt != state->_pendingSendMessages.end()) {
-            for (auto& pending: pendingIt->second) {
-                pending.onMessageSent(std::unexpected {Error {Error::ErrorCode::ConnectorSocketClosedByRemoteEnd}});
-            }
-            state->_pendingSendMessages.erase(pendingIt);
-        }
+        // Reuse the disconnect path: it extracts the connection from _connections, erases the
+        // identity mapping, populates _disconnectedIdentities, and drains _pendingSendMessages.
+        onRemoteDisconnect(std::move(state), connectionID, internal::MessageConnection::DisconnectReason::Disconnected);
     });
 }
 
@@ -221,8 +212,24 @@ void BinderSocket::onRemoteDisconnect(
 
     // Remember the identity so any sendMessage call that lands *after* this disconnect (because
     // Python is just catching up on messages libuv already buffered) fails fast instead of
-    // queueing forever in _pendingSendMessages and hanging the asyncio loop.
-    state->_disconnectedIdentities.insert(remoteIdentity);
+    // queueing forever in _pendingSendMessages and hanging the asyncio loop. The set is
+    // bounded by a TTL purge driven from here (insert-time) so it cannot grow without bound
+    // even under workloads that churn many short-lived peers (e.g. nested-task clients).
+    constexpr auto kDisconnectedIdentityTTL = std::chrono::seconds {60};
+    const auto now                          = std::chrono::steady_clock::now();
+    while (!state->_disconnectedIdentityInsertions.empty() &&
+           now - state->_disconnectedIdentityInsertions.front().first > kDisconnectedIdentityTTL) {
+        const auto& [expiredTs, expiredId] = state->_disconnectedIdentityInsertions.front();
+        // Only drop the map entry if its timestamp matches; otherwise the peer re-disconnected
+        // and the current entry is fresher than this expired deque slot.
+        if (auto it = state->_disconnectedIdentities.find(expiredId);
+            it != state->_disconnectedIdentities.end() && it->second == expiredTs) {
+            state->_disconnectedIdentities.erase(it);
+        }
+        state->_disconnectedIdentityInsertions.pop_front();
+    }
+    state->_disconnectedIdentities[remoteIdentity] = now;
+    state->_disconnectedIdentityInsertions.emplace_back(now, remoteIdentity);
 
     // Drain any sends already queued for this identity (rare: covers the case where Python
     // raced ahead of the disconnect).

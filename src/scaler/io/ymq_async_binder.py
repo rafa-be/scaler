@@ -57,19 +57,24 @@ class YMQAsyncBinder(AsyncBinder):
             return
 
         self.__count_received(message.__class__.__name__)
-        await self._callback(ymq_msg.address.data, message)
-
-    async def send(self, to: bytes, message: BaseMessage):
-        assert self._socket is not None
-        self.__count_sent(message.__class__.__name__)
         try:
-            await self._socket.send_message(to.decode(), Bytes(serialize(message)))
+            await self._callback(ymq_msg.address.data, message)
         except ConnectorSocketClosedByRemoteEndError:
-            # Peer has disconnected. Treat the send as a no-op: heartbeat-echo / task-dispatch
-            # callers expect peer-gone to be a routine event handled by their own timeout/cleanup
-            # paths. Re-raising here would bubble up through binder.routine and asyncio.gather and
+            # The callback (e.g. on_heartbeat -> binder.send echo) tried to reply to a peer that
+            # had already disconnected by the time Python caught up on libuv-buffered messages.
+            # Treat as a no-op: peer-gone is a routine event handled by the scheduler controllers'
+            # own timeout/cleanup paths. Re-raising would bubble up through asyncio.gather and
             # tear down the whole scheduler for what is a normal peer departure.
             pass
+
+    async def send(self, to: bytes, message: BaseMessage):
+        # Errors (including ConnectorSocketClosedByRemoteEndError when the peer is gone) propagate
+        # up to whoever drove this send - the AsyncBinder send/recv API maps 1:1 to the underlying
+        # C++ BinderSocket. The scheduler-side swallow lives in routine() above, which is the loop
+        # that actually has to stay alive across peer departures.
+        assert self._socket is not None
+        self.__count_sent(message.__class__.__name__)
+        await self._socket.send_message(to.decode(), Bytes(serialize(message)))
 
     def get_status(self) -> BinderStatus:
         return BinderStatus(
