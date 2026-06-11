@@ -6,8 +6,15 @@
 #      ./scripts/build.ps1 [--clean]
 
 $ErrorActionPreference = "Stop"
+
 $OS = "windows"
-$ARCH = "x64"
+
+$ARCH_NAME = if ($env:PROCESSOR_ARCHITEW6432) { $env:PROCESSOR_ARCHITEW6432 } else { $env:PROCESSOR_ARCHITECTURE }
+$ARCH = switch ($ARCH_NAME) {
+    "AMD64" { "x64" }
+    "ARM64" { "arm64" }
+}
+
 $BUILD_DIR = "build_${OS}_${ARCH}"
 $BUILD_PRESET = "${OS}-${ARCH}"
 
