@@ -5,6 +5,7 @@
 #      ./scripts/test.ps1
 
 $ErrorActionPreference="Stop"
+
 $OS="windows"
 $ARCH="x64"
 $BUILD_DIR="build_${OS}_${ARCH}"

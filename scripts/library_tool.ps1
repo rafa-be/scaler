@@ -1,5 +1,6 @@
-# Constants
 $ErrorActionPreference = "Stop"
+
+# Constants
 
 $CAPNP_VERSION = "1.1.0"
 $UV_VERSION = "1.51.0"
