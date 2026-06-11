@@ -11,6 +11,14 @@ $ARCH = "x64"
 $BUILD_DIR = "build_${OS}_${ARCH}"
 $BUILD_PRESET = "${OS}-${ARCH}"
 
+function exitOnError {
+    param([scriptblock]$command)
+    & $command
+    if ($LASTEXITCODE -ne 0) {
+        throw "Command failed with exit code ${LASTEXITCODE}: $command"
+    }
+}
+
 if ($args[0] -eq "--clean") {
     # Clean up previous build artifacts
     if (Test-Path $BUILD_DIR) {
@@ -22,10 +30,10 @@ Write-Host "Build directory: $BUILD_DIR"
 Write-Host "Build preset: $BUILD_PRESET"
 
 # Configure
-cmake --preset $BUILD_PRESET @args
+exitOnError { cmake --preset $BUILD_PRESET @args }
 
 # Build
-cmake --build --preset $BUILD_PRESET
+exitOnError { cmake --build --preset $BUILD_PRESET }
 
 # Install
-cmake --install $BUILD_DIR
+exitOnError { cmake --install $BUILD_DIR }
