@@ -85,6 +85,8 @@ private:
         std::shared_ptr<State> state,
         std::expected<std::span<const uint8_t>, scaler::wrapper::uv::Error> result) noexcept;
 
+    static void processRecvBuffer(std::shared_ptr<State> state) noexcept;
+
     std::shared_ptr<State> _state;
 };
 
