@@ -78,6 +78,34 @@ runs:
       with:
         arch: amd64
 
+    - name: Diagnose MSVC Toolchain Availability (Windows)
+      if: inputs.os == 'Windows'
+      shell: pwsh
+      run: |
+        Write-Host "[diagnostic] Checking Visual Studio / MSVC visibility after msvc-dev-cmd"
+        cmake --version
+
+        $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
+        if (Test-Path $vswhere) {
+          Write-Host "[diagnostic] vswhere path: $vswhere"
+          & $vswhere -latest -products * -property installationPath
+          & $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath
+        } else {
+          Write-Host "[diagnostic] vswhere.exe not found"
+        }
+
+        $clCommand = Get-Command cl -ErrorAction SilentlyContinue
+        if ($null -ne $clCommand) {
+          Write-Host "[diagnostic] cl command: $($clCommand.Path)"
+          cmd /c "cl 2>&1"
+        } else {
+          Write-Host "[diagnostic] cl command is not available on PATH"
+        }
+
+        Write-Host "[diagnostic] VSINSTALLDIR=$env:VSINSTALLDIR"
+        Write-Host "[diagnostic] VCToolsInstallDir=$env:VCToolsInstallDir"
+        Write-Host "[diagnostic] VisualStudioVersion=$env:VisualStudioVersion"
+
     - name: Install Python Base Packages
       shell: bash
       run: |

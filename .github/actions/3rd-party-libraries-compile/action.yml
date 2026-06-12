@@ -29,6 +29,45 @@ runs:
       shell: pwsh
       if: (inputs.os == 'Windows') && (steps.compiled-libraries.outputs.cache-hit != 'true')
       run: |
+        Write-Host "[diagnostic] Environment seen by Windows compile step"
+        Write-Host "[diagnostic] SCALER_THIRDPARTY_PREFIX=$env:SCALER_THIRDPARTY_PREFIX"
+        Write-Host "[diagnostic] VSINSTALLDIR=$env:VSINSTALLDIR"
+        Write-Host "[diagnostic] VCToolsInstallDir=$env:VCToolsInstallDir"
+        Write-Host "[diagnostic] VisualStudioVersion=$env:VisualStudioVersion"
+        $clCommand = Get-Command cl -ErrorAction SilentlyContinue
+        if ($null -ne $clCommand) {
+          Write-Host "[diagnostic] cl command: $($clCommand.Path)"
+        } else {
+          Write-Host "[diagnostic] cl command is not available on PATH"
+        }
+
+        Write-Host "[diagnostic] Probe VS generator with two prefixes to isolate prefix-vs-toolchain issues"
+        $probeRoot = Join-Path $env:RUNNER_TEMP "cmake-vs-probe"
+        New-Item -ItemType Directory -Path $probeRoot -Force | Out-Null
+        $probeSource = Join-Path $probeRoot "src"
+        New-Item -ItemType Directory -Path $probeSource -Force | Out-Null
+        @"
+        cmake_minimum_required(VERSION 3.10)
+        project(vs_probe LANGUAGES CXX)
+        add_library(vs_probe STATIC probe.cpp)
+        "@ | Set-Content -Path (Join-Path $probeSource "CMakeLists.txt")
+        "int probe() { return 0; }" | Set-Content -Path (Join-Path $probeSource "probe.cpp")
+
+        $prefixA = $env:SCALER_THIRDPARTY_PREFIX
+        $prefixB = "C:/tmp/opengris-thirdparties"
+
+        foreach ($prefix in @($prefixA, $prefixB)) {
+          $safePrefix = ($prefix -replace '[^A-Za-z0-9_\-]', '_')
+          $probeBuild = Join-Path $probeRoot ("build_" + $safePrefix)
+          Write-Host "[diagnostic] cmake configure probe prefix='$prefix'"
+          cmake -S $probeSource -B $probeBuild -G "Visual Studio 17 2022" -DCMAKE_INSTALL_PREFIX="$prefix"
+          if ($LASTEXITCODE -ne 0) {
+            Write-Host "[diagnostic] probe failed for prefix '$prefix' with exit code $LASTEXITCODE"
+          } else {
+            Write-Host "[diagnostic] probe succeeded for prefix '$prefix'"
+          }
+        }
+
         ./scripts/library_tool.ps1 capnp compile --prefix="$env:SCALER_THIRDPARTY_PREFIX"
         ./scripts/library_tool.ps1 libuv compile --prefix="$env:SCALER_THIRDPARTY_PREFIX"
         ./scripts/library_tool.ps1 openssl compile --prefix="$env:SCALER_THIRDPARTY_PREFIX"
