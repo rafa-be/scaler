@@ -54,10 +54,12 @@ else:
         InvalidPortFormatError,
         IOContext,
         Message,
+        TLSConfig,
         RemoteEndDisconnectedOnSocketWithoutGuaranteedDeliveryError,
         SocketStopRequestedError,
         SysCallError,
         TLSConfig,
         YMQException,
     )
+    __all__.append("TLSConfig")
     from scaler.io.ymq.sockets import BinderSocket, ConnectorSocket  # noqa: F401
