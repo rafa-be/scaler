@@ -4,6 +4,7 @@ import socket
 import time
 from typing import Optional, Tuple
 
+from scaler.config.common.security import SecurityConfig
 from scaler.config.types.address import AddressConfig
 from scaler.object_storage.object_storage_server import ObjectStorageServer
 from scaler.utility.logging.utility import get_logger_info, setup_logger
@@ -19,6 +20,7 @@ class ObjectStorageServerProcess(multiprocessing.get_context("spawn").Process): 
         logging_paths: Tuple[str, ...],
         logging_level: str,
         logging_config_file: Optional[str],
+        security_config: Optional[SecurityConfig] = None,
     ):
         super().__init__(name="ObjectStorageServer")
 
@@ -29,6 +31,7 @@ class ObjectStorageServerProcess(multiprocessing.get_context("spawn").Process): 
         self._logging_config_file = logging_config_file
 
         self._bind_address = bind_address
+        self._security_config = security_config
 
     def wait_until_ready(self) -> None:
         """Blocks until the object storage server is available to server requests."""
@@ -53,8 +56,19 @@ class ObjectStorageServerProcess(multiprocessing.get_context("spawn").Process): 
 
         log_format_str, log_level_str, logging_paths = get_logger_info(logging.getLogger("scaler"))
 
+        tls_cert = self._security_config.tls_cert if self._security_config is not None else None
+        tls_key = self._security_config.tls_key if self._security_config is not None else None
+
         self._server = ObjectStorageServer()
         try:
-            self._server.run(repr(self._bind_address), self._ident, log_level_str, log_format_str, logging_paths)
+            self._server.run(
+                repr(self._bind_address),
+                self._ident,
+                log_level_str,
+                log_format_str,
+                logging_paths,
+                tls_cert,
+                tls_key,
+            )
         except KeyboardInterrupt:
             logger.info("ObjectStorageServer: received KeyboardInterrupt, shutting down")
