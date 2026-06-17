@@ -2,6 +2,7 @@ import asyncio
 import multiprocessing
 from typing import TYPE_CHECKING, Optional, Tuple
 
+from scaler.config.common.security import SecurityConfig
 from scaler.config.section.scheduler import PolicyConfig, SchedulerConfig
 from scaler.config.types.address import AddressConfig
 from scaler.scheduler.scheduler import Scheduler
@@ -62,6 +63,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):  # type: i
         logging_config_file: Optional[str],
         logging_level: str,
         shutdown_event: Optional["EventType"] = None,
+        security_config: Optional[SecurityConfig] = None,
     ):
         super().__init__(name="Scheduler")
         self._scheduler_config = SchedulerConfig(
@@ -79,6 +81,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):  # type: i
             event_loop=event_loop,
             io_threads=io_threads,
             policy=policy,
+            security=security_config if security_config is not None else SecurityConfig(),
         )
 
         self._logging_paths = logging_paths
