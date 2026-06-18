@@ -135,9 +135,7 @@ class ZMQNetworkBackend(NetworkBackend):
             raise ValueError("the ZMQ network backend does not support TLS; security_config must not be provided")
 
         if address.type in {SocketType.tls, SocketType.ws, SocketType.wss}:
-            raise ValueError(
-                f"the ZMQ network backend does not support {address.type.value}:// addresses"
-            )
+            raise ValueError(f"the ZMQ network backend does not support {address.type.value}:// addresses")
 
 
 class YMQNetworkBackend(NetworkBackend):

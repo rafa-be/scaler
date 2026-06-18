@@ -52,8 +52,7 @@ class ObjectStorageServerProcess(multiprocessing.get_context("spawn").Process): 
                 connector = None
                 try:
                     connector = backend.create_sync_object_storage_connector(
-                        identity=identity,
-                        address=self._bind_address
+                        identity=identity, address=self._bind_address
                     )
 
                     # Delete on a missing object returns immediately (delNotExists) and confirms the OSS is fully ready.
@@ -83,13 +82,7 @@ class ObjectStorageServerProcess(multiprocessing.get_context("spawn").Process): 
         self._server = ObjectStorageServer()
         try:
             self._server.run(
-                repr(self._bind_address),
-                self._ident,
-                log_level_str,
-                log_format_str,
-                logging_paths,
-                tls_cert,
-                tls_key,
+                repr(self._bind_address), self._ident, log_level_str, log_format_str, logging_paths, tls_cert, tls_key
             )
         except KeyboardInterrupt:
             logger.info("ObjectStorageServer: received KeyboardInterrupt, shutting down")

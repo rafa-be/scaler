@@ -66,6 +66,9 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):  # type: i
         security_config: Optional[SecurityConfig] = None,
     ):
         super().__init__(name="Scheduler")
+
+        security_config = security_config if security_config is not None else SecurityConfig()
+
         self._scheduler_config = SchedulerConfig(
             bind_address=bind_address,
             object_storage_address=object_storage_address,
@@ -81,7 +84,7 @@ class SchedulerProcess(multiprocessing.get_context("spawn").Process):  # type: i
             event_loop=event_loop,
             io_threads=io_threads,
             policy=policy,
-            security=security_config if security_config is not None else SecurityConfig(),
+            security=security_config,
         )
 
         self._logging_paths = logging_paths

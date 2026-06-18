@@ -646,10 +646,12 @@ class _InProcessAsyncConnector(AsyncConnector):
         self._address: Optional[AddressConfig] = None
         self._destroyed = False
 
-    async def bind(self, address: AddressConfig) -> None:
+    async def bind(self, address: AddressConfig, security_config: Optional[SecurityConfig] = None) -> None:
         self._address = address
 
-    async def connect(self, address: AddressConfig, remote_type: ConnectorRemoteType) -> None:
+    async def connect(
+        self, address: AddressConfig, remote_type: ConnectorRemoteType, security_config: Optional[SecurityConfig] = None
+    ) -> None:
         self._address = address
 
     def destroy(self) -> None:
