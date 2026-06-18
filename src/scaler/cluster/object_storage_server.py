@@ -1,15 +1,22 @@
 import logging
 import multiprocessing
-import socket
 import time
 from typing import Optional, Tuple
 
 from scaler.config.common.security import SecurityConfig
 from scaler.config.types.address import AddressConfig
+from scaler.io.network_backends import YMQNetworkBackend
+from scaler.io.ymq import YMQException
 from scaler.object_storage.object_storage_server import ObjectStorageServer
+from scaler.utility.exceptions import ObjectStorageException
+from scaler.utility.identifiers import ClientID, ObjectID
 from scaler.utility.logging.utility import get_logger_info, setup_logger
 
 logger = logging.getLogger(__name__)
+
+
+_READINESS_TIMEOUT_SECONDS = 30
+_READINESS_RETRY_DELAY_SECONDS = 0.1
 
 
 class ObjectStorageServerProcess(multiprocessing.get_context("spawn").Process):  # type: ignore[misc]
@@ -34,17 +41,31 @@ class ObjectStorageServerProcess(multiprocessing.get_context("spawn").Process): 
         self._security_config = security_config
 
     def wait_until_ready(self) -> None:
-        """Blocks until the object storage server is available to server requests."""
-        host = self._bind_address.host
-        port = self._bind_address.port
+        """Blocks until the object storage server is available to serve requests."""
+        backend = YMQNetworkBackend(num_threads=1)
+        identity = ClientID.generate_client_id("ObjectStorageServerReadinessProbe")
+        random_object_id = ObjectID.generate_object_id(identity)
 
-        start_time = time.time()
-        while time.time() - start_time < 30:
-            try:
-                with socket.create_connection((host, port), timeout=1):
+        try:
+            start_time = time.time()
+            while time.time() - start_time < _READINESS_TIMEOUT_SECONDS:
+                connector = None
+                try:
+                    connector = backend.create_sync_object_storage_connector(
+                        identity=identity,
+                        address=self._bind_address
+                    )
+
+                    # Delete on a missing object returns immediately (delNotExists) and confirms the OSS is fully ready.
+                    connector.delete_object(random_object_id)
                     return
-            except (ConnectionRefusedError, socket.timeout, OSError):
-                time.sleep(0.1)
+                except (ObjectStorageException, YMQException, OSError):
+                    time.sleep(_READINESS_RETRY_DELAY_SECONDS)
+                finally:
+                    if connector is not None:
+                        connector.destroy()
+        finally:
+            backend.destroy()
 
         raise TimeoutError(f"ObjectStorageServer at {self._bind_address!r} failed to start within 30 seconds")
 
