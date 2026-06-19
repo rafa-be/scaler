@@ -20,12 +20,14 @@ std::expected<Address, Error> BinderSocket::bindTo(std::string address, std::opt
     return _socket.bindTo(std::move(address), std::move(tlsConfig)).get();
 }
 
-std::expected<void, Error> BinderSocket::sendMessage(Identity remoteIdentity, Bytes messagePayload) noexcept
+std::expected<void, Error> BinderSocket::sendMessage(
+    Identity remoteIdentity, std::unique_ptr<Bytes> messagePayload) noexcept
 {
     return _socket.sendMessage(std::move(remoteIdentity), std::move(messagePayload)).get();
 }
 
-void BinderSocket::sendMulticastMessage(Bytes messagePayload, std::optional<Identity> remotePrefix) noexcept
+void BinderSocket::sendMulticastMessage(
+    std::unique_ptr<Bytes> messagePayload, std::optional<Identity> remotePrefix) noexcept
 {
     _socket.sendMulticastMessage(std::move(messagePayload), std::move(remotePrefix));
 }

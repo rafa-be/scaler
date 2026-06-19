@@ -10,6 +10,7 @@
 #include "scaler/wrapper/uv/error.h"
 #include "scaler/wrapper/uv/loop.h"
 #include "scaler/ymq/binder_socket.h"
+#include "scaler/ymq/buffered_bytes.h"
 #include "scaler/ymq/bytes.h"
 #include "scaler/ymq/internal/connect_client.h"
 #include "scaler/ymq/internal/message_connection.h"
@@ -119,8 +120,8 @@ TEST_P(YMQBinderSocketTest, SendMessage)
 
     bool clientMessageReceived = false;
 
-    auto onClientRecvMessage = [&](scaler::ymq::Bytes receivedPayload) {
-        ASSERT_EQ(receivedPayload.as_string(), messagePayload);
+    auto onClientRecvMessage = [&](std::unique_ptr<scaler::ymq::Bytes> receivedPayload) {
+        ASSERT_EQ(receivedPayload->asString(), messagePayload);
         clientMessageReceived = true;
     };
 
@@ -135,12 +136,16 @@ TEST_P(YMQBinderSocketTest, SendMessage)
 
     std::promise<void> sendCallbackCalled {};
 
-    auto onBinderMessageSent = [&](std::expected<void, scaler::ymq::Error> result) {
+    auto onBinderMessageSent = [&](std::expected<void, scaler::ymq::Error> result,
+                                   [[maybe_unused]] std::unique_ptr<scaler::ymq::Bytes>) {
         ASSERT_TRUE(result.has_value());
         sendCallbackCalled.set_value();
     };
 
-    binder.sendMessage(BinderClientPair::clientIdentity, scaler::ymq::Bytes(messagePayload), onBinderMessageSent);
+    binder.sendMessage(
+        BinderClientPair::clientIdentity,
+        std::make_unique<scaler::ymq::BufferedBytes>(messagePayload),
+        onBinderMessageSent);
 
     // Wait for the client to receive the first message (sent before connection)
 
@@ -155,7 +160,10 @@ TEST_P(YMQBinderSocketTest, SendMessage)
     clientMessageReceived = false;
     sendCallbackCalled    = {};
 
-    binder.sendMessage(BinderClientPair::clientIdentity, scaler::ymq::Bytes(messagePayload), onBinderMessageSent);
+    binder.sendMessage(
+        BinderClientPair::clientIdentity,
+        std::make_unique<scaler::ymq::BufferedBytes>(messagePayload),
+        onBinderMessageSent);
 
     // Wait for the client to receive the second message
 
@@ -172,9 +180,9 @@ TEST_P(YMQBinderSocketTest, SendMulticastMessage)
 
     bool clientMessageReceived = false;
 
-    auto onClientRecvMessage = [&](scaler::ymq::Bytes receivedPayload) {
+    auto onClientRecvMessage = [&](std::unique_ptr<scaler::ymq::Bytes> receivedPayload) {
         ASSERT_FALSE(clientMessageReceived);
-        ASSERT_EQ(receivedPayload.as_string(), messagePayload);
+        ASSERT_EQ(receivedPayload->asString(), messagePayload);
         clientMessageReceived = true;
     };
 
@@ -187,7 +195,9 @@ TEST_P(YMQBinderSocketTest, SendMulticastMessage)
 
     // Make sure the client is ready
 
-    binder.sendMessage(BinderClientPair::clientIdentity, scaler::ymq::Bytes(messagePayload), [](auto) {});
+    binder.sendMessage(
+        BinderClientPair::clientIdentity, std::make_unique<scaler::ymq::BufferedBytes>(messagePayload), [](auto, auto) {
+        });
 
     while (!clientMessageReceived) {
         loop.run(UV_RUN_ONCE);
@@ -197,7 +207,7 @@ TEST_P(YMQBinderSocketTest, SendMulticastMessage)
 
     // Send a broadcast message
 
-    binder.sendMulticastMessage(scaler::ymq::Bytes(messagePayload));
+    binder.sendMulticastMessage(std::make_unique<scaler::ymq::BufferedBytes>(messagePayload));
 
     while (!clientMessageReceived) {
         loop.run(UV_RUN_ONCE);
@@ -207,8 +217,10 @@ TEST_P(YMQBinderSocketTest, SendMulticastMessage)
 
     // Send two multicast messages, should only receive the one with the matching prefix
 
-    binder.sendMulticastMessage(scaler::ymq::Bytes("unexpected multicast message"), "invalid-prefix");
-    binder.sendMulticastMessage(scaler::ymq::Bytes(messagePayload), BinderClientPair::clientIdentity.substr(0, 5));
+    binder.sendMulticastMessage(
+        std::make_unique<scaler::ymq::BufferedBytes>("unexpected multicast message"), "invalid-prefix");
+    binder.sendMulticastMessage(
+        std::make_unique<scaler::ymq::BufferedBytes>(messagePayload), BinderClientPair::clientIdentity.substr(0, 5));
 
     while (!clientMessageReceived) {
         loop.run(UV_RUN_ONCE);
@@ -219,7 +231,7 @@ TEST_P(YMQBinderSocketTest, RecvMessage)
 {
     // Test that the binder can receive messages
 
-    auto onClientRecvMessage = [](scaler::ymq::Bytes) { FAIL() << "Unexpected message on client"; };
+    auto onClientRecvMessage = [](std::unique_ptr<scaler::ymq::Bytes>) { FAIL() << "Unexpected message on client"; };
 
     auto onClientDisconnect = [](auto) { FAIL() << "Unexpected disconnect on client"; };
 
@@ -235,7 +247,7 @@ TEST_P(YMQBinderSocketTest, RecvMessage)
 
     auto onBinderRecvMessage = [&](std::expected<scaler::ymq::Message, scaler::ymq::Error> result) {
         ASSERT_TRUE(result.has_value());
-        recvCalled.set_value(result.value());
+        recvCalled.set_value(std::move(*result));
     };
 
     binder.recvMessage(onBinderRecvMessage);
@@ -243,12 +255,13 @@ TEST_P(YMQBinderSocketTest, RecvMessage)
     // Make the client send the first message
 
     bool sendCalled    = false;
-    auto onMessageSent = [&](std::expected<void, scaler::ymq::Error> result) {
+    auto onMessageSent = [&](std::expected<void, scaler::ymq::Error> result,
+                             [[maybe_unused]] std::unique_ptr<scaler::ymq::Bytes>) {
         ASSERT_TRUE(result.has_value());
         sendCalled = true;
     };
 
-    client.sendMessage(scaler::ymq::Bytes(messagePayload), onMessageSent);
+    client.sendMessage(std::make_unique<scaler::ymq::BufferedBytes>(messagePayload), onMessageSent);
 
     while (!sendCalled) {
         loop.run(UV_RUN_NOWAIT);
@@ -257,8 +270,8 @@ TEST_P(YMQBinderSocketTest, RecvMessage)
     // Validate the message on the binder
 
     scaler::ymq::Message message = recvCalled.get_future().get();
-    ASSERT_EQ(message.address.as_string(), BinderClientPair::clientIdentity);
-    ASSERT_EQ(message.payload.as_string(), messagePayload);
+    ASSERT_EQ(message.address->asString(), BinderClientPair::clientIdentity);
+    ASSERT_EQ(message.payload->asString(), messagePayload);
 
     // Register a 2nd receive callback, AFTER the client connected
 
@@ -268,7 +281,7 @@ TEST_P(YMQBinderSocketTest, RecvMessage)
     // Make the client send the second message
 
     sendCalled = false;
-    client.sendMessage(scaler::ymq::Bytes(messagePayload), onMessageSent);
+    client.sendMessage(std::make_unique<scaler::ymq::BufferedBytes>(messagePayload), onMessageSent);
 
     while (!sendCalled) {
         loop.run(UV_RUN_NOWAIT);
@@ -277,8 +290,8 @@ TEST_P(YMQBinderSocketTest, RecvMessage)
     // Validate the binder receives the 2nd message
 
     message = recvCalled.get_future().get();
-    ASSERT_EQ(message.address.as_string(), BinderClientPair::clientIdentity);
-    ASSERT_EQ(message.payload.as_string(), messagePayload);
+    ASSERT_EQ(message.address->asString(), BinderClientPair::clientIdentity);
+    ASSERT_EQ(message.payload->asString(), messagePayload);
 }
 
 TEST_P(YMQBinderSocketTest, CloseConnection)
@@ -287,7 +300,7 @@ TEST_P(YMQBinderSocketTest, CloseConnection)
 
     bool clientDisconnected = false;
 
-    auto onClientRecvMessage = [](scaler::ymq::Bytes) { FAIL() << "Unexpected message on client"; };
+    auto onClientRecvMessage = [](std::unique_ptr<scaler::ymq::Bytes>) { FAIL() << "Unexpected message on client"; };
 
     auto onClientDisconnect = [&](scaler::ymq::internal::MessageConnection::DisconnectReason reason) {
         ASSERT_EQ(reason, scaler::ymq::internal::MessageConnection::DisconnectReason::Disconnected);
@@ -304,14 +317,15 @@ TEST_P(YMQBinderSocketTest, CloseConnection)
 
     std::promise<scaler::ymq::Message> binderRecvCalled;
     auto onBinderRecvMessage = [&](std::expected<scaler::ymq::Message, scaler::ymq::Error> result) {
-        binderRecvCalled.set_value(result.value());
+        binderRecvCalled.set_value(std::move(*result));
     };
     binder.recvMessage(onBinderRecvMessage);
 
     // Send a message from the client to the binder
     bool sendCalled    = false;
-    auto onMessageSent = [&]([[maybe_unused]] std::expected<void, scaler::ymq::Error> result) { sendCalled = true; };
-    client.sendMessage(scaler::ymq::Bytes(messagePayload), onMessageSent);
+    auto onMessageSent = [&]([[maybe_unused]] std::expected<void, scaler::ymq::Error> result,
+                             [[maybe_unused]] std::unique_ptr<scaler::ymq::Bytes>) { sendCalled = true; };
+    client.sendMessage(std::make_unique<scaler::ymq::BufferedBytes>(messagePayload), onMessageSent);
 
     while (!sendCalled) {
         loop.run(UV_RUN_NOWAIT);
@@ -349,7 +363,7 @@ TEST_P(YMQBinderSocketTest, SendToClosedIdentityFailsFast)
     // reason unrelated to the bug under test.)
 
     bool clientDisconnected  = false;
-    auto onClientRecvMessage = [](scaler::ymq::Bytes) { FAIL() << "Unexpected message on client"; };
+    auto onClientRecvMessage = [](std::unique_ptr<scaler::ymq::Bytes>) { FAIL() << "Unexpected message on client"; };
     auto onClientDisconnect  = [&](scaler::ymq::internal::MessageConnection::DisconnectReason reason) {
         ASSERT_EQ(reason, scaler::ymq::internal::MessageConnection::DisconnectReason::Disconnected);
         clientDisconnected = true;
@@ -366,13 +380,14 @@ TEST_P(YMQBinderSocketTest, SendToClosedIdentityFailsFast)
     std::promise<scaler::ymq::Message> binderRecvCalled;
     binder.recvMessage([&](std::expected<scaler::ymq::Message, scaler::ymq::Error> result) {
         ASSERT_TRUE(result.has_value());
-        binderRecvCalled.set_value(result.value());
+        binderRecvCalled.set_value(std::move(result.value()));
     });
 
     bool clientSendCalled = false;
     client.sendMessage(
-        scaler::ymq::Bytes(messagePayload),
-        [&]([[maybe_unused]] std::expected<void, scaler::ymq::Error> result) { clientSendCalled = true; });
+        std::make_unique<scaler::ymq::BufferedBytes>(messagePayload),
+        [&]([[maybe_unused]] std::expected<void, scaler::ymq::Error> result,
+            [[maybe_unused]] std::unique_ptr<scaler::ymq::Bytes>) { clientSendCalled = true; });
 
     while (!clientSendCalled) {
         loop.run(UV_RUN_NOWAIT);
@@ -399,8 +414,10 @@ TEST_P(YMQBinderSocketTest, SendToClosedIdentityFailsFast)
     auto sendResult = std::make_shared<std::promise<std::expected<void, scaler::ymq::Error>>>();
     binder.sendMessage(
         BinderClientPair::clientIdentity,
-        scaler::ymq::Bytes(messagePayload),
-        [sendResult](std::expected<void, scaler::ymq::Error> result) noexcept {
+        std::make_unique<scaler::ymq::BufferedBytes>(messagePayload),
+        [sendResult](
+            std::expected<void, scaler::ymq::Error> result,
+            [[maybe_unused]] std::unique_ptr<scaler::ymq::Bytes>) noexcept {
             try {
                 sendResult->set_value(std::move(result));
             } catch (...) {
@@ -442,7 +459,9 @@ TEST_P(YMQBinderSocketTest, StopRequested)
     std::optional<scaler::ymq::Error> sendError {};
 
     binder->sendMessage(
-        "unknown-client", scaler::ymq::Bytes(messagePayload), [&](std::expected<void, scaler::ymq::Error> result) {
+        "unknown-client",
+        std::make_unique<scaler::ymq::BufferedBytes>(messagePayload),
+        [&](std::expected<void, scaler::ymq::Error> result, [[maybe_unused]] std::unique_ptr<scaler::ymq::Bytes>) {
             ASSERT_FALSE(result.has_value());
             sendError = result.error();
         });
