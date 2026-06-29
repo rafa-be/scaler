@@ -425,20 +425,8 @@ TEST_P(YMQConnectorSocketTest, Bind)
     ASSERT_EQ(recvResult2.value().payload->asString(), messagePayload);
 }
 
-std::vector<std::string> GetConnectorSocketTransports()
-{
-    std::vector<std::string> transports;
-    transports.push_back("tcp");
-    transports.push_back("tls");
-    transports.push_back("ws");
-#ifdef __linux__
-    transports.push_back("ipc");
-#endif
-    return transports;
-}
-
 INSTANTIATE_TEST_SUITE_P(
     YMQTransport,
     YMQConnectorSocketTest,
-    ::testing::ValuesIn(GetConnectorSocketTransports()),
+    ::testing::ValuesIn(getTransports()),
     [](const testing::TestParamInfo<YMQConnectorSocketTest::ParamType>& info) { return info.param; });

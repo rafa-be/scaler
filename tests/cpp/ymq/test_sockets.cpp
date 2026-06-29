@@ -685,22 +685,11 @@ TEST(YMQSocketTest, TestRequestSocketStop)
     EXPECT_EQ(result, TestResult::Success);
 }
 
-std::vector<std::string> GetTransports()
-{
-    std::vector<std::string> transports;
-    transports.push_back("tcp");
-    transports.push_back("ws");
-#ifdef __linux__
-    transports.push_back("ipc");
-#endif
-    return transports;
-}
-
 // parametrize the test with tcp and ipc addresses
 INSTANTIATE_TEST_SUITE_P(
     YMQTransport,
     YMQSocketTest,
-    ::testing::ValuesIn(GetTransports()),
+    ::testing::ValuesIn(getTransports()),
     [](const testing::TestParamInfo<YMQSocketTest::ParamType>& info) {
         // use tcp/ipc as suffix for test names
         return info.param;

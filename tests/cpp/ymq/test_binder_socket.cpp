@@ -506,20 +506,8 @@ TEST_P(YMQBinderSocketTest, StopRequested)
     ASSERT_EQ(sendError->_errorCode, scaler::ymq::Error::ErrorCode::SocketStopRequested);
 }
 
-std::vector<std::string> GetBinderSocketTransports()
-{
-    std::vector<std::string> transports;
-    transports.push_back("tcp");
-    transports.push_back("tls");
-    transports.push_back("ws");
-#ifdef __linux__
-    transports.push_back("ipc");
-#endif
-    return transports;
-}
-
 INSTANTIATE_TEST_SUITE_P(
     YMQTransport,
     YMQBinderSocketTest,
-    ::testing::ValuesIn(GetBinderSocketTransports()),
+    ::testing::ValuesIn(getTransports()),
     [](const testing::TestParamInfo<YMQBinderSocketTest::ParamType>& info) { return info.param; });

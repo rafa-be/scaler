@@ -5,6 +5,7 @@
 #include <format>
 #include <stdexcept>
 #include <string>
+#include <vector>
 
 // change the current working directory to the project root
 // this is important for finding the python mitm script
@@ -20,6 +21,18 @@ void chdirToProjectRoot()
             return;
         }
     }
+}
+
+std::vector<std::string> getTransports()
+{
+    std::vector<std::string> transports;
+    transports.push_back("tcp");
+    transports.push_back("tls");
+    transports.push_back("ws");
+#ifdef __linux__
+    transports.push_back("ipc");
+#endif
+    return transports;
 }
 
 std::string getTransportAddress(const std::string& transport, int port)

@@ -3,6 +3,7 @@
 #include <cstdint>
 #include <optional>
 #include <string>
+#include <vector>
 
 #include "scaler/ymq/tls_config.h"
 
@@ -15,6 +16,9 @@ void raiseSocketError(const char* msg);
 // change the current working directory to the project root
 // this is important for finding the python mitm script
 void chdirToProjectRoot();
+
+// Return the list of transports to parameterize the socket test suites with.
+std::vector<std::string> getTransports();
 
 // Build an address string for the given transport ("tcp", "tls", "ipc", "ws" or "wss").
 std::string getTransportAddress(const std::string& transport, int port);

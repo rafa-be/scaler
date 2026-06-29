@@ -83,20 +83,8 @@ TEST_P(YMQSyncTest, BasicMessageExchange)
     connectorThread.join();
 }
 
-std::vector<std::string> GetSyncTransports()
-{
-    std::vector<std::string> transports;
-    transports.push_back("tcp");
-    transports.push_back("tls");
-    transports.push_back("ws");
-#ifdef __linux__
-    transports.push_back("ipc");
-#endif
-    return transports;
-}
-
 INSTANTIATE_TEST_SUITE_P(
     YMQTransport,
     YMQSyncTest,
-    ::testing::ValuesIn(GetSyncTransports()),
+    ::testing::ValuesIn(getTransports()),
     [](const testing::TestParamInfo<YMQSyncTest::ParamType>& info) { return info.param; });
