@@ -202,7 +202,7 @@ std::expected<Address, Error> Address::fromString(std::string_view address, std:
         "Address must start with 'tcp://', 'tls://', 'ipc://', 'ws://', or 'wss://'"}};
 }
 
-std::optional<scaler::wrapper::openssl::SSLContext> Address::getSSLContext() const noexcept
+std::expected<std::optional<scaler::wrapper::openssl::SSLContext>, Error> Address::getSSLContext() const noexcept
 {
     if (!_secure) {
         return std::nullopt;
@@ -211,13 +211,17 @@ std::optional<scaler::wrapper::openssl::SSLContext> Address::getSSLContext() con
     if (_tlsConfig.has_value()) {
         auto context = _tlsConfig->getSSLContext();
         if (!context.has_value()) {
-            unrecoverableError(context.error());
+            return std::unexpected {std::move(context.error())};
         }
         return std::move(context.value());
     }
 
     // No TLS config provided, use default SSL context.
-    return UV_EXIT_ON_ERROR(scaler::wrapper::openssl::SSLContext::init());
+    auto context = scaler::wrapper::openssl::SSLContext::init();
+    if (!context.has_value()) {
+        return std::unexpected {Error {Error::ErrorCode::SysCallError, "SSLContext::init() failed"}};
+    }
+    return std::move(context.value());
 }
 
 }  // namespace ymq

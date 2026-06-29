@@ -58,11 +58,12 @@ public:
         scaler::ymq::Address boundAddress = bindFuture.get();
 
         // Connect the client to the binder using ConnectClient (transport-agnostic)
-        _connectClient.emplace(
-            _loop, boundAddress, [this](std::expected<scaler::ymq::internal::Client, scaler::ymq::Error> result) {
-                ASSERT_TRUE(result.has_value());
-                _client.connect(std::move(result.value()));
-            });
+        auto onConnect = [this](std::expected<scaler::ymq::internal::Client, scaler::ymq::Error> result) {
+            ASSERT_TRUE(result.has_value());
+            _client.connect(std::move(result.value()));
+        };
+
+        _connectClient = scaler::ymq::internal::ConnectClient::init(_loop, boundAddress, onConnect).value();
     }
 
     scaler::ymq::BinderSocket& binder()
@@ -112,6 +113,33 @@ TEST_P(YMQBinderSocketTest, BindTo)
 
     // Wait for bind to complete
     ASSERT_EQ(bindCalled.get_future().wait_for(std::chrono::seconds {1}), std::future_status::ready);
+}
+
+TEST(YMQBinderSocketTLSTest, BindToWithInvalidCertificate)
+{
+    // Test that a TLS credentials failure (e.g. a non-existent certificate file) is propagated back to the bind
+    // callback instead of terminating the process.
+
+    scaler::ymq::IOContext context {};
+    scaler::ymq::BinderSocket binder {context, BinderClientPair::binderIdentity};
+
+    scaler::ymq::TLSConfig invalidTLSConfig {"non_existent_cert.pem", "non_existent_private_key.pem"};
+
+    std::promise<std::expected<scaler::ymq::Address, scaler::ymq::Error>> bindPromise {};
+
+    binder.bindTo(
+        getTransportAddress("tls", 0),
+        [&](std::expected<scaler::ymq::Address, scaler::ymq::Error> result) mutable {
+            bindPromise.set_value(std::move(result));
+        },
+        std::move(invalidTLSConfig));
+
+    std::future<std::expected<scaler::ymq::Address, scaler::ymq::Error>> bindFuture = bindPromise.get_future();
+    ASSERT_EQ(bindFuture.wait_for(std::chrono::seconds {1}), std::future_status::ready);
+
+    std::expected<scaler::ymq::Address, scaler::ymq::Error> result = bindFuture.get();
+    ASSERT_FALSE(result.has_value());
+    ASSERT_EQ(result.error()._errorCode, scaler::ymq::Error::ErrorCode::SysCallError);
 }
 
 TEST_P(YMQBinderSocketTest, SendMessage)

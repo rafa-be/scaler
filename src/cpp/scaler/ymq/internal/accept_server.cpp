@@ -17,9 +17,30 @@ namespace scaler {
 namespace ymq {
 namespace internal {
 
-std::expected<AcceptServer, scaler::wrapper::uv::Error> AcceptServer::init(
+namespace details {
+
+Error toYMQError(scaler::wrapper::uv::Error uvError) noexcept
+{
+    return Error {
+        Error::ErrorCode::SysCallError,
+        "Originated from",
+        "AcceptServer::init",
+        "Error code",
+        uvError.name(),
+        uvError.message(),
+    };
+}
+
+}  // namespace details
+
+std::expected<AcceptServer, scaler::ymq::Error> AcceptServer::init(
     scaler::wrapper::uv::Loop& loop, Address address, ConnectionCallback onConnectionCallback) noexcept
 {
+    auto sslContext = address.getSSLContext();
+    if (!sslContext.has_value()) {
+        return std::unexpected {std::move(sslContext.error())};
+    }
+
     std::optional<Server> server;
     std::optional<WebSocketAddress> webSocketAddress;
 
@@ -28,19 +49,19 @@ std::expected<AcceptServer, scaler::wrapper::uv::Error> AcceptServer::init(
             if (address.secure()) {
                 auto secureServer = scaler::wrapper::openssl::SecureServer::init(loop);
                 if (!secureServer.has_value()) {
-                    return std::unexpected {secureServer.error()};
+                    return std::unexpected {details::toYMQError(secureServer.error())};
                 }
                 if (auto bindResult = secureServer->bind(address.asTCP(), uv_tcp_flags(0)); !bindResult.has_value()) {
-                    return std::unexpected {bindResult.error()};
+                    return std::unexpected {details::toYMQError(bindResult.error())};
                 }
                 server = std::move(secureServer.value());
             } else {
                 auto tcpServer = scaler::wrapper::uv::TCPServer::init(loop);
                 if (!tcpServer.has_value()) {
-                    return std::unexpected {tcpServer.error()};
+                    return std::unexpected {details::toYMQError(tcpServer.error())};
                 }
                 if (auto bindResult = tcpServer->bind(address.asTCP(), uv_tcp_flags(0)); !bindResult.has_value()) {
-                    return std::unexpected {bindResult.error()};
+                    return std::unexpected {details::toYMQError(bindResult.error())};
                 }
                 server = std::move(tcpServer.value());
             }
@@ -49,10 +70,10 @@ std::expected<AcceptServer, scaler::wrapper::uv::Error> AcceptServer::init(
         case Address::Type::IPC: {
             auto pipeServer = scaler::wrapper::uv::PipeServer::init(loop, false);
             if (!pipeServer.has_value()) {
-                return std::unexpected {pipeServer.error()};
+                return std::unexpected {details::toYMQError(pipeServer.error())};
             }
             if (auto bindResult = pipeServer->bind(address.asIPC()); !bindResult.has_value()) {
-                return std::unexpected {bindResult.error()};
+                return std::unexpected {details::toYMQError(bindResult.error())};
             }
             server = std::move(pipeServer.value());
             break;
@@ -62,11 +83,11 @@ std::expected<AcceptServer, scaler::wrapper::uv::Error> AcceptServer::init(
             webSocketAddress = address.asWebSocket();
             auto tcpServer   = scaler::wrapper::uv::TCPServer::init(loop);
             if (!tcpServer.has_value()) {
-                return std::unexpected {tcpServer.error()};
+                return std::unexpected {details::toYMQError(tcpServer.error())};
             }
             if (auto bindResult = tcpServer->bind(webSocketAddress->tcpAddress, uv_tcp_flags(0));
                 !bindResult.has_value()) {
-                return std::unexpected {bindResult.error()};
+                return std::unexpected {details::toYMQError(bindResult.error())};
             }
             server = std::move(tcpServer.value());
             break;
@@ -79,7 +100,7 @@ std::expected<AcceptServer, scaler::wrapper::uv::Error> AcceptServer::init(
         std::move(onConnectionCallback),
         std::move(server.value()),
         std::move(webSocketAddress),
-        address.getSSLContext());
+        std::move(sslContext.value()));
 
     auto listenCallback = std::bind_front(&AcceptServer::onConnection, state);
 
@@ -96,7 +117,7 @@ std::expected<AcceptServer, scaler::wrapper::uv::Error> AcceptServer::init(
     }
 
     if (!listenResult.has_value()) {
-        return std::unexpected {listenResult.error()};
+        return std::unexpected {details::toYMQError(listenResult.error())};
     }
 
     return AcceptServer {std::move(state)};

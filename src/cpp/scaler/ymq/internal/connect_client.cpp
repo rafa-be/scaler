@@ -16,29 +16,46 @@ namespace scaler {
 namespace ymq {
 namespace internal {
 
-ConnectClient::ConnectClient(
+std::expected<ConnectClient, scaler::ymq::Error> ConnectClient::init(
     scaler::wrapper::uv::Loop& loop,
     Address address,
     ConnectCallback onConnectCallback,
     size_t maxRetryTimes,
     std::chrono::milliseconds initRetryDelay) noexcept
-    : _state(
-          std::make_shared<State>(
-              loop, std::move(address), std::move(onConnectCallback), maxRetryTimes, initRetryDelay))
 {
-    tryConnect(_state);
+    auto sslContext = address.getSSLContext();
+    if (!sslContext.has_value()) {
+        return std::unexpected {std::move(sslContext.error())};
+    }
+
+    auto state = std::make_shared<State>(
+        loop,
+        std::move(address),
+        std::move(onConnectCallback),
+        std::move(sslContext.value()),
+        maxRetryTimes,
+        initRetryDelay);
+
+    tryConnect(state);
+
+    return ConnectClient {std::move(state)};
+}
+
+ConnectClient::ConnectClient(std::shared_ptr<State> state) noexcept: _state(std::move(state))
+{
 }
 
 ConnectClient::State::State(
     scaler::wrapper::uv::Loop& loop,
     Address addr,
     ConnectCallback callback,
+    std::optional<scaler::wrapper::openssl::SSLContext> sslContext,
     size_t maxRetries,
     std::chrono::milliseconds delay) noexcept
     : _loop(loop)
     , _address(std::move(addr))
     , _onConnectCallback(std::move(callback))
-    , _sslContext(_address.getSSLContext())
+    , _sslContext(std::move(sslContext))
     , _maxRetryTimes(maxRetries)
     , _initRetryDelay(delay)
 {

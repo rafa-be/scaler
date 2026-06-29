@@ -28,7 +28,7 @@ public:
 
     // Create a server bound to and listening on `address`. Returns an error instead of an
     // instance when binding or listening fails (e.g. EADDRINUSE when the address is in use).
-    static std::expected<AcceptServer, scaler::wrapper::uv::Error> init(
+    static std::expected<AcceptServer, Error> init(
         scaler::wrapper::uv::Loop& loop, Address address, ConnectionCallback onConnectionCallback) noexcept;
 
     ~AcceptServer() noexcept;

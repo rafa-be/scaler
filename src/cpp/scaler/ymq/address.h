@@ -76,7 +76,7 @@ public:
     // Build an SSLContext from the address's encryption requirement.
     //
     // Returns std::nullopt if the address is not secure.
-    std::optional<scaler::wrapper::openssl::SSLContext> getSSLContext() const noexcept;
+    std::expected<std::optional<scaler::wrapper::openssl::SSLContext>, Error> getSSLContext() const noexcept;
 
 private:
     static constexpr std::string_view _tcpPrefix = "tcp://";

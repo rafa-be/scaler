@@ -48,11 +48,11 @@ public:
         const auto listenAddress =
             scaler::ymq::Address::fromString(getTransportAddress(transport, 0), getTLSConfig(transport)).value();
 
-        _server = UV_EXIT_ON_ERROR(
-            scaler::ymq::internal::AcceptServer::init(
-                _loop, listenAddress, [this](scaler::ymq::internal::Client client) {
-                    _serverConnection.connect(std::move(client));
-                }));
+        _server = scaler::ymq::internal::AcceptServer::init(
+                      _loop,
+                      listenAddress,
+                      std::bind_front(&scaler::ymq::internal::MessageConnection::connect, &_serverConnection))
+                      .value();
 
         std::string address = _server->address().toString().value();
 

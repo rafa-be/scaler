@@ -28,7 +28,8 @@ class ConnectClient {
 public:
     using ConnectCallback = scaler::utility::MoveOnlyFunction<void(std::expected<Client, scaler::ymq::Error>)>;
 
-    ConnectClient(
+    // Create a client and initiate connection to the address.
+    static std::expected<ConnectClient, scaler::ymq::Error> init(
         scaler::wrapper::uv::Loop& loop,
         Address address,
         ConnectCallback onConnectCallback,
@@ -74,9 +75,12 @@ private:
             scaler::wrapper::uv::Loop& loop,
             Address address,
             ConnectCallback onConnectCallback,
+            std::optional<scaler::wrapper::openssl::SSLContext> sslContext,
             size_t maxRetryTimes,
             std::chrono::milliseconds initRetryDelay) noexcept;
     };
+
+    ConnectClient(std::shared_ptr<State> state) noexcept;
 
     std::shared_ptr<State> _state;
 

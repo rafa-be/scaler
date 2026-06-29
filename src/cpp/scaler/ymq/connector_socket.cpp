@@ -66,15 +66,7 @@ ConnectorSocket ConnectorSocket::bind(
             auto acceptServer = internal::AcceptServer::init(
                 state->_thread.loop(), state->_address, std::bind_front(&ConnectorSocket::onClientAccepted, state));
             if (!acceptServer.has_value()) {
-                onBindCallback(
-                    std::unexpected {Error {
-                        Error::ErrorCode::SysCallError,
-                        "Originated from",
-                        "AcceptServer::init",
-                        "Error code",
-                        acceptServer.error().name(),
-                        acceptServer.error().message(),
-                    }});
+                onBindCallback(std::unexpected {std::move(acceptServer.error())});
                 return;
             }
 
@@ -161,7 +153,7 @@ void ConnectorSocket::tryConnect(std::shared_ptr<State> state, ConnectCallback o
     assert(!state->_isBinding);
     assert(!state->_connectClient.has_value() && "tryConnect() called while already connecting");
 
-    state->_connectClient = internal::ConnectClient {
+    auto connectClient = internal::ConnectClient::init(
         state->_thread.loop(),
         state->_address,
         [state, onConnectCallback = std::move(onConnectCallback), address = state->_address](
@@ -170,7 +162,15 @@ void ConnectorSocket::tryConnect(std::shared_ptr<State> state, ConnectCallback o
                 std::move(state), std::move(onConnectCallback), std::move(address), std::move(result));
         },
         state->_maxRetryTimes,
-        state->_initRetryDelay};
+        state->_initRetryDelay);
+
+    if (!connectClient.has_value()) {
+        state->_disconnected = true;
+        fillPendingRecvCallbacksWithErr(state, connectClient.error());
+        return;
+    }
+
+    state->_connectClient = std::move(connectClient.value());
 }
 
 void ConnectorSocket::onClientConnected(
