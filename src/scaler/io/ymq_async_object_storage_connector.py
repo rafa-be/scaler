@@ -2,7 +2,6 @@ import asyncio
 import logging
 from typing import Dict, Optional, Tuple
 
-from scaler.config.common.security import SecurityConfig
 from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncObjectStorageConnector
 from scaler.io.ymq import Bytes, ConnectorSocket, IOContext, YMQException
@@ -35,7 +34,7 @@ class YMQAsyncObjectStorageConnector(AsyncObjectStorageConnector):
     def __del__(self):
         self.destroy()
 
-    async def connect(self, address: AddressConfig, security_config: Optional[SecurityConfig] = None):
+    async def connect(self, address: AddressConfig):
         self._address = address
 
         if self.is_connected():

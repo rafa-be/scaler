@@ -2,7 +2,6 @@ import logging
 from collections import defaultdict
 from typing import Awaitable, Callable, Dict, Optional
 
-from scaler.config.common.security import SecurityConfig
 from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncBinder
 from scaler.io.utility import deserialize, serialize
@@ -28,7 +27,7 @@ class YMQAsyncBinder(AsyncBinder):
     def __del__(self):
         self.destroy()
 
-    async def bind(self, address: AddressConfig, security_config: Optional[SecurityConfig] = None) -> None:
+    async def bind(self, address: AddressConfig) -> None:
         assert self._socket is not None
         bound_address = await self._socket.bind_to(repr(address))
         self._address = AddressConfig.from_string(repr(bound_address))

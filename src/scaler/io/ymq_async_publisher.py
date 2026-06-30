@@ -1,6 +1,5 @@
 from typing import Optional
 
-from scaler.config.common.security import SecurityConfig
 from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncPublisher
 from scaler.io.utility import serialize
@@ -15,7 +14,7 @@ class YMQAsyncPublisher(AsyncPublisher):
         self._address: Optional[AddressConfig] = None
         self._socket: Optional[BinderSocket] = BinderSocket(self._ymq_context, self._identity.decode())
 
-    async def bind(self, address: AddressConfig, security_config: Optional[SecurityConfig] = None) -> None:
+    async def bind(self, address: AddressConfig) -> None:
         assert self._socket is not None
 
         bound_address = await self._socket.bind_to(repr(address))

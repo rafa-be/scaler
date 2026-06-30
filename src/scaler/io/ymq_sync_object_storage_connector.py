@@ -1,7 +1,6 @@
 from threading import Lock
 from typing import Iterable, Optional
 
-from scaler.config.common.security import SecurityConfig
 from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import SyncObjectStorageConnector
 from scaler.io.ymq import Bytes, ConnectorSocket, IOContext, YMQException
@@ -17,13 +16,7 @@ MAX_CHUNK_SIZE = 128 * 1024 * 1024
 class YMQSyncObjectStorageConnector(SyncObjectStorageConnector):
     """A synchronous connector that uses YMQ to connect to a Scaler's object storage instance."""
 
-    def __init__(
-        self,
-        context: IOContext,
-        identity: bytes,
-        address: AddressConfig,
-        security_config: Optional[SecurityConfig] = None,
-    ):
+    def __init__(self, context: IOContext, identity: bytes, address: AddressConfig):
         self._ymq_context = context
         self._identity = identity
         self._address = address

@@ -7,6 +7,7 @@ try:
 except ImportError:
     from typing_extensions import Concatenate, ParamSpec  # type: ignore[assignment]
 
+
 P = ParamSpec("P")
 T = TypeVar("T")
 

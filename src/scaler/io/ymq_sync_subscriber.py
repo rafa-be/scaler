@@ -3,7 +3,6 @@ import threading
 from datetime import timedelta
 from typing import Callable, Optional
 
-from scaler.config.common.security import SecurityConfig
 from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import SyncSubscriber
 from scaler.io.utility import deserialize
@@ -21,7 +20,6 @@ class YMQSyncSubscriber(SyncSubscriber):
         address: AddressConfig,
         callback: Callable[[BaseMessage], None],
         timeout: Optional[timedelta] = None,
-        security_config: Optional[SecurityConfig] = None,
     ):
         super().__init__()
 

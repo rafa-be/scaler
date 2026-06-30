@@ -1,7 +1,6 @@
 import logging
 from typing import Awaitable, Callable, Optional
 
-from scaler.config.common.security import SecurityConfig
 from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncConnector, ConnectorRemoteType
 from scaler.io.utility import deserialize, serialize
@@ -23,9 +22,7 @@ class YMQAsyncConnector(AsyncConnector):
     def __del__(self):
         self.destroy()
 
-    async def connect(
-        self, address: AddressConfig, remote_type: ConnectorRemoteType, security_config: Optional[SecurityConfig] = None
-    ) -> None:
+    async def connect(self, address: AddressConfig, remote_type: ConnectorRemoteType) -> None:
         assert self._ymq_context is not None
 
         if remote_type not in {ConnectorRemoteType.Binder, ConnectorRemoteType.Connector}:
@@ -34,7 +31,7 @@ class YMQAsyncConnector(AsyncConnector):
         self._address = address
         self._socket = ConnectorSocket.connect(self._ymq_context, self._identity.decode(), repr(self._address))
 
-    async def bind(self, address: AddressConfig, security_config: Optional[SecurityConfig] = None) -> None:
+    async def bind(self, address: AddressConfig) -> None:
         assert self._ymq_context is not None
 
         self._address = address

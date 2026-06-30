@@ -4,7 +4,6 @@ import tempfile
 from datetime import timedelta
 from typing import Awaitable, Callable, Optional
 
-from scaler.config.common.security import SecurityConfig
 from scaler.config.defaults import SCALER_NETWORK_BACKEND
 from scaler.config.types.address import AddressConfig, SocketType
 from scaler.config.types.network_backend import NetworkBackendType
@@ -85,15 +84,9 @@ class ZMQNetworkBackend(NetworkBackend):
         return ZMQAsyncPublisher(context=self._async_context, identity=identity)
 
     def create_sync_connector(
-        self,
-        identity: bytes,
-        connector_remote_type: ConnectorRemoteType,
-        address: AddressConfig,
-        security_config: Optional[SecurityConfig] = None,
+        self, identity: bytes, connector_remote_type: ConnectorRemoteType, address: AddressConfig
     ) -> SyncConnector:
         from scaler.io.zmq_sync_connector import ZMQSyncConnector
-
-        self.raise_if_unsupported(address, security_config)
 
         return ZMQSyncConnector(
             context=self._context, identity=identity, connector_remote_type=connector_remote_type, address=address
@@ -105,13 +98,11 @@ class ZMQNetworkBackend(NetworkBackend):
         return YMQAsyncObjectStorageConnector(context=self._object_storage_context, identity=identity)
 
     def create_sync_object_storage_connector(
-        self, identity: bytes, address: AddressConfig, security_config: Optional[SecurityConfig] = None
+        self, identity: bytes, address: AddressConfig
     ) -> SyncObjectStorageConnector:
         assert self._context is not None
         assert self._object_storage_context is not None
-        return YMQSyncObjectStorageConnector(
-            context=self._object_storage_context, identity=identity, address=address, security_config=security_config
-        )
+        return YMQSyncObjectStorageConnector(context=self._object_storage_context, identity=identity, address=address)
 
     def create_sync_subscriber(
         self,
@@ -119,23 +110,12 @@ class ZMQNetworkBackend(NetworkBackend):
         address: AddressConfig,
         callback: Callable[[BaseMessage], None],
         timeout: Optional[timedelta],
-        security_config: Optional[SecurityConfig] = None,
     ) -> SyncSubscriber:
         from scaler.io.zmq_sync_subscriber import ZMQSyncSubscriber
-
-        self.raise_if_unsupported(address, security_config)
 
         return ZMQSyncSubscriber(
             context=self._context, identity=identity, address=address, callback=callback, timeout=timeout
         )
-
-    @staticmethod
-    def raise_if_unsupported(address: AddressConfig, security_config: Optional[SecurityConfig]) -> None:
-        if security_config is not None and security_config.has_credentials():
-            raise ValueError("the ZMQ network backend does not support TLS; security_config must not be provided")
-
-        if address.type in {SocketType.tls, SocketType.ws, SocketType.wss}:
-            raise ValueError(f"the ZMQ network backend does not support {address.type.value}:// addresses")
 
 
 class YMQNetworkBackend(NetworkBackend):
@@ -179,28 +159,20 @@ class YMQNetworkBackend(NetworkBackend):
         return YMQAsyncPublisher(context=self._context, identity=identity)
 
     def create_sync_connector(
-        self,
-        identity: bytes,
-        connector_remote_type: ConnectorRemoteType,
-        address: AddressConfig,
-        security_config: Optional[SecurityConfig] = None,
+        self, identity: bytes, connector_remote_type: ConnectorRemoteType, address: AddressConfig
     ) -> SyncConnector:
         assert self._context is not None
-        return YMQSyncConnector(
-            context=self._context, identity=identity, address=address, security_config=security_config
-        )
+        return YMQSyncConnector(context=self._context, identity=identity, address=address)
 
     def create_async_object_storage_connector(self, identity: bytes) -> AsyncObjectStorageConnector:
         assert self._context is not None
         return YMQAsyncObjectStorageConnector(context=self._context, identity=identity)
 
     def create_sync_object_storage_connector(
-        self, identity: bytes, address: AddressConfig, security_config: Optional[SecurityConfig] = None
+        self, identity: bytes, address: AddressConfig
     ) -> SyncObjectStorageConnector:
         assert self._context is not None
-        return YMQSyncObjectStorageConnector(
-            context=self._context, identity=identity, address=address, security_config=security_config
-        )
+        return YMQSyncObjectStorageConnector(context=self._context, identity=identity, address=address)
 
     def create_sync_subscriber(
         self,
@@ -208,16 +180,10 @@ class YMQNetworkBackend(NetworkBackend):
         address: AddressConfig,
         callback: Callable[[BaseMessage], None],
         timeout: Optional[timedelta],
-        security_config: Optional[SecurityConfig] = None,
     ) -> SyncSubscriber:
         assert self._context is not None
         return YMQSyncSubscriber(
-            context=self._context,
-            identity=identity,
-            address=address,
-            callback=callback,
-            timeout=timeout,
-            security_config=security_config,
+            context=self._context, identity=identity, address=address, callback=callback, timeout=timeout
         )
 
 
