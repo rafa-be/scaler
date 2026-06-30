@@ -8,7 +8,6 @@ from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import SyncSubscriber
 from scaler.io.utility import deserialize
 from scaler.io.ymq import ConnectorSocket, IOContext
-from scaler.io.ymq.utils import to_tls_config
 from scaler.protocol.capnp import BaseMessage
 
 logger = logging.getLogger(__name__)
@@ -34,9 +33,7 @@ class YMQSyncSubscriber(SyncSubscriber):
         self._callback = callback
         self._timeout = timeout
 
-        self._socket = ConnectorSocket.connect(
-            self._ymq_context, self._identity.decode(), repr(self._address), tls_config=to_tls_config(security_config)
-        )
+        self._socket = ConnectorSocket.connect(self._ymq_context, self._identity.decode(), repr(self._address))
 
     def __close(self):
         self._socket.shutdown()

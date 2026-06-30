@@ -7,7 +7,6 @@ from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncBinder
 from scaler.io.utility import deserialize, serialize
 from scaler.io.ymq import BinderSocket, Bytes, ConnectorSocketClosedByRemoteEndError, IOContext
-from scaler.io.ymq.utils import to_tls_config
 from scaler.protocol.capnp import BaseMessage, BinderStatus
 
 logger = logging.getLogger(__name__)
@@ -31,7 +30,7 @@ class YMQAsyncBinder(AsyncBinder):
 
     async def bind(self, address: AddressConfig, security_config: Optional[SecurityConfig] = None) -> None:
         assert self._socket is not None
-        bound_address = await self._socket.bind_to(repr(address), to_tls_config(security_config))
+        bound_address = await self._socket.bind_to(repr(address))
         self._address = AddressConfig.from_string(repr(bound_address))
 
     @property

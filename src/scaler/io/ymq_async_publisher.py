@@ -5,7 +5,6 @@ from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncPublisher
 from scaler.io.utility import serialize
 from scaler.io.ymq import BinderSocket, Bytes, IOContext
-from scaler.io.ymq.utils import to_tls_config
 from scaler.protocol.capnp import BaseMessage
 
 
@@ -19,7 +18,7 @@ class YMQAsyncPublisher(AsyncPublisher):
     async def bind(self, address: AddressConfig, security_config: Optional[SecurityConfig] = None) -> None:
         assert self._socket is not None
 
-        bound_address = await self._socket.bind_to(repr(address), to_tls_config(security_config))
+        bound_address = await self._socket.bind_to(repr(address))
         self._address = AddressConfig.from_string(repr(bound_address))
 
     def __del__(self):

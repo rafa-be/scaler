@@ -9,7 +9,6 @@ __all__ = [
     "ErrorCode",
     "IOContext",
     "Message",
-    "TLSConfig",
     # Exception types
     "YMQException",
     "ConnectorSocketClosedByRemoteEndError",
@@ -40,7 +39,6 @@ if sys.platform == "emscripten":
         RemoteEndDisconnectedOnSocketWithoutGuaranteedDeliveryError,
         SocketStopRequestedError,
         SysCallError,
-        TLSConfig,
         YMQException,
     )
 else:
@@ -57,7 +55,6 @@ else:
         RemoteEndDisconnectedOnSocketWithoutGuaranteedDeliveryError,
         SocketStopRequestedError,
         SysCallError,
-        TLSConfig,
         YMQException,
     )
     from scaler.io.ymq.sockets import BinderSocket, ConnectorSocket  # noqa: F401

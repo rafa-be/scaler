@@ -5,7 +5,6 @@ from scaler.config.common.security import SecurityConfig
 from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import SyncObjectStorageConnector
 from scaler.io.ymq import Bytes, ConnectorSocket, IOContext, YMQException
-from scaler.io.ymq.utils import to_tls_config
 from scaler.protocol.capnp import ObjectRequestHeader, ObjectResponseHeader
 from scaler.protocol.helpers import to_capnp_object_id
 from scaler.utility.exceptions import ObjectStorageException
@@ -34,9 +33,7 @@ class YMQSyncObjectStorageConnector(SyncObjectStorageConnector):
         self._socket_lock = Lock()
         self._socket: Optional[ConnectorSocket] = None
 
-        self._socket = ConnectorSocket.connect(
-            self._ymq_context, self._identity.decode(), repr(self._address), tls_config=to_tls_config(security_config)
-        )
+        self._socket = ConnectorSocket.connect(self._ymq_context, self._identity.decode(), repr(self._address))
 
     def __del__(self):
         self.destroy()

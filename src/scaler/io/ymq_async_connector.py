@@ -6,7 +6,6 @@ from scaler.config.types.address import AddressConfig
 from scaler.io.mixins import AsyncConnector, ConnectorRemoteType
 from scaler.io.utility import deserialize, serialize
 from scaler.io.ymq import Bytes, ConnectorSocket, IOContext
-from scaler.io.ymq.utils import to_tls_config
 from scaler.protocol.capnp import BaseMessage
 
 logger = logging.getLogger(__name__)
@@ -33,17 +32,13 @@ class YMQAsyncConnector(AsyncConnector):
             raise ValueError(f"unsupported remote_type={remote_type}")
 
         self._address = address
-        self._socket = ConnectorSocket.connect(
-            self._ymq_context, self._identity.decode(), repr(self._address), tls_config=to_tls_config(security_config)
-        )
+        self._socket = ConnectorSocket.connect(self._ymq_context, self._identity.decode(), repr(self._address))
 
     async def bind(self, address: AddressConfig, security_config: Optional[SecurityConfig] = None) -> None:
         assert self._ymq_context is not None
 
         self._address = address
-        self._socket = ConnectorSocket.bind(
-            self._ymq_context, self._identity.decode(), repr(self._address), tls_config=to_tls_config(security_config)
-        )
+        self._socket = ConnectorSocket.bind(self._ymq_context, self._identity.decode(), repr(self._address))
 
     def destroy(self):
         if self._socket is None:
