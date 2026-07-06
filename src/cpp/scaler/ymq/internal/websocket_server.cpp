@@ -22,8 +22,7 @@ WebSocketServer::WebSocketServer(scaler::wrapper::uv::TCPServer server) noexcept
 {
 }
 
-std::expected<void, scaler::wrapper::uv::Error> WebSocketServer::bind(
-    const WebSocketAddress& address, uv_tcp_flags flags) noexcept
+std::expected<void, scaler::wrapper::uv::Error> bind(const WebSocketAddress& address, uv_tcp_flags flags) noexcept
 {
     _address = address;
     return _server.bind(address.tcpAddress, flags);
