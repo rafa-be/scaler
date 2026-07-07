@@ -240,11 +240,7 @@ scaler::wrapper::uv::TCPSocket& WebSocketStream::transport() noexcept
 }
 
 std::expected<scaler::wrapper::uv::ConnectRequest, scaler::wrapper::uv::Error> WebSocketStream::connect(
-<<<<<<< HEAD
     WebSocketAddress address, HandshakeDoneCallback callback) noexcept
-=======
-    WebSocketAddress address, scaler::wrapper::uv::ConnectCallback callback) noexcept
->>>>>>> 822c737c (WebSocketStream uses a similar API to TCPSocket, Pipe and SecureSocket.)
 {
     assert(_state->_role == Role::Undefined);
 
@@ -258,12 +254,7 @@ std::expected<scaler::wrapper::uv::ConnectRequest, scaler::wrapper::uv::Error> W
         tcpAddress, std::bind_front(&WebSocketStream::upgradeAsClient, _state, std::move(address)));
 }
 
-<<<<<<< HEAD
 std::expected<void, scaler::wrapper::uv::Error> WebSocketStream::accept(HandshakeDoneCallback callback) noexcept
-=======
-std::expected<void, scaler::wrapper::uv::Error> WebSocketStream::accept(
-    scaler::wrapper::uv::ConnectCallback callback) noexcept
->>>>>>> 822c737c (WebSocketStream uses a similar API to TCPSocket, Pipe and SecureSocket.)
 {
     assert(_state->_role == Role::Undefined);
     _state->_role            = Role::Server;
@@ -487,13 +478,7 @@ std::expected<void, scaler::wrapper::uv::Error> WebSocketStream::upgradeAsServer
 void WebSocketStream::completeUpgrade(
     const std::shared_ptr<State>& state, std::expected<void, scaler::wrapper::uv::Error> result) noexcept
 {
-<<<<<<< HEAD
     assert(state->_upgradeCallback.has_value());
-=======
-    if (!state->_upgradeCallback.has_value()) {
-        return;
-    }
->>>>>>> 822c737c (WebSocketStream uses a similar API to TCPSocket, Pipe and SecureSocket.)
 
     scaler::wrapper::uv::ConnectCallback callback = std::move(*state->_upgradeCallback);
     state->_upgradeCallback.reset();
