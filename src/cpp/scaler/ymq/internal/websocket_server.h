@@ -1,12 +1,13 @@
 #pragma once
 
 #include <expected>
+#include <optional>
 
 #include "scaler/wrapper/uv/callback.h"
 #include "scaler/wrapper/uv/error.h"
 #include "scaler/wrapper/uv/loop.h"
-#include "scaler/wrapper/uv/socket_address.h"
 #include "scaler/wrapper/uv/tcp.h"
+#include "scaler/ymq/address.h"
 #include "scaler/ymq/internal/websocket_stream.h"
 
 namespace scaler {
@@ -18,20 +19,22 @@ class WebSocketServer {
 public:
     static std::expected<WebSocketServer, scaler::wrapper::uv::Error> init(scaler::wrapper::uv::Loop& loop) noexcept;
 
-    std::expected<void, scaler::wrapper::uv::Error> bind(
-        const scaler::wrapper::uv::SocketAddress& address, uv_tcp_flags flags) noexcept;
+    std::expected<void, scaler::wrapper::uv::Error> bind(const WebSocketAddress& address, uv_tcp_flags flags) noexcept;
 
     std::expected<void, scaler::wrapper::uv::Error> listen(
         int backlog, scaler::wrapper::uv::ConnectionCallback callback) noexcept;
 
-    std::expected<void, scaler::wrapper::uv::Error> accept(WebSocketStream& connection) noexcept;
+    std::expected<void, scaler::wrapper::uv::Error> accept(
+        WebSocketStream& connection, WebSocketStream::HandshakeDoneCallback callback) noexcept;
 
-    std::expected<scaler::wrapper::uv::SocketAddress, scaler::wrapper::uv::Error> getSockName() const noexcept;
+    std::expected<WebSocketAddress, scaler::wrapper::uv::Error> getSockName() const noexcept;
 
 private:
     WebSocketServer(scaler::wrapper::uv::TCPServer server) noexcept;
 
     scaler::wrapper::uv::TCPServer _server;
+
+    std::optional<WebSocketAddress> _address {};
 };
 
 }  // namespace internal

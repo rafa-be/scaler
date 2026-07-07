@@ -80,6 +80,9 @@ struct TestWebSocketStreamPair {
             }));
 
         waitForFullConnection();
+
+        // Only a single connection is expected; close the listening server.
+        _tcpServer.reset();
     }
 
     TestWebSocketStreamPair(const TestWebSocketStreamPair&)            = delete;

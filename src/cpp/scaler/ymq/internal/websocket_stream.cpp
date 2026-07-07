@@ -240,7 +240,7 @@ scaler::wrapper::uv::TCPSocket& WebSocketStream::transport() noexcept
 }
 
 std::expected<scaler::wrapper::uv::ConnectRequest, scaler::wrapper::uv::Error> WebSocketStream::connect(
-    WebSocketAddress address, scaler::wrapper::uv::ConnectCallback callback) noexcept
+    WebSocketAddress address, HandshakeDoneCallback callback) noexcept
 {
     assert(_state->_role == Role::Undefined);
 
@@ -254,8 +254,7 @@ std::expected<scaler::wrapper::uv::ConnectRequest, scaler::wrapper::uv::Error> W
         tcpAddress, std::bind_front(&WebSocketStream::upgradeAsClient, _state, std::move(address)));
 }
 
-std::expected<void, scaler::wrapper::uv::Error> WebSocketStream::accept(
-    scaler::wrapper::uv::ConnectCallback callback) noexcept
+std::expected<void, scaler::wrapper::uv::Error> WebSocketStream::accept(HandshakeDoneCallback callback) noexcept
 {
     assert(_state->_role == Role::Undefined);
     _state->_role            = Role::Server;

@@ -27,6 +27,9 @@ namespace internal {
 // Only ws:// (plain TCP) is supported; wss:// (TLS) requires an external library.
 class WebSocketStream {
 public:
+    using HandshakeDoneCallback =
+        scaler::utility::MoveOnlyFunction<void(std::expected<void, scaler::wrapper::uv::Error>)>;
+
     static std::expected<WebSocketStream, scaler::wrapper::uv::Error> init(scaler::wrapper::uv::Loop& loop) noexcept;
 
     ~WebSocketStream() noexcept;
@@ -41,12 +44,12 @@ public:
     //
     // The callback is called when the upgrade completes (or fails).
     std::expected<scaler::wrapper::uv::ConnectRequest, scaler::wrapper::uv::Error> connect(
-        WebSocketAddress address, scaler::wrapper::uv::ConnectCallback callback) noexcept;
+        WebSocketAddress address, HandshakeDoneCallback callback) noexcept;
 
     // Perform the server-side HTTP/1.1 Upgrade handshake.
     //
     // The callback is called when the upgrade completes (or fails).
-    std::expected<void, scaler::wrapper::uv::Error> accept(scaler::wrapper::uv::ConnectCallback callback) noexcept;
+    std::expected<void, scaler::wrapper::uv::Error> accept(HandshakeDoneCallback callback) noexcept;
 
     // Returns the underlying TCP socket.
     scaler::wrapper::uv::TCPSocket& transport() noexcept;

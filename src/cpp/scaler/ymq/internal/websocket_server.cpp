@@ -23,9 +23,10 @@ WebSocketServer::WebSocketServer(scaler::wrapper::uv::TCPServer server) noexcept
 }
 
 std::expected<void, scaler::wrapper::uv::Error> WebSocketServer::bind(
-    const scaler::wrapper::uv::SocketAddress& address, uv_tcp_flags flags) noexcept
+    const WebSocketAddress& address, uv_tcp_flags flags) noexcept
 {
-    return _server.bind(address, flags);
+    _address = address;
+    return _server.bind(address.tcpAddress, flags);
 }
 
 std::expected<void, scaler::wrapper::uv::Error> WebSocketServer::listen(
@@ -34,20 +35,29 @@ std::expected<void, scaler::wrapper::uv::Error> WebSocketServer::listen(
     return _server.listen(backlog, std::move(callback));
 }
 
-std::expected<void, scaler::wrapper::uv::Error> WebSocketServer::accept(WebSocketStream& connection) noexcept
+std::expected<void, scaler::wrapper::uv::Error> WebSocketServer::accept(
+    WebSocketStream& connection, WebSocketStream::HandshakeDoneCallback callback) noexcept
 {
     std::expected<void, scaler::wrapper::uv::Error> acceptResult = _server.accept(connection.transport());
     if (!acceptResult.has_value()) {
         return acceptResult;
     }
 
-    return connection.accept([](std::expected<void, scaler::wrapper::uv::Error>) {});
+    return connection.accept(std::move(callback));
 }
 
-std::expected<scaler::wrapper::uv::SocketAddress, scaler::wrapper::uv::Error> WebSocketServer::getSockName()
-    const noexcept
+std::expected<WebSocketAddress, scaler::wrapper::uv::Error> WebSocketServer::getSockName() const noexcept
 {
-    return _server.getSockName();
+    std::expected<scaler::wrapper::uv::SocketAddress, scaler::wrapper::uv::Error> tcpAddress = _server.getSockName();
+    if (!tcpAddress.has_value()) {
+        return std::unexpected {tcpAddress.error()};
+    }
+
+    // Reconstruct the WebSocket address with the actual bound port (handles port 0 auto-assignment).
+    WebSocketAddress address = _address.value();
+    address.tcpAddress       = tcpAddress.value();
+    address.port             = static_cast<uint16_t>(tcpAddress->port());
+    return address;
 }
 
 }  // namespace internal
