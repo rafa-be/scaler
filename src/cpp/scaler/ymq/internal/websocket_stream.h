@@ -74,7 +74,7 @@ private:
         Role _role {Role::Undefined};
 
         // Used only during the HTTP Upgrade handshake, reset once completed.
-        std::optional<scaler::wrapper::uv::ConnectCallback> _upgradeCallback {};
+        std::optional<HandshakeDoneCallback> _upgradeCallback {};
 
         std::vector<uint8_t> _recvBuffer {};
         std::vector<uint8_t> _fragmentBuffer {};

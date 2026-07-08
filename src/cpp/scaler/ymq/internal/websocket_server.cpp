@@ -48,6 +48,11 @@ std::expected<void, scaler::wrapper::uv::Error> WebSocketServer::accept(
 
 std::expected<WebSocketAddress, scaler::wrapper::uv::Error> WebSocketServer::getSockName() const noexcept
 {
+    if (!_address.has_value()) {
+        // getSockName() called before bind()
+        return std::unexpected {scaler::wrapper::uv::Error {UV_EINVAL}};
+    }
+
     std::expected<scaler::wrapper::uv::SocketAddress, scaler::wrapper::uv::Error> tcpAddress = _server.getSockName();
     if (!tcpAddress.has_value()) {
         return std::unexpected {tcpAddress.error()};
