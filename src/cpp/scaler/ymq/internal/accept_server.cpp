@@ -78,7 +78,8 @@ std::expected<AcceptServer, scaler::ymq::Error> AcceptServer::init(
             break;
         }
         case Address::Type::WebSocket: {
-            auto wsServer = WebSocketServer::init(loop);
+            auto wsServer = WebSocketServer::init(loop, address.secure());
+
             if (!wsServer.has_value()) {
                 return std::unexpected {details::toYMQError(wsServer.error())};
             }
@@ -203,7 +204,8 @@ void AcceptServer::onConnection(
         return state->_onConnectionCallback(Client(std::move(pipeClient)));
     } else if (auto* wsServer = std::get_if<WebSocketServer>(&state->_server.value())) {
         // Hold the socket in a unique_ptr so it stays alive until the handshake completes.
-        auto wsClient = std::make_unique<WebSocketStream>(UV_EXIT_ON_ERROR(WebSocketStream::init(state->_loop)));
+        auto wsClient = std::make_unique<WebSocketStream>(
+            UV_EXIT_ON_ERROR(WebSocketStream::init(state->_loop, state->_sslContext)));
 
         WebSocketStream& wsClientRef = *wsClient;
         UV_EXIT_ON_ERROR(wsServer->accept(

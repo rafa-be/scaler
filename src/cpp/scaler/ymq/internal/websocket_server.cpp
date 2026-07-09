@@ -8,29 +8,24 @@ namespace ymq {
 namespace internal {
 
 std::expected<WebSocketServer, scaler::wrapper::uv::Error> WebSocketServer::init(
-    scaler::wrapper::uv::Loop& loop, std::optional<scaler::wrapper::openssl::SSLContext> sslContext) noexcept
+    scaler::wrapper::uv::Loop& loop, bool secure) noexcept
 {
-    Server server;
-
-    if (sslContext.has_value()) {
+    if (secure) {
         auto secureServer = scaler::wrapper::openssl::SecureServer::init(loop);
         if (!secureServer.has_value()) {
             return std::unexpected {secureServer.error()};
         }
-        server = std::move(secureServer.value());
+        return WebSocketServer {std::move(secureServer.value())};
     } else {
         auto tcpServer = scaler::wrapper::uv::TCPServer::init(loop);
         if (!tcpServer.has_value()) {
             return std::unexpected {tcpServer.error()};
         }
-        server = std::move(tcpServer.value());
+        return WebSocketServer {std::move(tcpServer.value())};
     }
-
-    return WebSocketServer {std::move(server), std::move(sslContext)};
 }
 
-WebSocketServer::WebSocketServer(Server server, std::optional<scaler::wrapper::openssl::SSLContext> sslContext) noexcept
-    : _server(std::move(server)), _sslContext(std::move(sslContext))
+WebSocketServer::WebSocketServer(Server server) noexcept: _server(std::move(server))
 {
 }
 
@@ -50,7 +45,23 @@ std::expected<void, scaler::wrapper::uv::Error> WebSocketServer::listen(
 std::expected<void, scaler::wrapper::uv::Error> WebSocketServer::accept(
     WebSocketStream& connection, WebSocketStream::HandshakeDoneCallback callback) noexcept
 {
-    auto acceptResult = std::visit([&](auto& server) { return server.accept(connection.transport()); }, _server);
+    std::expected<void, scaler::wrapper::uv::Error> acceptResult;
+
+    if (auto* secureServer = std::get_if<scaler::wrapper::openssl::SecureServer>(&_server)) {
+        auto* secureSocket = std::get_if<scaler::wrapper::openssl::SecureSocket>(&connection.transport());
+        if (secureSocket == nullptr) {
+            return std::unexpected {scaler::wrapper::uv::Error {UV_EINVAL}};
+        }
+        acceptResult = secureServer->accept(*secureSocket);
+    } else {
+        auto& tcpServer = std::get<scaler::wrapper::uv::TCPServer>(_server);
+        auto* tcpSocket = std::get_if<scaler::wrapper::uv::TCPSocket>(&connection.transport());
+        if (tcpSocket == nullptr) {
+            return std::unexpected {scaler::wrapper::uv::Error {UV_EINVAL}};
+        }
+        acceptResult = tcpServer.accept(*tcpSocket);
+    }
+
     if (!acceptResult.has_value()) {
         return acceptResult;
     }

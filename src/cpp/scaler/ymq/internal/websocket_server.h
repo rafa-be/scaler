@@ -5,7 +5,6 @@
 #include <variant>
 
 #include "scaler/wrapper/openssl/secure_server.h"
-#include "scaler/wrapper/openssl/ssl_context.h"
 #include "scaler/wrapper/uv/callback.h"
 #include "scaler/wrapper/uv/error.h"
 #include "scaler/wrapper/uv/loop.h"
@@ -21,8 +20,7 @@ namespace internal {
 class WebSocketServer {
 public:
     static std::expected<WebSocketServer, scaler::wrapper::uv::Error> init(
-        scaler::wrapper::uv::Loop& loop,
-        std::optional<scaler::wrapper::openssl::SSLContext> sslContext = std::nullopt) noexcept;
+        scaler::wrapper::uv::Loop& loop, bool secure = false) noexcept;
 
     std::expected<void, scaler::wrapper::uv::Error> bind(const WebSocketAddress& address, uv_tcp_flags flags) noexcept;
 
@@ -37,11 +35,9 @@ public:
 private:
     using Server = std::variant<scaler::wrapper::uv::TCPServer, scaler::wrapper::openssl::SecureServer>;
 
-    WebSocketServer(Server server, std::optional<scaler::wrapper::openssl::SSLContext> sslContext) noexcept;
+    WebSocketServer(Server server) noexcept;
 
     Server _server;
-
-    std::optional<scaler::wrapper::openssl::SSLContext> _sslContext;
 
     std::optional<WebSocketAddress> _address {};
 };
