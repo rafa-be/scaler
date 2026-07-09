@@ -152,7 +152,7 @@ Address AcceptServer::address() const noexcept
     } else if (auto* pipeServer = std::get_if<scaler::wrapper::uv::PipeServer>(&_state->_server.value())) {
         return Address {UV_EXIT_ON_ERROR(pipeServer->getSockName())};
     } else if (auto* wsServer = std::get_if<WebSocketServer>(&_state->_server.value())) {
-        return Address {UV_EXIT_ON_ERROR(wsServer->getSockName())};
+        return Address {UV_EXIT_ON_ERROR(wsServer->getSockName()), _state->_sslContext.has_value()};
     } else {
         std::unreachable();
     }
