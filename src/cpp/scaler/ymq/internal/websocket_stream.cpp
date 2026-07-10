@@ -478,9 +478,7 @@ std::expected<void, scaler::wrapper::uv::Error> WebSocketStream::upgradeAsServer
 void WebSocketStream::completeUpgrade(
     const std::shared_ptr<State>& state, std::expected<void, scaler::wrapper::uv::Error> result) noexcept
 {
-    if (!state->_upgradeCallback.has_value()) {
-        return;
-    }
+    assert(state->_upgradeCallback.has_value());
 
     scaler::wrapper::uv::ConnectCallback callback = std::move(*state->_upgradeCallback);
     state->_upgradeCallback.reset();
