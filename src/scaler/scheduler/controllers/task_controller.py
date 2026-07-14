@@ -151,7 +151,9 @@ class VanillaTaskController(TaskController, Looper, Reporter):
 
         current_state = state_machine.current_state()
         if current_state == TaskState.balanceCanceling and cancel_confirm_type == TaskCancelConfirmType.canceled:
-            # if balance cancel success
+            # if balance cancel success: deregister the task from
+            # its old worker now that the cancel is actually confirmed
+            await self._worker_controller.on_task_done(task_cancel_confirm.taskId)
             task = self._task_id_to_task[task_cancel_confirm.taskId]
             await self.__routing(task_cancel_confirm.taskId, transition, task=task)
             return
