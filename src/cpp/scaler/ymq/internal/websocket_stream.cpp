@@ -334,7 +334,28 @@ std::expected<void, scaler::wrapper::uv::Error> WebSocketStream::accept(Handshak
     _state->_role            = Role::Server;
     _state->_upgradeCallback = std::move(callback);
 
+    // For a secure transport, the HTTP Upgrade read must not start until the TLS handshake has completed -
+    // starting it earlier registers a read callback on the SecureSocket while it is still handshaking, which
+    // races SSL_read() against the in-progress handshake and fails the connection.
+    if (auto* secureSocket = std::get_if<scaler::wrapper::openssl::SecureSocket>(&_state->_transport)) {
+        return secureSocket->accept(std::bind_front(&WebSocketStream::onSecureAcceptHandshakeDone, _state));
+    }
+
     return upgradeAsServer(_state);
+}
+
+void WebSocketStream::onSecureAcceptHandshakeDone(
+    std::shared_ptr<State> state, std::expected<void, scaler::wrapper::uv::Error> result) noexcept
+{
+    if (!result.has_value()) {
+        completeUpgrade(state, std::unexpected(result.error()));
+        return;
+    }
+
+    std::expected<void, scaler::wrapper::uv::Error> upgradeResult = upgradeAsServer(state);
+    if (!upgradeResult.has_value()) {
+        completeUpgrade(state, std::unexpected(upgradeResult.error()));
+    }
 }
 
 // Called when a complete HTTP response has been assembled in _recvBuffer (client side handshake).

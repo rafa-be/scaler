@@ -66,11 +66,31 @@ function(scaler_add_python_module)
     add_library(${PYMOD_TARGET} MODULE ${PYMOD_SOURCES})
 
     # Set basic properties
+    #
+    # CXX_VISIBILITY_PRESET/VISIBILITY_INLINES_HIDDEN hide everything by default. This matters
+    # because multiple of these modules statically link the same third-party archives (e.g.
+    # OpenSSL) and get loaded into the same Python process; without hidden visibility, each
+    # module exports identical global symbols (SSL_do_handshake, SSL_CTX_new, ...) and the
+    # dynamic linker's global symbol resolution can interpose calls from one module's copy onto
+    # another's, corrupting library-internal state (observed as TLS 1.3 handshakes silently
+    # failing while sharing a single process). CPython's PyMODINIT_FUNC macro already forces the
+    # PyInit_<module> entry point back to default visibility, so the module stays loadable.
     set_target_properties(${PYMOD_TARGET} PROPERTIES
         PREFIX ""
         OUTPUT_NAME "${PYMOD_MODULE_NAME}"
         LINKER_LANGUAGE CXX
+        CXX_VISIBILITY_PRESET hidden
+        VISIBILITY_INLINES_HIDDEN ON
     )
+
+    if(CMAKE_SYSTEM_NAME STREQUAL "Linux" AND (CMAKE_CXX_COMPILER_ID STREQUAL "GNU" OR CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
+        # CXX_VISIBILITY_PRESET only affects symbols compiled by this target; it can't retroactively
+        # hide symbols already baked into a precompiled static archive (e.g. thirdparties' libssl.a /
+        # libcrypto.a, built without -fvisibility=hidden). --exclude-libs tells the linker to drop
+        # every symbol pulled in from a static archive from this module's dynamic symbol table, which
+        # is what actually prevents the cross-module OpenSSL symbol collision described above.
+        target_link_options(${PYMOD_TARGET} PRIVATE "LINKER:--exclude-libs,ALL")
+    endif()
 
     if(WIN32)
         # Windows: use .pyd extension and set library output directories.

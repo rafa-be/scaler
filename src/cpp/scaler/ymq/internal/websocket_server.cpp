@@ -52,7 +52,9 @@ std::expected<void, scaler::wrapper::uv::Error> WebSocketServer::accept(
         if (secureSocket == nullptr) {
             return std::unexpected {scaler::wrapper::uv::Error {UV_EINVAL}};
         }
-        acceptResult = secureServer->accept(*secureSocket);
+        // Accept the raw TCP connection only. The TLS handshake is started by connection.accept() below,
+        // once the HTTP Upgrade handshake read is wired up to fire only after it completes.
+        acceptResult = secureServer->acceptTransport(*secureSocket);
     } else {
         auto& tcpServer = std::get<scaler::wrapper::uv::TCPServer>(_server);
         auto* tcpSocket = std::get_if<scaler::wrapper::uv::TCPSocket>(&connection.transport());
