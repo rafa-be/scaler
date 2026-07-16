@@ -24,6 +24,11 @@ public:
 
     std::expected<void, uv::Error> accept(SecureSocket& connection) noexcept;
 
+    // Accepts the raw TCP connection into `connection`'s transport without starting the TLS handshake.
+    // Callers that need to observe handshake completion (e.g. WebSocketServer) should use this and then
+    // start the handshake themselves via SecureSocket::accept().
+    std::expected<void, uv::Error> acceptTransport(SecureSocket& connection) noexcept;
+
     std::expected<uv::SocketAddress, uv::Error> getSockName() const noexcept;
 
 private:

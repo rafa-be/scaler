@@ -32,12 +32,17 @@ std::expected<void, uv::Error> SecureServer::listen(int backlog, uv::ConnectionC
 
 std::expected<void, uv::Error> SecureServer::accept(SecureSocket& connection) noexcept
 {
-    std::expected<void, uv::Error> acceptResult = _server.accept(connection.transport());
+    std::expected<void, uv::Error> acceptResult = acceptTransport(connection);
     if (!acceptResult.has_value()) {
         return acceptResult;
     }
 
     return connection.accept([](std::expected<void, uv::Error>) {});
+}
+
+std::expected<void, uv::Error> SecureServer::acceptTransport(SecureSocket& connection) noexcept
+{
+    return _server.accept(connection.transport());
 }
 
 std::expected<uv::SocketAddress, uv::Error> SecureServer::getSockName() const noexcept

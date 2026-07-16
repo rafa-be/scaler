@@ -101,6 +101,11 @@ private:
 
     static std::expected<void, scaler::wrapper::uv::Error> upgradeAsServer(std::shared_ptr<State> state) noexcept;
 
+    // Called once the server-side TLS handshake completes (or fails) for a secure transport, before the
+    // HTTP Upgrade handshake read is started. See WebSocketStream::accept().
+    static void onSecureAcceptHandshakeDone(
+        std::shared_ptr<State> state, std::expected<void, scaler::wrapper::uv::Error> result) noexcept;
+
     static void finishClientUpgrade(std::shared_ptr<State> state, std::string key) noexcept;
 
     static void finishServerUpgrade(std::shared_ptr<State> state) noexcept;
