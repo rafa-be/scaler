@@ -45,28 +45,39 @@ std::expected<void, scaler::wrapper::uv::Error> WebSocketServer::listen(
 std::expected<void, scaler::wrapper::uv::Error> WebSocketServer::accept(
     WebSocketStream& connection, WebSocketStream::HandshakeDoneCallback callback) noexcept
 {
-    std::expected<void, scaler::wrapper::uv::Error> acceptResult;
-
     if (auto* secureServer = std::get_if<scaler::wrapper::openssl::SecureServer>(&_server)) {
         auto* secureSocket = std::get_if<scaler::wrapper::openssl::SecureSocket>(&connection.transport());
         if (secureSocket == nullptr) {
             return std::unexpected {scaler::wrapper::uv::Error {UV_EINVAL}};
         }
-        acceptResult = secureServer->accept(*secureSocket);
+
+        // The WebSocket HTTP Upgrade exchange must not start until the TLS handshake has completed.
+        scaler::wrapper::uv::ConnectCallback onHandshakeDone =
+            [&connection,
+             callback = std::move(callback)](std::expected<void, scaler::wrapper::uv::Error> handshakeResult) mutable {
+                if (!handshakeResult.has_value()) {
+                    callback(std::unexpected {handshakeResult.error()});
+                    return;
+                }
+
+                connection.accept(std::move(callback));
+            };
+
+        return secureServer->accept(*secureSocket, std::move(onHandshakeDone));
     } else {
         auto& tcpServer = std::get<scaler::wrapper::uv::TCPServer>(_server);
         auto* tcpSocket = std::get_if<scaler::wrapper::uv::TCPSocket>(&connection.transport());
         if (tcpSocket == nullptr) {
             return std::unexpected {scaler::wrapper::uv::Error {UV_EINVAL}};
         }
-        acceptResult = tcpServer.accept(*tcpSocket);
-    }
 
-    if (!acceptResult.has_value()) {
-        return acceptResult;
-    }
+        std::expected<void, scaler::wrapper::uv::Error> acceptResult = tcpServer.accept(*tcpSocket);
+        if (!acceptResult.has_value()) {
+            return acceptResult;
+        }
 
-    return connection.accept(std::move(callback));
+        return connection.accept(std::move(callback));
+    }
 }
 
 std::expected<WebSocketAddress, scaler::wrapper::uv::Error> WebSocketServer::getSockName() const noexcept

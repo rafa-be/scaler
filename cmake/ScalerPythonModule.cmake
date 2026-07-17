@@ -72,7 +72,7 @@ function(scaler_add_python_module)
         LINKER_LANGUAGE CXX
 
         # Hide all symbols except for the PyInit_<module> entry-point.
-        # That avoid symbol collisions when loading multiple modules from the same Python process.
+        # That avoids symbol collisions when loading multiple modules from the same Python process.
         CXX_VISIBILITY_PRESET hidden
         VISIBILITY_INLINES_HIDDEN ON
     )
