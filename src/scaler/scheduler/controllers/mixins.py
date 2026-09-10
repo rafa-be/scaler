@@ -4,7 +4,6 @@ from typing import Any, Dict, List, Optional, Set
 from scaler.protocol.capnp import (
     ClientDisconnect,
     ClientHeartbeat,
-    DisconnectRequest,
     GraphTask,
     InformationRequest,
     ObjectInstruction,
@@ -14,6 +13,7 @@ from scaler.protocol.capnp import (
     TaskCancel,
     TaskCancelConfirm,
     TaskResult,
+    WorkerDisconnectNotification,
     WorkerHeartbeat,
     WorkerManagerCommand,
     WorkerManagerHeartbeat,
@@ -84,7 +84,7 @@ class ClientController(Reporter):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    def on_task_finish(self, task_id: TaskID) -> Optional[bytes]:
+    def on_task_finish(self, task_id: TaskID) -> Optional[ClientID]:
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -146,11 +146,11 @@ class TaskController(Reporter):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_task_cancel_confirm(self, task_cancel_confirm: TaskCancelConfirm):
+    async def on_task_cancel_confirm(self, worker_id: WorkerID, task_cancel_confirm: TaskCancelConfirm):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_task_result(self, result: TaskResult):
+    async def on_task_result(self, worker_id: WorkerID, result: TaskResult):
         raise NotImplementedError()
 
     @abc.abstractmethod
@@ -191,7 +191,7 @@ class WorkerController(Reporter):
         raise NotImplementedError()
 
     @abc.abstractmethod
-    async def on_disconnect(self, worker_id: WorkerID, request: DisconnectRequest):
+    async def on_disconnect_notification(self, worker_id: WorkerID, notification: WorkerDisconnectNotification):
         raise NotImplementedError()
 
     @abc.abstractmethod

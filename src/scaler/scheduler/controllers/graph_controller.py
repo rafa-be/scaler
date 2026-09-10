@@ -1,6 +1,7 @@
 import asyncio
 import dataclasses
 import enum
+import logging
 from asyncio import Queue
 from typing import Dict, List, Optional, Set, Tuple, Union
 
@@ -23,6 +24,8 @@ from scaler.utility.graph.topological_sorter import TopologicalSorter
 from scaler.utility.identifiers import ClientID, ObjectID, TaskID
 from scaler.utility.many_to_many_dict import ManyToManyDict
 from scaler.utility.mixins import Looper, Reporter
+
+logger = logging.getLogger(__name__)
 
 
 class _NodeTaskState(enum.Enum):
@@ -116,14 +119,20 @@ class VanillaGraphTaskController(GraphTaskController, Looper, Reporter):
         await self._unassigned.put((client_id, graph_task))
 
     async def on_graph_task_cancel(self, task_cancel: TaskCancel):
-        graph_task_id = self._task_id_to_graph_task_id[task_cancel.taskId]
+        graph_task_id = self._task_id_to_graph_task_id.get(task_cancel.taskId)
+        if graph_task_id is None or graph_task_id not in self._graph_task_id_to_graph:
+            logger.info(f"{task_cancel.taskId!r}: ignoring cancel, its graph is already gone")
+            return
 
         # received any subtask canceling will lead the whole graph canceling
         await self.__cancel_whole_graph(graph_task_id)
 
     async def on_graph_sub_task_result(self, result: TaskResult):
+        graph_info = self.__graph_for_subtask(result.taskId)
+        if graph_info is None:
+            logger.info(f"{result.taskId!r}: dropping subtask result, its graph is already gone")
+            return
         graph_task_id = self._task_id_to_graph_task_id[result.taskId]
-        graph_info = self._graph_task_id_to_graph[graph_task_id]
 
         if graph_info.status == _GraphState.Canceling:
             # there will be case when we are canceling the whole graph, and at the moment, result is returning
@@ -140,17 +149,28 @@ class VanillaGraphTaskController(GraphTaskController, Looper, Reporter):
             return
 
         assert result.resultType != TaskResultType.success
+        logger.warning(f"graph {graph_task_id!r}: aborting -- subtask {result.taskId!r} returned {result.resultType}")
         await self.__abort_whole_graph(graph_task_id, result)
 
     async def on_graph_sub_task_cancel_confirm(self, task_cancel_confirm: TaskCancelConfirm):
+        graph_info = self.__graph_for_subtask(task_cancel_confirm.taskId)
+        if graph_info is None:
+            logger.info(f"{task_cancel_confirm.taskId!r}: dropping subtask cancel confirm, its graph is already gone")
+            return
         graph_task_id = self._task_id_to_graph_task_id[task_cancel_confirm.taskId]
-        graph_info = self._graph_task_id_to_graph[graph_task_id]
         self.__mark_node_canceled(graph_info, task_cancel_confirm)
 
         await self.__cancel_whole_graph(graph_task_id)
 
     def is_graph_subtask(self, task_id: TaskID):
         return task_id in self._task_id_to_graph_task_id
+
+    def __graph_for_subtask(self, task_id: TaskID) -> Optional[_Graph]:
+        """The graph a subtask belongs to, or None if the subtask is not part of a graph that still exists."""
+        graph_task_id = self._task_id_to_graph_task_id.get(task_id)
+        if graph_task_id is None:
+            return None
+        return self._graph_task_id_to_graph.get(graph_task_id)
 
     async def routine(self):
         client, graph_task = await self._unassigned.get()
@@ -254,6 +274,10 @@ class VanillaGraphTaskController(GraphTaskController, Looper, Reporter):
             # if graph is already in canceling or aborting, we don't need to proceed whole graph canceling again
             return
 
+        # must stay before the gather: the cancels below re-enter the task router, which locks per task, and this is
+        # one of the two guards that keep that lock acquisition graph acyclic. the other is __mark_node_done and
+        # __mark_node_canceled removing the task from running_task_ids before they fan out here, so that a task is
+        # never a member of its own fan-out set. either one alone is enough, do not drop both
         graph_info.status = _GraphState.Canceling
 
         await asyncio.gather(
@@ -301,6 +325,7 @@ class VanillaGraphTaskController(GraphTaskController, Looper, Reporter):
 
         graph_info.sorter.done(task_cancel_confirm.taskId)
 
+        # must stay before the caller fans out to __cancel_whole_graph, see the comment there
         if task_cancel_confirm.taskId in graph_info.running_task_ids:
             graph_info.running_task_ids.remove(task_cancel_confirm.taskId)
 
@@ -332,7 +357,11 @@ class VanillaGraphTaskController(GraphTaskController, Looper, Reporter):
 
         # mark all inactive tasks done
         while graph_info.sorter.is_active():
-            for task_id in graph_info.sorter.get_ready():
+            ready_task_ids = graph_info.sorter.get_ready()
+            if not ready_task_ids:
+                # A sorter that reports active with nothing ready would spin the event loop.
+                break
+            for task_id in ready_task_ids:
                 new_result_object_ids = await self.__duplicate_objects(graph_info.client, result_objects)
                 result = TaskResult(
                     taskId=task_id,
@@ -368,6 +397,7 @@ class VanillaGraphTaskController(GraphTaskController, Looper, Reporter):
         self.__clean_intermediate_result(graph_task_id, result.taskId)
         graph_info.sorter.done(result.taskId)
 
+        # must stay before the caller fans out to __cancel_whole_graph, see the comment there
         if result.taskId in graph_info.running_task_ids:
             graph_info.running_task_ids.remove(result.taskId)
 
@@ -375,9 +405,7 @@ class VanillaGraphTaskController(GraphTaskController, Looper, Reporter):
         if not self.__is_graph_finished(graph_task_id):
             return
 
-        self._client_controller.on_task_finish(graph_task_id)
-        self._task_id_to_graph_task_id.pop(graph_task_id)
-        info = self._graph_task_id_to_graph.pop(graph_task_id)
+        info = self.__pop_graph(graph_task_id)
         await self._binder.send(
             info.client,
             TaskCancelConfirm(taskId=graph_task_id, cancelConfirmType=TaskCancelConfirmType.canceled),
@@ -385,14 +413,28 @@ class VanillaGraphTaskController(GraphTaskController, Looper, Reporter):
         )
 
     async def __done_graph_umbrella_task(self, graph_task_id: TaskID, result_type: TaskResultType):
-        self._client_controller.on_task_finish(graph_task_id)
-        self._task_id_to_graph_task_id.pop(graph_task_id)
-        info = self._graph_task_id_to_graph.pop(graph_task_id)
+        info = self.__pop_graph(graph_task_id)
         await self._binder.send(
             info.client,
             TaskResult(taskId=graph_task_id, resultType=result_type, metadata=b"", results=[]),
             detached=True,
         )
+
+    def __pop_graph(self, graph_task_id: TaskID) -> _Graph:
+        """Forgets a graph that has reached an end state, and returns it.
+
+        A subtask leaves the id map when its result comes back, but a cancelled one has no result to come
+        back, so its id has to be swept here or it outlives the graph for as long as the scheduler runs.
+        """
+
+        self._client_controller.on_task_finish(graph_task_id)
+        self._task_id_to_graph_task_id.pop(graph_task_id)
+        graph_info = self._graph_task_id_to_graph.pop(graph_task_id)
+
+        for task_id in graph_info.tasks:
+            self._task_id_to_graph_task_id.pop(task_id, None)
+
+        return graph_info
 
     def __is_graph_finished(self, graph_task_id: TaskID):
         if graph_task_id not in self._graph_task_id_to_graph:

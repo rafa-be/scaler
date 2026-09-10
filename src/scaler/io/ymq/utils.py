@@ -4,12 +4,12 @@ import logging
 from typing import Any, Awaitable, Callable, Optional, TypeVar, Union
 
 try:
-    from typing import Concatenate, ParamSpec  # type: ignore[attr-defined]
+    from typing import Concatenate, ParamSpec
 except ImportError:
     from typing_extensions import Concatenate, ParamSpec  # type: ignore[assignment]
 
 from scaler.config.common.security import SecurityConfig
-from scaler.io.ymq import TLSConfig
+from scaler.io.ymq import ConnectorSocketClosedByRemoteEndError, SocketStopRequestedError, TLSConfig
 
 logger = logging.getLogger(__name__)
 
@@ -18,9 +18,7 @@ T = TypeVar("T")
 
 
 async def call_async(
-    func: Callable[Concatenate[Callable[[Union[T, BaseException]], None], P], None],  # type: ignore
-    *args: P.args,  # type: ignore
-    **kwargs: P.kwargs,  # type: ignore
+    func: Callable[Concatenate[Callable[[Union[T, BaseException]], None], P], None], *args: P.args, **kwargs: P.kwargs
 ) -> T:
     loop = asyncio.get_running_loop()
     future = loop.create_future()
@@ -38,14 +36,13 @@ async def call_async(
     return await future
 
 
-# about the ignore directives: mypy cannot properly handle typing extension's ParamSpec and Concatenate in python <=3.9
-# these type hints are correctly understood in Python 3.10+
+# mypy rejects the keyword-only timeout argument that sits between P.args and P.kwargs, hence the ignore below
 def call_sync(  # type: ignore[valid-type]
-    func: Callable[Concatenate[Callable[[Union[T, BaseException]], None], P], None],  # type: ignore
-    *args: P.args,  # type: ignore
+    func: Callable[Concatenate[Callable[[Union[T, BaseException]], None], P], None],
+    *args: P.args,
     timeout: Optional[float] = None,
-    **kwargs: P.kwargs,  # type: ignore
-) -> T:  # type: ignore
+    **kwargs: P.kwargs,
+) -> T:
     future: concurrent.futures.Future = concurrent.futures.Future()
 
     def callback(result: Union[T, BaseException]):
@@ -87,8 +84,17 @@ def run_detached(
             return
 
         exception = completed.exception()
-        if exception is not None:
+        if exception is None:
+            return
+
+        if isinstance(exception, (ConnectorSocketClosedByRemoteEndError, SocketStopRequestedError)):
+            # The peer left, or our own socket closed during teardown. Routine, and the reason this send
+            # is fire-and-forget in the first place.
             logger.debug(f"{description}: detached operation failed: {exception!r}")
+        else:
+            # Nobody is waiting on this send, so this callback is the only place the failure can surface.
+            # Anything that is not a peer going away is a bug, and must not be invisible at default levels.
+            logger.warning(f"{description}: detached operation failed: {exception!r}", exc_info=exception)
 
     task.add_done_callback(on_done)
 
