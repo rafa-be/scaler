@@ -433,7 +433,7 @@ class TestTaskControllerBehavior(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(state_machine.current_state(), TaskState.failedWorkerDied)
         self.assertEqual(self.harness.task_results_sent_to(CLIENT_ID), [died])
         self.harness.object_controller.on_del_objects.assert_not_called()
-        self.assertEqual(self.harness.controller._task_id_to_processor_death_retries, {})
+        self.assertEqual(self.harness.controller._task_id_to_holder, {})
 
     async def test_a_processor_death_queues_the_task_when_no_worker_is_free(self):
         state_machine = await self.harness.enter_state(TaskState.running)
@@ -810,7 +810,7 @@ class TestTaskControllerStatistics(unittest.IsolatedAsyncioTestCase):
         await harness.controller.on_task_result(WORKER_ID, make_task_result(TaskResultType.success))
 
         self.assertIsNone(harness.get_state_machine())
-        self.assertNotIn(TASK_ID, harness.controller._task_id_to_task)
+        self.assertNotIn(TASK_ID, harness.controller._task_id_to_holder)
         self.assertEqual(list(harness.controller._unassigned), [])
 
 
