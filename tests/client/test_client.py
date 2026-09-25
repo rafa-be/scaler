@@ -16,7 +16,7 @@ from scaler.config.common.worker import WorkerConfig
 from scaler.config.common.worker_manager import WorkerManagerConfig
 from scaler.config.section.native_worker_manager import NativeWorkerManagerConfig, NativeWorkerManagerMode
 from scaler.config.types.worker import WorkerCapabilities
-from scaler.utility.exceptions import DisconnectedError, MissingObjects, ProcessorDiedError
+from scaler.utility.exceptions import DisconnectedError, MissingObjects, WorkerDiedError
 from scaler.utility.logging.scoped_logger import ScopedLogger
 from scaler.utility.logging.utility import setup_logger
 from scaler.worker.preload import PreloadSpecError, _parse_preload_spec, execute_preload
@@ -255,7 +255,7 @@ class TestClient(unittest.TestCase):
             os._exit(1)  # noqa
 
         with Client(self.address) as client:
-            with self.assertRaises(ProcessorDiedError):
+            with self.assertRaises(WorkerDiedError):
                 client.submit(func).result()
 
     @unittest.skipIf(sys.platform == "win32", "sends SIGKILL to a processor")
