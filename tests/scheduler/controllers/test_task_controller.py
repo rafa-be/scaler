@@ -43,8 +43,9 @@ SNAPSHOT_HEADER = (
     "# Only live states are sources: a terminal state removes the machine, so no event can reach one.\n"
 )
 
-SOURCE_COLUMN_WIDTH = 17
-SCENARIO_COLUMN_WIDTH = 46
+# a column is as wide as its longest entry, plus a space that keeps the next column clear of it
+SOURCE_COLUMN_WIDTH = max(len(state.name) for state in LIVE_TASK_STATES) + 1
+SCENARIO_COLUMN_WIDTH = max(len(scenario.name) for scenario in SCENARIOS) + 1
 
 
 def format_snapshot_line(source_name: str, scenario_name: str, target_name: str) -> str:
