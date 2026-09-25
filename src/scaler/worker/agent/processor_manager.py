@@ -199,8 +199,6 @@ class VanillaProcessorManager(ProcessorManager):
                 detached=True,
             )
 
-            # failedWorkerDied, not failed: the task did not raise, its processor died under it, so the scheduler might
-            # runs it again rather than failing it to the client
             await self._task_manager.on_task_result(
                 TaskResult(
                     taskId=task_id,

@@ -689,7 +689,7 @@ class VanillaTaskController(TaskController, Looper, Reporter):
 
         task = self.__get_task(task_id)
         if task is None:
-            raise SchedulerError(f"{task_id!r}: cannot dispatch a task the scheduler no longer holds")
+            raise KeyError(f"{task_id!r}: cannot dispatch a task the scheduler no longer holds")
 
         worker_id = self._worker_controller.acquire_worker(task)
         if not worker_id.is_valid():
@@ -703,7 +703,7 @@ class VanillaTaskController(TaskController, Looper, Reporter):
     async def __send_task_to_worker(self, worker_id: WorkerID, task_id: TaskID) -> None:
         task = self.__get_task(task_id)
         if task is None:
-            raise SchedulerError(f"{task_id!r}: cannot send a task the scheduler no longer holds")
+            raise KeyError(f"{task_id!r}: cannot send a task the scheduler no longer holds")
 
         await self._binder.send(worker_id, task, detached=True)
 
@@ -823,7 +823,7 @@ class VanillaTaskController(TaskController, Looper, Reporter):
         while len(self._unassigned) > 0:
             task = self.__get_task(self._unassigned[0])
             if task is None:
-                raise SchedulerError(f"{self._unassigned[0]!r}: unassigned task the scheduler no longer holds")
+                raise KeyError(f"{self._unassigned[0]!r}: unassigned task the scheduler no longer holds")
 
             worker_id = self._worker_controller.acquire_worker(task)
             if not worker_id.is_valid():
