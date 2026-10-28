@@ -32,6 +32,7 @@ from scaler.config.section.scheduler import PolicyConfig
 from scaler.config.types.address import AddressConfig
 from scaler.config.types.worker import WorkerCapabilities
 from scaler.protocol.capnp import Resource, Task, WorkerHeartbeat, WorkerManagerHeartbeat
+from scaler.scheduler.types import WorkerManagerInfo
 from scaler.scheduler.policies.scaling.capability import CapabilityScalingPolicy
 from scaler.scheduler.policies.scaling.static import StaticScalingPolicy
 from scaler.scheduler.policies.scaling.types import WorkerManagerBounds
@@ -226,14 +227,25 @@ class TestAtCapacityEmission(unittest.TestCase):
 
     def test_vanilla_at_cap_emits_current(self):
         """Vanilla: ratio asks for current+1, cap clamps to current -> emits setDesired(current)."""
+        manager_id = WorkerManagerID(b"mgr")
         policy = VanillaScalingPolicy({})
         tasks = {TaskID.generate_task_id(): _create_mock_task(TaskID.generate_task_id(), {}) for _ in range(100)}
         managed = [WorkerID(f"w{i}".encode()) for i in range(10)]
         workers = {wid: _create_mock_worker_heartbeat({}, queued_tasks=10) for wid in managed}
         snapshot = InformationSnapshot(tasks=tasks, workers=workers)
-        heartbeat = _create_worker_manager_heartbeat(WorkerManagerID(b"mgr"), max_task_concurrency=10)
+        manager_infos = {
+            manager_id: WorkerManagerInfo(
+                manager_id=manager_id, source=b"test", last_seen_at=0.0, capabilities={}, max_task_concurrency=10
+            )
+        }
 
-        commands = policy.get_scaling_commands(snapshot, heartbeat, managed, {})
+        commands = policy.get_scaling_commands(
+            worker_manager_id=manager_id,
+            information_snapshot=snapshot,
+            managed_worker_ids=managed,
+            worker_manager_infos=manager_infos,
+            worker_count_by_manager={manager_id: 10},
+        )
 
         self.assertEqual(len(commands), 1)
         requests = list(commands[0].setDesiredTaskConcurrencyRequests)
@@ -241,14 +253,25 @@ class TestAtCapacityEmission(unittest.TestCase):
 
     def test_vanilla_changes_emit(self):
         """Vanilla: when ratio's desired differs from current connected, emit."""
+        manager_id = WorkerManagerID(b"mgr")
         policy = VanillaScalingPolicy({})
         tasks = {TaskID.generate_task_id(): _create_mock_task(TaskID.generate_task_id(), {}) for _ in range(100)}
         managed = [WorkerID(b"w0")]
         workers = {wid: _create_mock_worker_heartbeat({}, queued_tasks=10) for wid in managed}
         snapshot = InformationSnapshot(tasks=tasks, workers=workers)
-        heartbeat = _create_worker_manager_heartbeat(WorkerManagerID(b"mgr"), max_task_concurrency=10)
+        manager_infos = {
+            manager_id: WorkerManagerInfo(
+                manager_id=manager_id, source=b"test", last_seen_at=0.0, capabilities={}, max_task_concurrency=10
+            )
+        }
 
-        commands = policy.get_scaling_commands(snapshot, heartbeat, managed, {})
+        commands = policy.get_scaling_commands(
+            worker_manager_id=manager_id,
+            information_snapshot=snapshot,
+            managed_worker_ids=managed,
+            worker_manager_infos=manager_infos,
+            worker_count_by_manager={manager_id: 1},
+        )
 
         self.assertEqual(len(commands), 1)
         requests = list(commands[0].setDesiredTaskConcurrencyRequests)
@@ -256,6 +279,7 @@ class TestAtCapacityEmission(unittest.TestCase):
 
     def test_capability_at_cap_emits_current(self):
         """Capability: ratio's per-capset desired equals current connected -> emits setDesired(current)."""
+        manager_id = WorkerManagerID(b"mgr")
         policy = CapabilityScalingPolicy()
         # ceil(50/5) = 10 desired for gpu capset; clamp at cap=10; emits setDesired(10).
         tasks = {}
@@ -264,11 +288,23 @@ class TestAtCapacityEmission(unittest.TestCase):
             tasks[tid] = _create_mock_task(tid, {"gpu": 1})
         managed = [WorkerID(f"w{i}".encode()) for i in range(10)]
         snapshot = InformationSnapshot(tasks=tasks, workers={})
-        heartbeat = _create_worker_manager_heartbeat(
-            WorkerManagerID(b"mgr"), max_task_concurrency=10, capabilities={"gpu": -1}
-        )
+        manager_infos = {
+            manager_id: WorkerManagerInfo(
+                manager_id=manager_id,
+                source=b"test",
+                last_seen_at=0.0,
+                capabilities={"gpu": -1},
+                max_task_concurrency=10,
+            )
+        }
 
-        commands = policy.get_scaling_commands(snapshot, heartbeat, managed, {})
+        commands = policy.get_scaling_commands(
+            worker_manager_id=manager_id,
+            information_snapshot=snapshot,
+            managed_worker_ids=managed,
+            worker_manager_infos=manager_infos,
+            worker_count_by_manager={manager_id: 10},
+        )
 
         self.assertEqual(len(commands), 1)
         requests = list(commands[0].setDesiredTaskConcurrencyRequests)
@@ -278,12 +314,23 @@ class TestAtCapacityEmission(unittest.TestCase):
     def test_capability_unservable_capset_emits(self):
         """Capability: a request whose capabilities aren't a subset of the manager's caps
         is still forwarded -- the policy emits the capset command regardless of serviceability."""
+        manager_id = WorkerManagerID(b"mgr")
         policy = CapabilityScalingPolicy()
         task_id = TaskID.generate_task_id()
         snapshot = InformationSnapshot(tasks={task_id: _create_mock_task(task_id, {"gpu": 1})}, workers={})
-        heartbeat = _create_worker_manager_heartbeat(WorkerManagerID(b"mgr"), capabilities={})
+        manager_infos = {
+            manager_id: WorkerManagerInfo(
+                manager_id=manager_id, source=b"test", last_seen_at=0.0, capabilities={}, max_task_concurrency=10
+            )
+        }
 
-        commands = policy.get_scaling_commands(snapshot, heartbeat, [], {})
+        commands = policy.get_scaling_commands(
+            worker_manager_id=manager_id,
+            information_snapshot=snapshot,
+            managed_worker_ids=[],
+            worker_manager_infos=manager_infos,
+            worker_count_by_manager={manager_id: 0},
+        )
 
         self.assertEqual(len(commands), 1)
         requests = list(commands[0].setDesiredTaskConcurrencyRequests)
@@ -292,27 +339,28 @@ class TestAtCapacityEmission(unittest.TestCase):
 
     def test_waterfall_at_cap_emits_current(self):
         """Waterfall: when the manager is full per the priority chain, it still emits setDesired(current)."""
-        from scaler.scheduler.policies.scaling.types import WorkerManagerSnapshot
         from scaler.scheduler.policies.scaling.waterfall import WaterfallRule, WaterfallScalingPolicy
 
-        rules = [WaterfallRule(priority=1, worker_manager_id=WorkerManagerID(b"mgr"), max_task_concurrency=10)]
+        manager_id = WorkerManagerID(b"mgr")
+        rules = [WaterfallRule(priority=1, worker_manager_id=manager_id, max_task_concurrency=10)]
         policy = WaterfallScalingPolicy(rules)
         # ceil(100/10) = 10; cap=10; desired=10 -> emits setDesired(10).
         tasks = {TaskID.generate_task_id(): _create_mock_task(TaskID.generate_task_id(), {}) for _ in range(100)}
         managed = [WorkerID(f"w{i}".encode()) for i in range(10)]
         snapshot = InformationSnapshot(tasks=tasks, workers={})
-        heartbeat = _create_worker_manager_heartbeat(WorkerManagerID(b"mgr"), max_task_concurrency=10)
-        manager_snapshots = {
-            WorkerManagerID(b"mgr"): WorkerManagerSnapshot(
-                worker_manager_id=WorkerManagerID(b"mgr"),
-                max_task_concurrency=10,
-                worker_count=10,
-                last_seen_at=0.0,
-                capabilities={},
+        manager_infos = {
+            manager_id: WorkerManagerInfo(
+                manager_id=manager_id, source=b"test", last_seen_at=0.0, capabilities={}, max_task_concurrency=10
             )
         }
 
-        commands = policy.get_scaling_commands(snapshot, heartbeat, managed, manager_snapshots)
+        commands = policy.get_scaling_commands(
+            worker_manager_id=manager_id,
+            information_snapshot=snapshot,
+            managed_worker_ids=managed,
+            worker_manager_infos=manager_infos,
+            worker_count_by_manager={manager_id: 10},
+        )
 
         self.assertEqual(len(commands), 1)
         requests = list(commands[0].setDesiredTaskConcurrencyRequests)
