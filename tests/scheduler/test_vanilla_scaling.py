@@ -29,7 +29,6 @@ class TestVanillaScalingPolicy(unittest.TestCase):
         commands = self.policy.get_scaling_commands(
             worker_manager_id=manager_id,
             information_snapshot=snapshot,
-            managed_worker_ids=managed,
             worker_manager_infos={manager_id: info},
             worker_count_by_manager={manager_id: len(managed)},
         )
@@ -204,7 +203,6 @@ class TestVanillaBounds(unittest.TestCase):
         commands = policy.get_scaling_commands(
             worker_manager_id=WorkerManagerID(b"cloud"),
             information_snapshot=InformationSnapshot(tasks=tasks, workers=native_workers),
-            managed_worker_ids=[],
             worker_manager_infos=manager_infos,
             worker_count_by_manager=worker_count_by_manager,
         )
@@ -261,7 +259,6 @@ class TestVanillaDeclarativeEquivalents(unittest.TestCase):
         commands = self.policy.get_scaling_commands(
             worker_manager_id=manager_id,
             information_snapshot=snapshot,
-            managed_worker_ids=managed,
             worker_manager_infos={manager_id: info},
             worker_count_by_manager={manager_id: len(managed)},
         )
@@ -284,7 +281,6 @@ class TestVanillaDeclarativeEquivalents(unittest.TestCase):
         commands = self.policy.get_scaling_commands(
             worker_manager_id=manager_id,
             information_snapshot=snapshot,
-            managed_worker_ids=managed,
             worker_manager_infos={manager_id: info},
             worker_count_by_manager={manager_id: len(managed)},
         )
@@ -307,7 +303,6 @@ class TestVanillaDeclarativeEquivalents(unittest.TestCase):
         commands = self.policy.get_scaling_commands(
             worker_manager_id=manager_id,
             information_snapshot=snapshot,
-            managed_worker_ids=managed,
             worker_manager_infos={manager_id: info},
             worker_count_by_manager={manager_id: len(managed)},
         )
