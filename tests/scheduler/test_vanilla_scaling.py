@@ -3,6 +3,7 @@ from typing import Dict, Optional
 
 from scaler.protocol.capnp import Resource, Task, WorkerHeartbeat
 from scaler.scheduler.policies.scaling.types import WorkerManagerBounds
+from scaler.scheduler.policies.scaling.utility import build_cluster_state
 from scaler.scheduler.policies.scaling.vanilla import (
     VanillaScalingPolicy,
     clamp_to_bounds,
@@ -26,7 +27,7 @@ class TestVanillaScalingPolicy(unittest.TestCase):
     def _single_request(self, snapshot, manager_id, managed, max_task_concurrency=10):
         info = _create_worker_manager_info(manager_id, max_task_concurrency, worker_count=len(managed))
         commands = self.policy.get_scaling_commands(
-            worker_manager_id=manager_id, information_snapshot=snapshot, worker_manager_infos={manager_id: info}
+            worker_manager_id=manager_id, cluster_state=build_cluster_state(snapshot, {manager_id: info})
         )
         self.assertEqual(len(commands), 1)
         requests = list(commands[0].setDesiredTaskConcurrencyRequests)
@@ -200,8 +201,7 @@ class TestVanillaBounds(unittest.TestCase):
 
         commands = policy.get_scaling_commands(
             worker_manager_id=WorkerManagerID(b"cloud"),
-            information_snapshot=InformationSnapshot(tasks=tasks, workers=native_workers),
-            worker_manager_infos=manager_infos,
+            cluster_state=build_cluster_state(InformationSnapshot(tasks=tasks, workers=native_workers), manager_infos),
         )
 
         self.assertEqual(commands[0].setDesiredTaskConcurrencyRequests[0].taskConcurrency, 0)
@@ -254,7 +254,7 @@ class TestVanillaDeclarativeEquivalents(unittest.TestCase):
         info = _create_worker_manager_info(manager_id, worker_count=len(managed))
 
         commands = self.policy.get_scaling_commands(
-            worker_manager_id=manager_id, information_snapshot=snapshot, worker_manager_infos={manager_id: info}
+            worker_manager_id=manager_id, cluster_state=build_cluster_state(snapshot, {manager_id: info})
         )
 
         self.assertEqual(len(commands), 1)
@@ -273,7 +273,7 @@ class TestVanillaDeclarativeEquivalents(unittest.TestCase):
         info = _create_worker_manager_info(manager_id, worker_count=len(managed))
 
         commands = self.policy.get_scaling_commands(
-            worker_manager_id=manager_id, information_snapshot=snapshot, worker_manager_infos={manager_id: info}
+            worker_manager_id=manager_id, cluster_state=build_cluster_state(snapshot, {manager_id: info})
         )
 
         self.assertEqual(len(commands), 1)
@@ -292,7 +292,7 @@ class TestVanillaDeclarativeEquivalents(unittest.TestCase):
         info = _create_worker_manager_info(manager_id, worker_count=len(managed))
 
         commands = self.policy.get_scaling_commands(
-            worker_manager_id=manager_id, information_snapshot=snapshot, worker_manager_infos={manager_id: info}
+            worker_manager_id=manager_id, cluster_state=build_cluster_state(snapshot, {manager_id: info})
         )
 
         self.assertEqual(len(commands), 1)
