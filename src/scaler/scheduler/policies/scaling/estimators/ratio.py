@@ -48,6 +48,3 @@ class RatioEstimator(ScalingEstimator):
             result.append((capabilities, max(0, desired)))
 
         return result
-
-    def forget(self, manager_id: WorkerManagerID) -> None:
-        pass

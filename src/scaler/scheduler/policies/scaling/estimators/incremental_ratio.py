@@ -57,6 +57,3 @@ class IncrementalRatioEstimator(ScalingEstimator):
             desired = min(desired, manager.max_task_concurrency)
 
         return max(0, desired)
-
-    def forget(self, manager_id: WorkerManagerID) -> None:
-        pass

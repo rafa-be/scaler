@@ -17,8 +17,3 @@ class ScalingEstimator(ABC):
     def estimate(self, manager_id: WorkerManagerID) -> List[Tuple[Dict[str, int], int]]:
         """Return per-capset desired worker counts as (capabilities_dict, desired) tuples."""
         raise NotImplementedError()
-
-    @abstractmethod
-    def forget(self, manager_id: WorkerManagerID) -> None:
-        """Clean up state for a departed manager."""
-        raise NotImplementedError()

@@ -16,7 +16,7 @@ class WorkerManagerInfo:
 
 @dataclasses.dataclass(frozen=True)
 class ClusterState:
-    """Cluster-wide snapshot for scaling estimation."""
+    """Immutable cluster-wide snapshot for scaling estimation."""
 
     n_tasks: int
     n_workers: int

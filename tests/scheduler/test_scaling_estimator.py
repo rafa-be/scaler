@@ -119,10 +119,6 @@ class TestRatioEstimator(unittest.TestCase):
         """estimate() before any update() returns an empty list."""
         self.assertEqual(self.estimator.estimate(self.manager_id), [])
 
-    def test_forget_does_not_raise(self):
-        """forget() is callable and does not raise."""
-        self.estimator.forget(self.manager_id)
-
     def test_custom_upper_task_ratio(self):
         """Custom upper_task_ratio changes the computation."""
         estimator = RatioEstimator(upper_task_ratio=2)
@@ -244,10 +240,6 @@ class TestIncrementalRatioEstimator(unittest.TestCase):
     def test_before_update_returns_zero(self):
         """estimate() before any update() returns [({}, 0)]."""
         self.assertEqual(self.estimator.estimate(self.manager_id), [({}, 0)])
-
-    def test_forget_does_not_raise(self):
-        """forget() is callable and does not raise."""
-        self.estimator.forget(self.manager_id)
 
     def test_unknown_manager_returns_zero(self):
         """A manager not in managers returns [({}, 0)]."""
