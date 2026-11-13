@@ -4,14 +4,9 @@ from typing import Dict, Optional
 from scaler.protocol.capnp import Resource, Task, WorkerHeartbeat
 from scaler.scheduler.policies.scaling.types import WorkerManagerBounds
 from scaler.scheduler.policies.scaling.utility import build_cluster_state
-from scaler.scheduler.policies.scaling.vanilla import (
-    VanillaScalingPolicy,
-    clamp_to_bounds,
-    floor_held_worker_count,
-    ratio_target,
-)
+from scaler.scheduler.policies.scaling.vanilla import VanillaScalingPolicy, clamp_to_bounds, floor_held_worker_count
 from scaler.scheduler.policies.utility import create_scaling_policy
-from scaler.scheduler.types import WorkerManagerInfo
+from scaler.scheduler.types import ClusterState, WorkerManagerInfo
 from scaler.utility.identifiers import ClientID, ObjectID, TaskID, WorkerID, WorkerManagerID
 from scaler.utility.logging.utility import setup_logger
 from scaler.utility.snapshot import InformationSnapshot
@@ -104,8 +99,29 @@ class TestVanillaScalingPolicy(unittest.TestCase):
 class TestRatioTarget(unittest.TestCase):
     """A manager grows by one above 10 tasks per worker, holds in band, and shrinks below 1 task per worker."""
 
+    def setUp(self):
+        setup_logger()
+
+    def _desired(self, current: int, task_count: int, worker_count: int, floor_held: int) -> int:
+        manager_id = WorkerManagerID(b"cloud")
+        pinned_id = WorkerManagerID(b"pinned")
+        bounds = {pinned_id: WorkerManagerBounds(max_task_concurrency=None, min_task_concurrency=floor_held)}
+        managers = {
+            manager_id: _create_worker_manager_info(manager_id, worker_count=current),
+            pinned_id: _create_worker_manager_info(pinned_id, worker_count=worker_count - current),
+        }
+        cluster_state = ClusterState(
+            n_tasks=task_count,
+            n_workers=worker_count,
+            n_tasks_by_capset={frozenset(): task_count} if task_count else {},
+            managers=managers,
+        )
+        policy = VanillaScalingPolicy(bounds)
+        commands = policy.get_scaling_commands(worker_manager_id=manager_id, cluster_state=cluster_state)
+        return commands[0].setDesiredTaskConcurrencyRequests[0].taskConcurrency
+
     def test_the_ratio_bands(self):
-        # current, tasks, workers, floor_held -> target
+        # current, tasks, workers, floor_held -> desired
         cases = (
             (0, 0, 0, 0, 0),  # idle
             (0, 5, 0, 0, 1),  # tasks and no workers: start one
@@ -114,18 +130,18 @@ class TestRatioTarget(unittest.TestCase):
             (10, 5, 10, 0, 1),  # ratio 0.5 < 1: shrink to ceil(5 / 10)
             (3, 0, 3, 0, 0),  # no tasks: drain
         )
-        for current, task_count, worker_count, floor_held, target in cases:
+        for current, task_count, worker_count, floor_held, desired in cases:
             with self.subTest(current=current, task_count=task_count, worker_count=worker_count):
-                self.assertEqual(ratio_target(current, task_count, worker_count, floor_held), target)
+                self.assertEqual(self._desired(current, task_count, worker_count, floor_held), desired)
 
     def test_workers_held_at_other_floors_count_as_supply_when_shrinking(self):
         # an idle pinned pool of 8 covers 5 tasks, so the scaling manager asks for nothing
-        self.assertEqual(ratio_target(current=0, task_count=5, worker_count=8, floor_held=8), 0)
+        self.assertEqual(self._desired(current=0, task_count=5, worker_count=8, floor_held=8), 0)
         # 40 tasks need 4 workers, 2 of which another manager's floor holds
-        self.assertEqual(ratio_target(current=40, task_count=40, worker_count=46, floor_held=2), 2)
+        self.assertEqual(self._desired(current=40, task_count=40, worker_count=46, floor_held=2), 2)
 
     def test_load_beyond_a_pinned_pool_still_grows_the_manager(self):
-        self.assertEqual(ratio_target(current=0, task_count=100, worker_count=8, floor_held=8), 1)
+        self.assertEqual(self._desired(current=0, task_count=100, worker_count=8, floor_held=8), 1)
 
 
 class TestClampToBounds(unittest.TestCase):

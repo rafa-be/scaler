@@ -27,7 +27,7 @@ class IncrementalRatioEstimator(ScalingEstimator):
             return 0
 
         state = self._cluster_state
-        if capabilities or state.n_tasks_by_capset:
+        if capabilities or any(state.n_tasks_by_capset):
             raise NotImplementedError("IncrementalRatioEstimator does not support capability-aware scaling")
 
         if state.n_workers == 0:

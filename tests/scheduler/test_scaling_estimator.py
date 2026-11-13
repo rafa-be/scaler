@@ -147,6 +147,12 @@ class TestIncrementalRatioEstimator(unittest.TestCase):
         with self.assertRaises(NotImplementedError):
             self.estimator.estimate()
 
+    def test_generic_tasks_under_empty_capset_do_not_raise(self):
+        """Generic tasks are grouped under the empty frozenset, which is not capability-aware: no raise."""
+        self.estimator.update(ClusterState(n_tasks=5, n_workers=0, n_tasks_by_capset={frozenset(): 5}))
+
+        self.assertEqual(self.estimator.estimate(), 1)
+
     def test_before_update_returns_zero(self):
         """estimate() before any update() returns 0."""
         self.assertEqual(self.estimator.estimate(), 0)

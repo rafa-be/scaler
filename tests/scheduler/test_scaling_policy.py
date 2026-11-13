@@ -48,7 +48,8 @@ class TestVanillaScalingPolicyLogging(unittest.TestCase):
 
     def __decide(self, task_count: int, worker_count: int) -> int:
         cluster_state = _cluster_state(task_count, worker_count, {MANAGER_ID: _info(worker_count=1)})
-        return self.policy._compute_desired_worker_count(MANAGER_ID, cluster_state)
+        commands = self.policy.get_scaling_commands(worker_manager_id=MANAGER_ID, cluster_state=cluster_state)
+        return commands[0].setDesiredTaskConcurrencyRequests[0].taskConcurrency
 
     def test_a_standing_request_is_logged_once(self):
         # far more tasks than workers: the policy asks for one more worker every time it is consulted
