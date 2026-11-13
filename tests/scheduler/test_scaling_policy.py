@@ -83,23 +83,23 @@ class TestCapabilityScalingPolicyLogging(unittest.TestCase):
     def test_a_standing_request_is_logged_once_per_capability_set(self):
         with self.assertLogs(CAPABILITY_LOGGER) as logs:
             for _ in range(5):
-                self.__decide({"gpu": 1}, task_count=20)
+                self.__decide({"gpu": -1}, task_count=20)
 
         self.assertEqual(len(logs.output), 1, logs.output)
         self.assertIn("desired=4", logs.output[0])
 
     def test_a_changed_request_is_logged(self):
         with self.assertLogs(CAPABILITY_LOGGER) as logs:
-            self.__decide({"gpu": 1}, task_count=20)  # asks for 4
-            self.__decide({"gpu": 1}, task_count=20)  # same request
-            self.__decide({"gpu": 1}, task_count=50)  # asks for 10
+            self.__decide({"gpu": -1}, task_count=20)  # asks for 4
+            self.__decide({"gpu": -1}, task_count=20)  # same request
+            self.__decide({"gpu": -1}, task_count=50)  # asks for 10
 
         self.assertEqual(len(logs.output), 2, logs.output)
 
     def test_a_request_for_a_different_capability_set_is_logged(self):
         with self.assertLogs(CAPABILITY_LOGGER) as logs:
-            self.__decide({"gpu": 1}, task_count=20)
-            self.__decide({"fpga": 1}, task_count=20)
+            self.__decide({"gpu": -1}, task_count=20)
+            self.__decide({"fpga": -1}, task_count=20)
 
         self.assertEqual(len(logs.output), 2, logs.output)
 
@@ -134,13 +134,13 @@ class TestScalingPolicyForgetsDepartedManagers(unittest.TestCase):
         policy = CapabilityScalingPolicy()
 
         policy.get_scaling_commands(
-            worker_manager_id=MANAGER_ID, cluster_state=_cluster_state(1, 0, self._infos(MANAGER_ID), {"gpu": 1})
+            worker_manager_id=MANAGER_ID, cluster_state=_cluster_state(1, 0, self._infos(MANAGER_ID), {"gpu": -1})
         )
         self.assertEqual(set(policy._logged_desired_by_manager), {MANAGER_ID})
 
         policy.get_scaling_commands(
             worker_manager_id=OTHER_MANAGER_ID,
-            cluster_state=_cluster_state(1, 0, self._infos(OTHER_MANAGER_ID), {"gpu": 1}),
+            cluster_state=_cluster_state(1, 0, self._infos(OTHER_MANAGER_ID), {"gpu": -1}),
         )
         self.assertEqual(set(policy._logged_desired_by_manager), {OTHER_MANAGER_ID})
 
@@ -148,9 +148,11 @@ class TestScalingPolicyForgetsDepartedManagers(unittest.TestCase):
         policy = CapabilityScalingPolicy()
         known = self._infos(MANAGER_ID, OTHER_MANAGER_ID)
 
-        policy.get_scaling_commands(worker_manager_id=MANAGER_ID, cluster_state=_cluster_state(1, 0, known, {"gpu": 1}))
         policy.get_scaling_commands(
-            worker_manager_id=OTHER_MANAGER_ID, cluster_state=_cluster_state(1, 0, known, {"gpu": 1})
+            worker_manager_id=MANAGER_ID, cluster_state=_cluster_state(1, 0, known, {"gpu": -1})
+        )
+        policy.get_scaling_commands(
+            worker_manager_id=OTHER_MANAGER_ID, cluster_state=_cluster_state(1, 0, known, {"gpu": -1})
         )
 
         self.assertEqual(set(policy._logged_desired_by_manager), {MANAGER_ID, OTHER_MANAGER_ID})

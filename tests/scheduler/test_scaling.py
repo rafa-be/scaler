@@ -278,7 +278,7 @@ class TestAtCapacityEmission(unittest.TestCase):
         tasks = {}
         for _ in range(50):
             tid = TaskID.generate_task_id()
-            tasks[tid] = _create_mock_task(tid, {"gpu": 1})
+            tasks[tid] = _create_mock_task(tid, {"gpu": -1})
         snapshot = InformationSnapshot(tasks=tasks, workers={})
         manager_infos = {
             manager_id: WorkerManagerInfo(
@@ -301,7 +301,7 @@ class TestAtCapacityEmission(unittest.TestCase):
         manager_id = WorkerManagerID(b"mgr")
         policy = CapabilityScalingPolicy()
         task_id = TaskID.generate_task_id()
-        snapshot = InformationSnapshot(tasks={task_id: _create_mock_task(task_id, {"gpu": 1})}, workers={})
+        snapshot = InformationSnapshot(tasks={task_id: _create_mock_task(task_id, {"gpu": -1})}, workers={})
         manager_infos = {
             manager_id: WorkerManagerInfo(
                 manager_id=manager_id, max_task_concurrency=10, worker_count=0, capabilities={}

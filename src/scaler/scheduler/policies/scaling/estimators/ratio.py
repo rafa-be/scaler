@@ -1,9 +1,8 @@
 from math import ceil
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional
 
 from scaler.scheduler.policies.scaling.estimator import ScalingEstimator
 from scaler.scheduler.types import ClusterState
-from scaler.utility.identifiers import WorkerManagerID
 
 
 class RatioEstimator(ScalingEstimator):
@@ -20,31 +19,21 @@ class RatioEstimator(ScalingEstimator):
     def update(self, cluster_state: ClusterState) -> None:
         self._cluster_state = cluster_state
 
-    def estimate(self, manager_id: WorkerManagerID) -> List[Tuple[Dict[str, int], int]]:
+    def estimate(self, capabilities: Optional[Dict[str, int]] = None) -> int:
         if self._cluster_state is None:
-            return []
+            return 0
+
+        capabilities = capabilities or {}
+        if any(value != -1 for value in capabilities.values()):
+            raise ValueError(f"quantified task capabilities are not supported: {capabilities!r}")
 
         state = self._cluster_state
-        manager = state.managers.get(manager_id)
-        if manager is None:
-            return []
-
+        capset = frozenset(capabilities.keys())
         if state.n_tasks_by_capset:
-            capsets = state.n_tasks_by_capset
+            task_count = state.n_tasks_by_capset.get(capset, 0)
         else:
-            capsets = {frozenset(): state.n_tasks}
+            task_count = state.n_tasks if not capset else 0
 
-        result: List[Tuple[Dict[str, int], int]] = []
-        for capset, task_count in capsets.items():
-            if task_count == 0:
-                continue
-
-            desired = max(1, ceil(task_count / self._upper_task_ratio))
-
-            if manager.max_task_concurrency is not None:
-                desired = min(desired, manager.max_task_concurrency)
-
-            capabilities = state.capset_representatives.get(capset, {})
-            result.append((capabilities, max(0, desired)))
-
-        return result
+        if task_count == 0:
+            return 0
+        return max(1, ceil(task_count / self._upper_task_ratio))

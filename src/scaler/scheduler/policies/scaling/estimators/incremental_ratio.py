@@ -1,9 +1,8 @@
 from math import ceil
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, Optional
 
 from scaler.scheduler.policies.scaling.estimator import ScalingEstimator
-from scaler.scheduler.types import ClusterState, WorkerManagerInfo
-from scaler.utility.identifiers import WorkerManagerID
+from scaler.scheduler.types import ClusterState
 
 
 class IncrementalRatioEstimator(ScalingEstimator):
@@ -12,7 +11,7 @@ class IncrementalRatioEstimator(ScalingEstimator):
     Scales up by one when the task/worker ratio exceeds the upper threshold, scales down to a floor when below the
     lower threshold, and holds steady in between.
 
-    Raises NotImplementedError if the cluster state contains capability-aware tasks.
+    Raises NotImplementedError for capability-aware queries or states.
     """
 
     def __init__(self, lower_task_ratio: int = 1, upper_task_ratio: int = 10):
@@ -23,37 +22,20 @@ class IncrementalRatioEstimator(ScalingEstimator):
     def update(self, cluster_state: ClusterState) -> None:
         self._cluster_state = cluster_state
 
-    def estimate(self, manager_id: WorkerManagerID) -> List[Tuple[Dict[str, int], int]]:
+    def estimate(self, capabilities: Optional[Dict[str, int]] = None) -> int:
         if self._cluster_state is None:
-            return [({}, 0)]
+            return 0
 
         state = self._cluster_state
-
-        if state.n_tasks_by_capset:
+        if capabilities or state.n_tasks_by_capset:
             raise NotImplementedError("IncrementalRatioEstimator does not support capability-aware scaling")
 
-        manager = state.managers.get(manager_id)
-        if manager is None:
-            return [({}, 0)]
-
-        return [({}, self._compute_desired(manager, state))]
-
-    def _compute_desired(self, manager: WorkerManagerInfo, state: ClusterState) -> int:
-        """Compute desired worker count using incremental scaling logic."""
-        managed_worker_count = manager.worker_count
-
         if state.n_workers == 0:
-            desired = managed_worker_count + 1 if state.n_tasks > 0 else managed_worker_count
-        else:
-            task_ratio = state.n_tasks / state.n_workers
-            if task_ratio > self._upper_task_ratio:
-                desired = managed_worker_count + 1
-            elif task_ratio < self._lower_task_ratio:
-                desired = 0 if state.n_tasks == 0 else max(1, ceil(state.n_tasks / self._upper_task_ratio))
-            else:
-                desired = managed_worker_count
+            return 1 if state.n_tasks > 0 else 0
 
-        if manager.max_task_concurrency is not None:
-            desired = min(desired, manager.max_task_concurrency)
-
-        return max(0, desired)
+        task_ratio = state.n_tasks / state.n_workers
+        if task_ratio > self._upper_task_ratio:
+            return state.n_workers + 1
+        if task_ratio < self._lower_task_ratio:
+            return 0 if state.n_tasks == 0 else max(1, ceil(state.n_tasks / self._upper_task_ratio))
+        return state.n_workers

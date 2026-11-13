@@ -1,12 +1,11 @@
 from abc import ABC, abstractmethod
-from typing import Dict, List, Tuple
+from typing import Dict, Optional
 
 from scaler.scheduler.types import ClusterState
-from scaler.utility.identifiers import WorkerManagerID
 
 
 class ScalingEstimator(ABC):
-    """Estimates desired worker counts from cluster state."""
+    """Estimates the cluster-wide desired worker from cluster state."""
 
     @abstractmethod
     def update(self, cluster_state: ClusterState) -> None:
@@ -14,6 +13,6 @@ class ScalingEstimator(ABC):
         raise NotImplementedError()
 
     @abstractmethod
-    def estimate(self, manager_id: WorkerManagerID) -> List[Tuple[Dict[str, int], int]]:
-        """Return per-capset desired worker counts as (capabilities_dict, desired) tuples."""
+    def estimate(self, capabilities: Optional[Dict[str, int]] = None) -> int:
+        """Return the cluster-wide desired worker count for `capabilities` (None: generic tasks)."""
         raise NotImplementedError()

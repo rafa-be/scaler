@@ -32,9 +32,29 @@ class CapabilityScalingPolicy(ScalingPolicy):
         forget_departed_managers(self._logged_desired_by_manager, set(cluster_state.managers))
 
         self._estimator.update(cluster_state)
-        desired_per_capset = self._estimator.estimate(worker_manager_id)
+        desired_per_capset = self._compute_desired_per_capset(worker_manager_id, cluster_state)
         self.__log_decisions(worker_manager_id, cluster_state, desired_per_capset)
         return [build_set_desired_command(desired_per_capset)]
+
+    def _compute_desired_per_capset(
+        self, worker_manager_id: WorkerManagerID, cluster_state: ClusterState
+    ) -> List[Tuple[Dict[str, int], int]]:
+        """Compute desired worker count per capability set from observed tasks.
+
+        Capsets with zero tasks are omitted (declarative "no opinion" for that capset).
+        Each desired count is clamped by the manager's maxTaskConcurrency.
+        """
+        max_task_concurrency = cluster_state.managers[worker_manager_id].max_task_concurrency
+        result: List[Tuple[Dict[str, int], int]] = []
+        for capset, count in cluster_state.n_tasks_by_capset.items():
+            if count == 0:
+                continue
+            capabilities = cluster_state.capset_representatives.get(capset, {})
+            desired = self._estimator.estimate(capabilities if capset else None)
+            if max_task_concurrency is not None:
+                desired = min(desired, max_task_concurrency)
+            result.append((capabilities, desired))
+        return result
 
     def __log_decisions(
         self,
