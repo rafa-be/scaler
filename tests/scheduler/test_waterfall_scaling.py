@@ -341,6 +341,25 @@ class TestWaterfallScalingPolicy(unittest.TestCase):
         self.assertEqual(len(commands_b), 1)
         self.assertEqual(_generic_request(commands_b[0]).taskConcurrency, 0)
 
+    def test_mixed_cluster_generic_demand_counts_generic_tasks_only(self):
+        """On a mixed cluster the generic target uses the empty-capset task count, not all tasks."""
+        manager_id = WorkerManagerID(b"manager_gpu")
+        rules = [WaterfallRule(priority=1, worker_manager_id=manager_id, max_task_concurrency=100)]
+        policy = WaterfallScalingPolicy(rules)
+        tasks = {**_create_tasks(25), **_create_tasks(25, capabilities={"gpu": 1})}
+        snapshot = InformationSnapshot(tasks=tasks, workers={})
+        manager_infos = {
+            manager_id: _create_worker_manager_info(manager_id, max_task_concurrency=100, capabilities={"gpu": 4})
+        }
+
+        commands = policy.get_scaling_commands(
+            worker_manager_id=manager_id, cluster_state=build_cluster_state(snapshot, manager_infos)
+        )
+
+        # 25 generic tasks -> ceil(25/10) = 3, not ceil(50/10) = 5 from all tasks.
+        self.assertEqual(_generic_request(commands[0]).taskConcurrency, 3)
+        self.assertEqual(_capability_requests(commands[0]), [({"gpu": 1}, 3)])
+
 
 class TestTargetWorkerCount(unittest.TestCase):
     def test_one_worker_per_ten_tasks_rounded_up(self):

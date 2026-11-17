@@ -4,6 +4,7 @@ from typing import Dict, FrozenSet, List, Optional, Tuple
 
 from scaler.config.defaults import TASKS_PER_WORKER
 from scaler.protocol.capnp import WorkerManagerCommand
+from scaler.scheduler.policies.scaling.estimators.ratio import RatioEstimator
 from scaler.scheduler.policies.scaling.mixins import ScalingPolicy
 from scaler.scheduler.policies.scaling.utility import build_set_desired_command
 from scaler.scheduler.policies.scaling.waterfall.types import Tier, WaterfallRule
@@ -29,6 +30,7 @@ class WaterfallScalingPolicy(ScalingPolicy):
     def __init__(self, rules: List[WaterfallRule]):
         self._rules = sorted(rules, key=lambda r: r.priority)
         self._rule_by_manager_id: Dict[WorkerManagerID, WaterfallRule] = {r.worker_manager_id: r for r in self._rules}
+        self._estimator = RatioEstimator(upper_task_ratio=TASKS_PER_WORKER)
 
     def get_scaling_commands(
         self, worker_manager_id: WorkerManagerID, cluster_state: ClusterState
@@ -39,6 +41,7 @@ class WaterfallScalingPolicy(ScalingPolicy):
             logger.warning("Worker manager %r not found in waterfall rules, skipping scaling", worker_manager_id)
             return []
 
+        self._estimator.update(cluster_state)
         desired_per_capset = self._compute_desired_per_capset(rule, cluster_state)
         return [build_set_desired_command(desired_per_capset)]
 
@@ -71,7 +74,7 @@ class WaterfallScalingPolicy(ScalingPolicy):
         """Allocate this manager's share of the cluster-wide generic worker target."""
         tiers = self._online_tiers(current_rule, cluster_state)
         current_tier = next(tier for tier in tiers if tier.worker_manager_id == current_rule.worker_manager_id)
-        target = target_worker_count(cluster_state.n_tasks)
+        target = self._estimator.estimate()
         if target == 0 and lower_priority_tier_above_floor(current_tier, tiers):
             return max(current_tier.min_task_concurrency, current_tier.worker_count)
         return allocate(target, tiers)[current_tier.worker_manager_id]
@@ -95,8 +98,7 @@ class WaterfallScalingPolicy(ScalingPolicy):
         self, current_rule: WaterfallRule, required_keys: FrozenSet[str], cluster_state: ClusterState
     ) -> int:
         """Allocate this manager's share of the target for one capability set."""
-        task_count = cluster_state.n_tasks_by_capset.get(required_keys, 0)
-        remaining = target_worker_count(task_count)
+        remaining = self._estimator.estimate({key: -1 for key in required_keys})
         for rule in self._rules:
             info = cluster_state.managers.get(rule.worker_manager_id)
             if info is None:
