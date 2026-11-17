@@ -1,7 +1,7 @@
 from math import ceil
 from typing import Dict, Optional
 
-from scaler.scheduler.policies.scaling.estimator import ScalingEstimator
+from scaler.scheduler.policies.scaling.estimators.mixins import ScalingEstimator
 from scaler.scheduler.types import ClusterState
 
 
