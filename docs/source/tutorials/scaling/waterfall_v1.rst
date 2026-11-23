@@ -118,7 +118,9 @@ max_task_concurrency
 ``max_task_concurrency`` defines the rule-level capacity cap for a manager.
 
 * Type: integer.
-* The effective cap is ``min(rule.max_task_concurrency, heartbeat.max_task_concurrency)``.
+* The effective cap is ``min(rule.max_task_concurrency, heartbeat.max_task_concurrency)`` over the finite values.
+* A heartbeat ``max_task_concurrency`` of ``-1`` means no limit: an online manager with no effective cap absorbs all
+  remaining demand at its priority, while a finite rule cap still caps it.
 * A lower-priority manager only scales above its floor after all higher-priority managers reach their effective caps.
 * A higher-priority manager only scales down after lower-priority managers are drained to their floors.
 * A manager's worker count includes serving workers only: a draining worker takes no new task.

@@ -2,13 +2,12 @@ import logging
 from math import ceil
 from typing import Dict, FrozenSet, List, Mapping, Optional, Tuple
 
-from scaler.config.constants import NO_LIMIT
 from scaler.config.defaults import TASKS_PER_WORKER
 from scaler.protocol.capnp import WorkerManagerCommand
 from scaler.scheduler.policies.scaling.mixins import ScalingPolicy
 from scaler.scheduler.policies.scaling.utility import build_set_desired_command
 from scaler.scheduler.policies.scaling.waterfall.types import Tier, WaterfallRule
-from scaler.scheduler.types import ClusterState
+from scaler.scheduler.types import ClusterState, WorkerManagerInfo
 from scaler.utility.identifiers import WorkerManagerID
 
 logger = logging.getLogger(__name__)
@@ -70,23 +69,27 @@ class WaterfallScalingPolicy(ScalingPolicy):
 
     def _allocate_generic_desired(self, current_rule: WaterfallRule, cluster_state: ClusterState) -> int:
         """Allocate this manager's share of the cluster-wide generic worker target."""
-        tiers = self._online_tiers(current_rule, cluster_state)
+        tiers = self._online_tiers(cluster_state)
         current_tier = next(tier for tier in tiers if tier.worker_manager_id == current_rule.worker_manager_id)
         target = target_worker_count(cluster_state.n_tasks)
         if target == 0 and lower_priority_tier_above_floor(current_tier, tiers):
             return max(current_tier.min_task_concurrency, current_tier.worker_count)
         return allocate(target, tiers)[current_tier.worker_manager_id]
 
-    def _online_tiers(self, current_rule: WaterfallRule, cluster_state: ClusterState) -> List[Tier]:
+    def _online_tiers(self, cluster_state: ClusterState) -> List[Tier]:
         """The rules of the online managers in priority order, with their concurrency limits resolved."""
         tiers = []
         for rule in self._rules:
-            max_task_concurrency = self._effective_capacity(rule, current_rule, cluster_state)
-            if max_task_concurrency is None:
-                continue
             info = cluster_state.managers.get(rule.worker_manager_id)
-            worker_count = info.worker_count if info is not None else 0
-            min_task_concurrency = min(rule.min_task_concurrency, max_task_concurrency)
+            if info is None:
+                continue  # an offline manager contributes no capacity
+            max_task_concurrency = self._effective_capacity(rule, info)
+            min_task_concurrency = (
+                min(rule.min_task_concurrency, max_task_concurrency)
+                if max_task_concurrency is not None
+                else rule.min_task_concurrency
+            )
+            worker_count = info.worker_count
             tiers.append(
                 Tier(rule.worker_manager_id, rule.priority, max_task_concurrency, min_task_concurrency, worker_count)
             )
@@ -106,32 +109,17 @@ class WaterfallScalingPolicy(ScalingPolicy):
             if not required_keys <= manager_capabilities:
                 continue
 
-            cap = self._effective_capacity(rule, current_rule, cluster_state)
-            if cap is None:
-                continue
+            cap = self._effective_capacity(rule, info)
             if rule.worker_manager_id == current_rule.worker_manager_id:
-                return min(remaining, cap)
-            remaining = max(0, remaining - cap)
+                return remaining if cap is None else min(remaining, cap)
+            remaining = 0 if cap is None else max(0, remaining - cap)
         return 0
 
-    def _effective_capacity(
-        self, rule: WaterfallRule, current_rule: WaterfallRule, cluster_state: ClusterState
-    ) -> Optional[int]:
-        """Return effective worker capacity for *rule*.
-
-        When the rule specifies a cap, returns min(cap, info max). When omitted, returns the
-        info-reported max directly. Returns None if the manager is offline.
-        """
-        if rule.worker_manager_id == current_rule.worker_manager_id:
-            reported = cluster_state.managers[current_rule.worker_manager_id].max_task_concurrency
-            if reported is None:
-                reported = NO_LIMIT
-            return min(rule.max_task_concurrency, reported) if rule.max_task_concurrency is not None else reported
-        info = cluster_state.managers.get(rule.worker_manager_id)
-        if info is None:
-            return None
-        reported = info.max_task_concurrency if info.max_task_concurrency is not None else NO_LIMIT
-        return min(rule.max_task_concurrency, reported) if rule.max_task_concurrency is not None else reported
+    @staticmethod
+    def _effective_capacity(rule: WaterfallRule, info: WorkerManagerInfo) -> Optional[int]:
+        """The tier's worker capacity: the finite limits combined with min, or None when both are unlimited."""
+        caps = [cap for cap in (rule.max_task_concurrency, info.max_task_concurrency) if cap is not None]
+        return min(caps) if caps else None
 
 
 def target_worker_count(task_count: int) -> int:
@@ -142,11 +130,16 @@ def target_worker_count(task_count: int) -> int:
 def allocate(target: int, tiers: List[Tier]) -> Dict[WorkerManagerID, int]:
     """Split `target` workers over `tiers`, given in priority order.
 
-    Every floor counts as supply first; the rest fills each tier above its floor, up to its cap, in order."""
+    Every floor counts as supply first; the rest fills each tier above its floor, up to its cap, in order.
+    A tier without a cap absorbs all remaining demand."""
     remaining = max(0, target - sum(tier.min_task_concurrency for tier in tiers))
     allocation = {}
     for tier in tiers:
-        share = min(remaining, tier.max_task_concurrency - tier.min_task_concurrency)
+        share = (
+            remaining
+            if tier.max_task_concurrency is None
+            else min(remaining, tier.max_task_concurrency - tier.min_task_concurrency)
+        )
         allocation[tier.worker_manager_id] = tier.min_task_concurrency + share
         remaining -= share
     return allocation

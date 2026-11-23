@@ -111,8 +111,8 @@ class TestWaterfallScalingPolicy(unittest.TestCase):
         # Higher-priority is offline (absent) so its capacity contributes 0; lower picks up all of it.
         self.assertEqual(_generic_request(commands_b[0]).taskConcurrency, 1)
 
-    def test_online_manager_without_advertised_limit_keeps_legacy_capacity(self):
-        """An online manager with no advertised limit is not excluded: it keeps the legacy -1 capacity."""
+    def test_online_unlimited_higher_priority_absorbs_all_demand(self):
+        """An online unlimited manager absorbs demand before lower-priority managers."""
         rules = [
             WaterfallRule(priority=1, worker_manager_id=self.manager_id_a, max_task_concurrency=None),
             WaterfallRule(priority=2, worker_manager_id=self.manager_id_b, max_task_concurrency=20),
@@ -128,10 +128,8 @@ class TestWaterfallScalingPolicy(unittest.TestCase):
         commands_a = policy.get_scaling_commands(worker_manager_id=self.manager_id_a, cluster_state=cluster_state)
         commands_b = policy.get_scaling_commands(worker_manager_id=self.manager_id_b, cluster_state=cluster_state)
 
-        # Legacy -1 arithmetic: A's tier is (max=-1, min=-1), so its -1 allocation clamps to 0 in the
-        # command and B absorbs target+1.
-        self.assertEqual(_generic_request(commands_a[0]).taskConcurrency, 0)
-        self.assertEqual(_generic_request(commands_b[0]).taskConcurrency, 11)
+        self.assertEqual(_generic_request(commands_a[0]).taskConcurrency, 10)
+        self.assertEqual(_generic_request(commands_b[0]).taskConcurrency, 0)
 
     def test_absent_manager_remains_excluded(self):
         """A manager missing from cluster_state.managers contributes no capacity, unlike an online unlimited one."""
@@ -365,6 +363,47 @@ class TestWaterfallScalingPolicy(unittest.TestCase):
         self.assertEqual(len(commands_b), 1)
         self.assertEqual(_generic_request(commands_b[0]).taskConcurrency, 0)
 
+    def test_unlimited_manager_with_rule_cap_keeps_the_finite_cap(self):
+        """A finite rule cap on an unlimited manager remains that finite cap; the overflow spills lower."""
+        rules = [
+            WaterfallRule(priority=1, worker_manager_id=self.manager_id_a, max_task_concurrency=2),
+            WaterfallRule(priority=2, worker_manager_id=self.manager_id_b, max_task_concurrency=20),
+        ]
+        policy = WaterfallScalingPolicy(rules)
+        tasks = _create_tasks(50)  # target = 5
+        manager_infos = {
+            self.manager_id_a: _create_worker_manager_info(self.manager_id_a, max_task_concurrency=None),
+            self.manager_id_b: _create_worker_manager_info(self.manager_id_b, max_task_concurrency=20),
+        }
+        cluster_state = build_cluster_state(tasks, {}, manager_infos)
+
+        commands_a = policy.get_scaling_commands(worker_manager_id=self.manager_id_a, cluster_state=cluster_state)
+        self.assertEqual(_generic_request(commands_a[0]).taskConcurrency, 2)
+
+        commands_b = policy.get_scaling_commands(worker_manager_id=self.manager_id_b, cluster_state=cluster_state)
+        self.assertEqual(_generic_request(commands_b[0]).taskConcurrency, 3)
+
+    def test_lower_priority_unlimited_absorbs_overflow(self):
+        """A capped higher-priority tier spills the remaining demand into an unlimited lower-priority tier."""
+        rules = [
+            WaterfallRule(priority=1, worker_manager_id=self.manager_id_a, max_task_concurrency=2),
+            WaterfallRule(priority=2, worker_manager_id=self.manager_id_b, max_task_concurrency=None),
+        ]
+        policy = WaterfallScalingPolicy(rules)
+        tasks = _create_tasks(50)  # target = 5
+        manager_infos = {
+            self.manager_id_a: _create_worker_manager_info(self.manager_id_a, max_task_concurrency=2),
+            self.manager_id_b: _create_worker_manager_info(self.manager_id_b, max_task_concurrency=None),
+        }
+        cluster_state = build_cluster_state(tasks, {}, manager_infos)
+
+        commands_a = policy.get_scaling_commands(worker_manager_id=self.manager_id_a, cluster_state=cluster_state)
+        self.assertEqual(_generic_request(commands_a[0]).taskConcurrency, 2)
+
+        commands_b = policy.get_scaling_commands(worker_manager_id=self.manager_id_b, cluster_state=cluster_state)
+        # A's cap 2 absorbs 2; unlimited B takes the remaining 3.
+        self.assertEqual(_generic_request(commands_b[0]).taskConcurrency, 3)
+
 
 class TestTargetWorkerCount(unittest.TestCase):
     def test_one_worker_per_ten_tasks_rounded_up(self):
@@ -475,6 +514,27 @@ class TestWaterfallFloor(unittest.TestCase):
             ]
         )
         self.assertEqual(_desired_by_manager(policy, 0, {manager_id_native: 3}), {manager_id_native: 3})
+
+    def test_a_floor_on_an_unlimited_tier_holds_with_no_demand(self):
+        """An unlimited tier keeps its floor with no tasks, and zero demand without a floor stays zero."""
+        manager_id = WorkerManagerID(b"unlimited")
+        manager_infos = {manager_id: _create_worker_manager_info(manager_id, max_task_concurrency=None)}
+        for min_task_concurrency, expected in ((3, 3), (0, 0)):
+            with self.subTest(min_task_concurrency=min_task_concurrency):
+                policy = WaterfallScalingPolicy(
+                    [
+                        WaterfallRule(
+                            priority=1,
+                            worker_manager_id=manager_id,
+                            max_task_concurrency=None,
+                            min_task_concurrency=min_task_concurrency,
+                        )
+                    ]
+                )
+                commands = policy.get_scaling_commands(
+                    worker_manager_id=manager_id, cluster_state=build_cluster_state({}, {}, manager_infos)
+                )
+                self.assertEqual(_generic_request(commands[0]).taskConcurrency, expected)
 
     def test_a_floor_does_not_apply_to_capability_requests(self):
         """Only the generic request carries the floor; a capability request stays driven by demand."""
@@ -643,6 +703,27 @@ class TestWaterfallCapabilities(unittest.TestCase):
         self.assertEqual(generic.taskConcurrency, 1)
         # No capability-specific requests since no capability tasks exist.
         self.assertEqual(_capability_requests(commands[0]), [])
+
+    def test_capability_request_absorbed_by_unlimited_capable_manager(self):
+        """An unlimited capable higher-priority manager owns the capset and absorbs all of its demand."""
+        manager_id_a = WorkerManagerID(b"manager_a")
+        manager_id_b = WorkerManagerID(b"manager_b")
+        rules = [
+            WaterfallRule(priority=1, worker_manager_id=manager_id_a, max_task_concurrency=None),
+            WaterfallRule(priority=2, worker_manager_id=manager_id_b, max_task_concurrency=10),
+        ]
+        policy = WaterfallScalingPolicy(rules)
+        manager_infos = {
+            manager_id_a: _create_worker_manager_info(manager_id_a, max_task_concurrency=None, capabilities={"gpu": 4}),
+            manager_id_b: _create_worker_manager_info(manager_id_b, max_task_concurrency=10, capabilities={"gpu": 4}),
+        }
+        cluster_state = build_cluster_state(_create_tasks(50, capabilities={"gpu": 1}), {}, manager_infos)
+
+        commands_a = policy.get_scaling_commands(worker_manager_id=manager_id_a, cluster_state=cluster_state)
+        self.assertEqual(_capability_requests(commands_a[0]), [({"gpu": 1}, 5)])
+
+        commands_b = policy.get_scaling_commands(worker_manager_id=manager_id_b, cluster_state=cluster_state)
+        self.assertEqual(_capability_requests(commands_b[0]), [])
 
     def test_capability_match_is_key_only(self):
         """Capability matching is name-only: a task requiring {a: 3} is considered serviceable

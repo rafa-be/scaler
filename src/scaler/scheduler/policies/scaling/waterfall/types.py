@@ -21,6 +21,6 @@ class Tier:
 
     worker_manager_id: WorkerManagerID
     priority: int
-    max_task_concurrency: int
+    max_task_concurrency: Optional[int]  # None = unlimited
     min_task_concurrency: int
     worker_count: int
